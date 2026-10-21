@@ -1,6 +1,7 @@
 import { BUNDLES, ROOMS } from '../data/bundles.js';
 import { DURABILITY, SAVE_VERSION } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
+import { FISH, ROD_NAMES } from '../data/fish.js';
 import { ITEMS, itemName } from '../data/items.js';
 import { GROVES } from '../data/forest.js';
 import { MONSTERS, WEAPONS, ORES, GEMS, MINE_CHESTS } from '../data/mine.js';
@@ -16,7 +17,7 @@ import { ensureEquipment, repairCost, toolMaxDurability, weaponMaxDurability } f
 import { maxHp, sellPrice, skillLevel } from '../engine/skills.js';
 import { bundleDone, donatedCount, neededItems } from '../engine/systems/bundles.js';
 import { shopsAt } from '../engine/systems/economy.js';
-import { FISHING_SPOTS } from '../engine/systems/fishing.js';
+import { availableFish, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
 import { heartsOf, isBirthday, npcLocation, npcsHere } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
@@ -86,6 +87,54 @@ let toastSeq = 1;
 let toasts: ToastFx[] = [];
 let nightFlash = false;
 let farmEntered = false;
+
+/** 青禾森林多段砍伐、采集点与奇遇翻牌前端状态 */
+const TREE_NAMES = ['青松', '古橡', '白桦', '枫香', '冷杉', '板栗', '翠柏', '山榆'];
+const MYSTERY_CARDS = [
+  { title: '林间古树洞', sub: '老树根下隐约有松果与微光' },
+  { title: '灌木丛深处', sub: '枝叶晃动，传来窸窣响声' },
+  { title: '溪畔小空地', sub: '阳光透过树冠洒在草地上' },
+];
+let forestDayKey = '';
+let forestTreeSlots: { hits: number; stump: boolean; floatText?: string; fx?: 'hit' | 'fall' }[] = [];
+let activeChopIdx: number | null = null;
+let groveFxId: GroveId | null = null;
+let groveFloatMap = new Map<GroveId, string>();
+let mysteryState: { pickedIdx: number | null; resultText: string; flipFx: boolean } = {
+  pickedIdx: null,
+  resultText: '',
+  flipFx: false,
+};
+
+function syncForestUiState(): void {
+  const key = `${state.year}-${state.season}-${state.day}`;
+  if (forestDayKey !== key || forestTreeSlots.length !== 8) {
+    forestDayKey = key;
+    forestTreeSlots = Array.from({ length: 8 }, () => ({ hits: 0, stump: false }));
+    groveFloatMap.clear();
+    mysteryState = {
+      pickedIdx: state.forest.exploredToday ? 0 : null,
+      resultText: state.forest.exploredToday ? '今天已在林间探索过，收获了一份林间奇遇。' : '',
+      flipFx: false,
+    };
+  }
+  const targetStumps = Math.max(0, Math.min(8, 8 - state.forest.trees));
+  let curStumps = forestTreeSlots.filter((t) => t.stump).length;
+  for (let i = 0; i < 8 && curStumps < targetStumps; i++) {
+    if (!forestTreeSlots[i].stump) {
+      forestTreeSlots[i].stump = true;
+      forestTreeSlots[i].hits = 3;
+      curStumps++;
+    }
+  }
+  for (let i = 7; i >= 0 && curStumps > targetStumps; i--) {
+    if (forestTreeSlots[i].stump) {
+      forestTreeSlots[i].stump = false;
+      forestTreeSlots[i].hits = 0;
+      curStumps--;
+    }
+  }
+}
 
 function load(): GameState | null {
   try {
@@ -201,6 +250,60 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
     if (next.hp < prev.hp) {
       mineFxState.playerHit = true;
     }
+  }
+
+  // 青禾森林砍树、固定采集点、野外采集与深林奇遇翻牌微动效
+  groveFxId = null;
+  mysteryState.flipFx = false;
+  for (const s of forestTreeSlots) {
+    s.fx = undefined;
+    s.floatText = undefined;
+  }
+  if (action.type === 'chop') {
+    syncForestUiState();
+    const chopEv = events.find((e) => e.text.includes('木材'));
+    const m = chopEv?.text.match(/木材\s*×(\d+)/);
+    const woodText = m ? `+木材 ×${m[1]}` : '+木材';
+    let idx = activeChopIdx;
+    if (idx === null || !forestTreeSlots[idx] || forestTreeSlots[idx].stump) {
+      idx = forestTreeSlots.findIndex((t) => !t.stump);
+    }
+    if (idx !== null && idx >= 0 && forestTreeSlots[idx]) {
+      forestTreeSlots[idx].stump = true;
+      forestTreeSlots[idx].hits = 3;
+      forestTreeSlots[idx].fx = 'fall';
+      forestTreeSlots[idx].floatText = woodText;
+    }
+    if (chopEv) pushToast(chopEv.text, 'good');
+    activeChopIdx = null;
+  }
+  if (action.type === 'grove') {
+    groveFxId = action.grove;
+    const gEv = events.find((e) => e.text.includes('采到了'));
+    if (gEv) {
+      const m = gEv.text.match(/采到了：(.+)。/);
+      if (m) groveFloatMap.set(action.grove, `+${m[1]}`);
+      pushToast(gEv.text, 'good');
+    }
+  }
+  if (action.type === 'forage') {
+    const fEv = events.find((e) => e.level === 'good' || e.text.includes('采集'));
+    if (fEv) pushToast(fEv.text, 'good');
+  }
+  if (action.type === 'forestExplore') {
+    const exEv = events.find((e) => e.level === 'good' || e.level === 'warn');
+    if (exEv) {
+      mysteryState.resultText = exEv.text;
+      mysteryState.flipFx = true;
+      if (mysteryState.pickedIdx === null) mysteryState.pickedIdx = 0;
+      pushToast(exEv.text, exEv.level === 'warn' ? 'warn' : 'good');
+    }
+  }
+  if (action.type === 'fish' || action.type === 'choose') {
+    const catchEv = events.find((e) => e.text.includes('钓到了') || e.text.includes('钓上来'));
+    const failEv = events.find((e) => e.text.includes('鱼线断了') || e.text.includes('跑掉了'));
+    if (catchEv) pushToast(catchEv.text, 'good');
+    else if (failEv) pushToast(failEv.text, 'bad');
   }
 }
 
@@ -445,42 +548,181 @@ function mineFloorHint(floor: number): string {
   </div>`;
 }
 
-function forestScene(): string {
+/** 野外散落采集物舞台（点击任意野果物块直接拾取） */
+function forageNodesSection(label = '草丛散落野果（点击物块直接拾取）'): string {
   const forage = state.forage[state.location] ?? [];
+  if (!forage.length) {
+    return state.location === 'forest'
+      ? '<p class="dim">今天林间草丛没有新长的散落野果，下面的林木砍伐、三大采集点位与深林奇遇每天都可互动。</p>'
+      : '';
+  }
+  return `<h3>${label}</h3>
+    <div class="forage-stage">
+      ${forage
+        .map(
+          (id, idx) => `<button class="forage-node" data-act="forage" title="点击拾取">
+            <span class="forage-badge">${itemName(id)[0]}</span>
+            <b>${itemName(id)}</b>
+            <small class="dim">#${idx + 1} 点击拾取</small>
+          </button>`,
+        )
+        .join('')}
+      <button class="pix-btn gold" data-act="forage" style="margin-left:auto;">全部拾取（${forage.length} 件）</button>
+    </div>`;
+}
+
+/** 水域钓鱼台模块（海滩 / 青禾森林 / 山区通用） */
+function fishingDockSection(): string {
+  if (!FISHING_SPOTS.includes(state.location)) return '';
+  const rodLvl = state.tools.rod;
+  const rodBroken = rodLvl < 0;
+  const rodEquipped = state.equippedTools.rod;
+  const rodName = rodBroken ? '鱼竿已报废（去海滩老渔夫处购买）' : (ROD_NAMES[rodLvl] ?? '竹制鱼竿');
+  const rodMax = rodBroken ? 0 : toolMaxDurability(rodLvl);
+  const rodCur = rodBroken ? 0 : state.durability.rod;
+  const fishList = availableFish(state);
+  const canCast = !rodBroken && rodEquipped;
+
+  const fishChips = fishList.length
+    ? fishList
+        .map((f) => {
+          const caught = state.stats.fishSpecies.includes(f.id);
+          const stars = '★'.repeat(f.difficulty);
+          return `<span class="chip ${caught ? 'ok' : ''}">${caught ? f.name : `未知鱼影（${f.name}）`} <small>${stars}</small></span>`;
+        })
+        .join('')
+    : '<span class="dim">当前时段或天气下水面很安静，换个时段或雨天来看看吧。</span>';
+
+  return `<h3>水域钓鱼台（点击水面浮漂或按钮抛竿）</h3>
+    <div class="fishing-dock">
+      <button class="water-pond" data-act="fish" ${canCast ? '' : 'disabled'}>
+        <div class="water-waves">〰 〰 〰 〰 〰 〰</div>
+        <div class="pond-bobber">
+          <span>🎣</span>
+          <span>${canCast ? '点击水面抛竿下钩' : rodBroken ? '鱼竿已报废' : '请先在背包装备鱼竿'}</span>
+        </div>
+        <small style="color:#d9ecff;">咬钩后进入「收线 vs 放线」可视化拉锯战 · 小心张力过高断线</small>
+      </button>
+      <div class="dock-info">
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px;">
+            <b>当前鱼竿：${rodName}</b>
+            <span class="badge ${canCast ? 'ok' : 'bad'}">${rodBroken ? '已报废' : rodEquipped ? '已装备' : '未装备'}</span>
+          </div>
+          ${rodBroken ? '' : bar(rodCur, rodMax, rodCur <= 8 ? 'warnbar' : 'xp')}
+        </div>
+        <div>
+          <span class="dim" style="display:block;margin-bottom:4px;">当前水域 · 本时段可出没鱼类（${fishList.length} 种）：</span>
+          <div class="chips">${fishChips}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:auto;">
+          <button class="pix-btn gold" data-act="fish" ${canCast ? '' : 'disabled'}>🎣 抛竿钓鱼</button>
+          <button class="pix-btn ghost" data-act="view-tool" data-tool="rod">查看鱼竿详情</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function forestScene(): string {
+  syncForestUiState();
   const f = state.forest;
   const axeBroken = state.tools.axe < 0;
-  const axeDur = axeBroken ? '斧头已报废' : `斧头耐久 ${state.durability.axe}/${toolMaxDurability(state.tools.axe)}`;
+  const axeEquipped = state.equippedTools.axe;
+  const canChop = f.trees > 0 && !axeBroken && axeEquipped;
+  const axeDur = axeBroken
+    ? '斧头已报废（去铁匠铺买新的）'
+    : !axeEquipped
+      ? '斧头未装备（去背包页装备）'
+      : `斧头耐久 ${state.durability.axe}/${toolMaxDurability(state.tools.axe)}`;
+
+  const treeSlotsHtml = forestTreeSlots
+    .map((slot, idx) => {
+      const name = TREE_NAMES[idx] ?? '林木';
+      const floatHtml = slot.floatText ? `<span class="slot-float">${esc(slot.floatText)}</span>` : '';
+      if (slot.stump) {
+        const fxCls = slot.fx === 'fall' ? ' fx-tree-fall' : '';
+        return `<button class="tree-slot stump${fxCls}" disabled>
+          ${floatHtml}
+          <span class="tree-crown">┻</span>
+          <b>${name} #${idx + 1}</b>
+          <small>已砍伐 · 明日复生</small>
+        </button>`;
+      }
+      const rem = 3 - slot.hits;
+      const fxCls = slot.fx === 'hit' ? ' fx-tree-hit' : '';
+      const dmgCls = slot.hits > 0 ? ' damaged' : '';
+      const dots = [0, 1, 2]
+        .map((d) => `<i class="tree-hp-dot ${d < rem ? '' : 'lost'}"></i>`)
+        .join('');
+      return `<button class="tree-slot${dmgCls}${fxCls}" data-act="tree-hit" data-idx="${idx}" ${canChop ? '' : 'disabled'}>
+        ${floatHtml}
+        <span class="tree-crown">木</span>
+        <b>${name} #${idx + 1}</b>
+        <div class="tree-hp-dots" aria-label="树木耐久">${dots}</div>
+        <small>${slot.hits === 0 ? '点击挥斧（需 3 击）' : `已裂开 · 再砍 ${rem} 下`}</small>
+      </button>`;
+    })
+    .join('');
+
   const groveCards = GROVES.map((g) => {
     const yields = g.yields[state.season];
     const ready = f.groves[g.id] && !!yields;
     const status = !yields ? '本季休眠' : f.groves[g.id] ? '今日可采' : '今日已采';
-    return `<article class="card grove-card">
+    const fxCls = groveFxId === g.id ? ' fx-grove-pick' : '';
+    const floatText = groveFloatMap.get(g.id);
+    return `<article class="card grove-card${fxCls}">
+      ${floatText ? `<span class="slot-float">${esc(floatText)}</span>` : ''}
       <div style="display:flex;align-items:center;gap:10px;">
         <span class="bag-item-icon">${g.icon}</span>
         <b>${g.name}</b>
         <span class="badge ${ready ? 'ok' : ''}" style="margin-left:auto;">${status}</span>
       </div>
       <p class="dim" style="margin:6px 0;">${g.desc}</p>
-      <p style="margin:4px 0;">${yields ? `本季可采：${yields.map(([id, q]) => `${itemName(id)} ×${q}`).join('、')}` : g.offSeasonText}</p>
-      <button class="pix-btn ${ready ? 'gold' : ''}" data-act="grove" data-grove="${g.id}" ${ready ? '' : 'disabled'}>采一次</button>
+      <p style="margin:4px 0;">${yields ? `本季产出：${yields.map(([id, q]) => `<span class="chip ok">${itemName(id)} ×${q}</span>`).join(' ')}` : g.offSeasonText}</p>
+      <button class="pix-btn ${ready ? 'gold' : ''}" data-act="grove" data-grove="${g.id}" ${ready ? '' : 'disabled'}>${ready ? `✋ 采摘${g.name}` : status}</button>
     </article>`;
   }).join('');
 
+  const mysteryCardsHtml = MYSTERY_CARDS.map((c, idx) => {
+    const isPicked = f.exploredToday && (mysteryState.pickedIdx ?? 0) === idx;
+    if (isPicked) {
+      const flipCls = mysteryState.flipFx ? ' fx-card-flip' : '';
+      return `<div class="mystery-card revealed${flipCls}">
+        <span class="mystery-glyph">✔</span>
+        <b>${c.title} · 今日奇遇已揭晓</b>
+        <small>${esc(mysteryState.resultText || '你已在林间探索过，收获了一份奇遇。')}</small>
+      </div>`;
+    }
+    if (f.exploredToday) {
+      return `<button class="mystery-card" disabled>
+        <span class="mystery-glyph">？</span>
+        <b>${c.title}</b>
+        <small>今日已探索其他秘境 · 明日重置</small>
+      </button>`;
+    }
+    return `<button class="mystery-card" data-act="forest-explore-card" data-idx="${idx}">
+      <span class="mystery-glyph">？</span>
+      <b>${c.title}</b>
+      <small>${c.sub}</small>
+      <span class="badge ok">点击翻开奇遇（30 分钟）</span>
+    </button>`;
+  }).join('');
+
   return `
-  ${forage.length ? `<h3>今日林间采集物</h3><div class="chips">${forage.map((id) => `<span class="chip ok">${itemName(id)}</span>`).join('')} <button class="pix-btn" data-act="forage">全部采集</button></div>` : '<p class="dim">今天林子里没有刷出新的采集物，下面的固定点位和砍树每天都有。</p>'}
-  <h3>砍树（新资源：木材，可出货卖钱）</h3>
-  <div class="forest-chop ${forestChopFx ? 'fx-chop' : ''}">
-    <span>🌲 今天还能砍 <b>${f.trees}</b> 棵树 · ${axeDur}</span>
-    <button class="pix-btn gold" data-act="chop" ${f.trees > 0 && !axeBroken ? '' : 'disabled'}>🪓 砍一棵树</button>
-    <span class="dim">每棵得木材 2–3 块，斧头每次 -1 耐久，去铁匠铺可升级/修理。</span>
+  ${forageNodesSection('今日林间散落野果（点击草丛物块直接拾取）')}
+  <h3>林间伐木舞台（点击树木连续挥斧 3 下砍倒，掉落木材 ×2~4）</h3>
+  <div class="forest-stage ${forestChopFx ? 'fx-chop' : ''}">
+    <div class="forest-stage-head">
+      <span>🌲 剩余林木 <b>${f.trees}/8</b> 棵 · ${axeDur} · 木材可出货（10 金/块）</span>
+      <button class="pix-btn gold" data-act="chop" ${canChop ? '' : 'disabled'}>🪓 快速砍倒一棵</button>
+    </div>
+    <div class="forest-grid">${treeSlotsHtml}</div>
   </div>
-  <h3>固定采集点（每天各采一次，产出随季节变）</h3>
+  <h3>三大固定采集点位（每天各可采摘一次，产出随季节变化）</h3>
   <div class="cards grid-2">${groveCards}</div>
-  <h3>林间探索</h3>
-  <div class="forest-chop">
-    <span>${f.exploredToday ? '今天已经探索过了，明天再来。' : '往林子深处走走，每天一次随机奇遇：松鼠的储藏洞、老树洞、受伤的小鸟，也可能碰上蜂巢。'}</span>
-    <button class="pix-btn ${f.exploredToday ? '' : 'gold'}" data-act="forest-explore" ${f.exploredToday ? 'disabled' : ''}>🌿 探索林子（约 30 分钟）</button>
-  </div>`;
+  <h3>深林秘境奇遇（三选一盲盒翻牌 · 每天一次）</h3>
+  <div class="mystery-grid">${mysteryCardsHtml}</div>
+  ${fishingDockSection()}`;
 }
 
 function mineScene(): string {
@@ -568,11 +810,13 @@ function scenePage(): string {
   else if (state.location === 'forest') body = forestScene();
   else if (state.location === 'mine' || state.location === 'mountain') {
     body = `
-      ${forage.length ? `<h3>山间采集物</h3><div class="chips">${forage.map((id) => `<span class="chip ok">${itemName(id)}</span>`).join('')}</div>` : ''}
+      ${forageNodesSection('山间散落采集物（点击物块直接拾取）')}
+      ${state.location === 'mountain' ? fishingDockSection() : ''}
       ${mineScene()}`;
   } else {
     body = `
-      ${forage.length ? `<h3>野外可采集</h3><div class="chips">${forage.map((id) => `<span class="chip ok">${itemName(id)}</span>`).join('')} <button class="pix-btn" data-act="forage">全部采集</button></div>` : ''}
+      ${forageNodesSection('野外散落采集物（点击物块直接拾取）')}
+      ${fishingDockSection()}
       ${shopCards()}
       ${townExtras()}`;
   }
@@ -1247,6 +1491,71 @@ function renderNav(): string {
   `;
 }
 
+/** 可视化钓鱼拉锯战弹窗：动态水面浮漂 + 鱼影向岸边游动 + 收线进度条与鱼线张力红警条 */
+function renderFishingDuelModal(): string {
+  if (!state.activity || state.activity.kind !== 'fishing') return '';
+  const act = state.activity;
+  const fish = FISH.find((f) => f.id === act.fishId);
+  const progress = Math.max(0, Math.min(100, Math.round(act.progress)));
+  const tension = Math.max(0, Math.min(100, Math.round(act.tension)));
+  const danger = tension >= 70;
+  // 鱼从右侧 86% 随进度向左侧岸边 18% 游动
+  const fishLeft = Math.round(86 - (progress / 100) * 68);
+
+  let stateBadge = '';
+  let stateDesc = '';
+  if (act.hint === 'struggle') {
+    stateBadge = '🌊 猛烈挣扎！浪花四溅';
+    stateDesc = '浮漂猛地往下一沉，鱼线绷得紧紧的！建议点「2. 顺势放线」卸掉张力，硬拉容易断线。';
+  } else if (act.hint === 'rest') {
+    stateBadge = '🫧 水面平静 · 力气耗尽';
+    stateDesc = '鱼好像没什么力气了！趁现在点「1. 趁机收线」飞快拉近距离。';
+  } else {
+    stateBadge = '❓ 涟漪阵阵 · 动向不明';
+    stateDesc = '水面泛起一圈圈涟漪，看不清鱼在蓄力还是休息，根据当前张力谨慎试探。';
+  }
+
+  return `
+    <div class="modal-head">
+      <h2>🎣 水域拉锯战 · 第 ${act.round + 1}/12 回合</h2>
+      <span class="badge ${danger ? 'bad' : 'ok'}">${danger ? '⚠ 张力过高预警' : `难度 ${'★'.repeat(fish?.difficulty ?? 1)}`}</span>
+    </div>
+    <div class="fish-duel-pond ${act.hint}">
+      <div class="duel-state-banner">
+        <b>${stateBadge}</b>
+        <small>鱼竿耐久 ${state.durability.rod}/${toolMaxDurability(state.tools.rod)}</small>
+      </div>
+      <p style="margin:0 0 10px;font-size:18px;">${stateDesc}</p>
+      <div class="duel-water-track">
+        <span class="duel-shore">🎣 岸边鱼钩</span>
+        <span class="duel-fish-swim" style="left:${fishLeft}%;">🐟 鱼影 (${progress}%)</span>
+      </div>
+    </div>
+    <div class="duel-meters">
+      <div class="duel-meter-row">
+        <div class="duel-meter-head">
+          <b>收线进度（满 100% 钓起上岸）</b>
+          <span>${progress}%</span>
+        </div>
+        ${bar(progress, 100, 'energy')}
+      </div>
+      <div class="duel-meter-row ${danger ? 'tension-danger' : ''}">
+        <div class="duel-meter-head">
+          <b>鱼线张力（满 100% 鱼线崩断，额外 -${DURABILITY.lineBreakWear} 耐久）</b>
+          <span>${tension}% ${danger ? '· 危险！快放线' : ''}</span>
+        </div>
+        ${bar(tension, 100, danger ? 'hp' : tension >= 45 ? 'warnbar' : 'xp')}
+      </div>
+    </div>
+    <div class="duel-btns">
+      <button class="pix-btn gold" data-act="choose" data-i="0">1. 🎣 趁机收线</button>
+      <button class="pix-btn" data-act="choose" data-i="1">2. 🌊 顺势放线</button>
+      <button class="pix-btn danger" data-act="choose" data-i="2">3. ✂ 剪断放弃</button>
+    </div>
+    <p class="dim" style="margin:8px 0 0;font-size:16px;">提示：可直接按键盘数字键 1（收线）、2（放线）、3（放弃）操作。</p>
+  `;
+}
+
 function render(): void {
   const hpMax = maxHp(state);
   $('hud-loc').innerHTML = `📍 <b>${LOCATIONS[state.location].name}</b> <small>[切换地点]</small>`;
@@ -1274,13 +1583,17 @@ function render(): void {
   $('log').innerHTML = log.map((e) => `<div class="log-line ${e.level}">${esc(e.text)}</div>`).join('');
   renderToasts();
 
-  // 1. 引擎活动弹窗（钓鱼/节日/心事件/职业选择）最高优先级
+  // 1. 引擎活动弹窗（钓鱼使用可视化拉锯战弹窗；节日/心事件/职业选择使用通用弹窗）最高优先级
   const view = activityView(state);
   const modal = $('modal');
   if (view) {
     modal.style.display = 'flex';
-    $('modal-card').innerHTML = `<h2>${esc(view.title)}</h2>${view.lines.map((l) => `<p>${esc(l)}</p>`).join('')}
-      <div class="modal-btns">${view.options.map((o, i) => `<button class="pix-btn big" data-act="choose" data-i="${i}">${esc(o)}</button>`).join('')}</div>`;
+    if (state.activity?.kind === 'fishing') {
+      $('modal-card').innerHTML = renderFishingDuelModal();
+    } else {
+      $('modal-card').innerHTML = `<h2>${esc(view.title)}</h2>${view.lines.map((l) => `<p>${esc(l)}</p>`).join('')}
+        <div class="modal-btns">${view.options.map((o, i) => `<button class="pix-btn big" data-act="choose" data-i="${i}">${esc(o)}</button>`).join('')}</div>`;
+    }
   } else {
     modal.style.display = 'none';
   }
@@ -1446,13 +1759,39 @@ document.addEventListener('click', (e) => {
     case 'forage':
       doAction({ type: 'forage' });
       break;
+    case 'tree-hit': {
+      syncForestUiState();
+      const idx = Number(el.dataset.idx);
+      const slot = forestTreeSlots[idx];
+      if (!slot || slot.stump) break;
+      for (const s of forestTreeSlots) {
+        s.fx = undefined;
+        s.floatText = undefined;
+      }
+      if (slot.hits < 2) {
+        slot.hits += 1;
+        slot.fx = 'hit';
+        slot.floatText = `再砍 ${3 - slot.hits} 下`;
+        render();
+      } else {
+        activeChopIdx = idx;
+        doAction({ type: 'chop' });
+      }
+      break;
+    }
     case 'chop':
+      activeChopIdx = null;
       doAction({ type: 'chop' });
       break;
     case 'grove':
       doAction({ type: 'grove', grove: el.dataset.grove as GroveId });
       break;
+    case 'forest-explore-card':
+      mysteryState.pickedIdx = Number(el.dataset.idx);
+      doAction({ type: 'forestExplore' });
+      break;
     case 'forest-explore':
+      mysteryState.pickedIdx = 0;
       doAction({ type: 'forestExplore' });
       break;
     case 'fish':
@@ -1569,6 +1908,23 @@ $('ui-modal').addEventListener('click', (e) => {
   }
 });
 document.addEventListener('keydown', (e) => {
+  if (state.activity?.kind === 'fishing') {
+    if (e.key === '1') {
+      e.preventDefault();
+      doAction({ type: 'choose', index: 0 });
+      return;
+    }
+    if (e.key === '2') {
+      e.preventDefault();
+      doAction({ type: 'choose', index: 1 });
+      return;
+    }
+    if (e.key === '3') {
+      e.preventDefault();
+      doAction({ type: 'choose', index: 2 });
+      return;
+    }
+  }
   if (e.key === 'Escape') {
     if (openShopId) {
       openShopId = null;
