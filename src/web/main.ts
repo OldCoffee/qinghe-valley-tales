@@ -737,7 +737,6 @@ function bagPage(): string {
       <div class="bag-filters" role="group" aria-label="物品分类">${BAG_FILTERS.map(([f, label]) => `<button class="chip ${bagFilter === f ? 'on' : ''}" data-act="bag-filter" data-f="${f}" aria-pressed="${bagFilter === f}">${label}<small>${filterCount(f)}</small></button>`).join('')}</div>
       <div class="qty-row"><span>单次操作数量：</span>
         ${([1, 5, 'all'] as const).map((q) => `<button class="chip ${qty === q ? 'on' : ''}" data-act="qty" data-q="${q}" aria-pressed="${qty === q}">${q === 'all' ? '全部' : q}</button>`).join('')}
-        <span class="dim" style="margin-left:auto;">点击任意物品卡片，弹出物品操作弹窗（食用 / 出货 / 装备）</span>
       </div>
     </div>
 
@@ -804,7 +803,7 @@ function socialPage(): string {
           </article>`;
         })
         .join('')}</div>`
-    : `<div class="bag-empty"><b>当前地点（${LOCATIONS[state.location].name}）暂时没有居民在场</b><span>可以切换到「全镇居民图鉴」查看大家现在都在哪里，或者点顶部当前地点切换前往。</span></div>`;
+    : `<div class="bag-empty"><b>当前地点（${LOCATIONS[state.location].name}）暂时没有居民在场</b></div>`;
 
   return `<div class="${pageViewCls()}">
     <div class="sub-tabs" role="tablist" aria-label="镇民视图切换">
@@ -855,7 +854,6 @@ function journalPage(): string {
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
         <div>
           <h3 style="margin:0;">社区中心四大房间收集包</h3>
-          <span class="dim">点击任意房间卡片，弹出该房间的收集包清单与需求明细（在白鹭镇广场可直接捐献）。</span>
         </div>
         ${
           state.location === 'town'
