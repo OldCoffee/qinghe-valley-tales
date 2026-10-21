@@ -1626,6 +1626,8 @@ function render(): void {
     $('stage').innerHTML = journalPage();
   }
   pageEnterPending = false;
+  // 地块动效是一次性的：本次渲染已消费，立即清空，避免后续任何重渲染（切页、失败的批量操作等）重播旧飘字
+  tileFxMap.clear();
 
   $('log').innerHTML = log.map((e) => `<div class="log-line ${e.level}">${esc(e.text)}</div>`).join('');
   renderToasts();
