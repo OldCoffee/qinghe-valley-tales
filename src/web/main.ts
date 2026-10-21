@@ -23,6 +23,7 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
+import { itemIconSvg, npcAvatarSvg, tileStatusSvg, toolIconSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -445,14 +446,14 @@ function cropStage(tile: Tile): { label: string; pct: number; ready: boolean } |
 function tileFace(tile: Tile): { cls: string; glyph: string; sub: string } {
   const stage = cropStage(tile);
   if (tile.ground === 'locked') return { cls: 'locked', glyph: '锁', sub: '温室未修好' };
-  if (tile.ground === 'weed') return { cls: 'weed', glyph: '草', sub: '杂草' };
-  if (tile.ground === 'stone') return { cls: 'stone', glyph: '石', sub: '石头' };
+  if (tile.ground === 'weed') return { cls: 'weed', glyph: tileStatusSvg('weed'), sub: '杂草' };
+  if (tile.ground === 'stone') return { cls: 'stone', glyph: tileStatusSvg('stone'), sub: '石头' };
   if (tile.ground === 'grass') return { cls: 'grass', glyph: '地', sub: '空地' };
   const weedCls = tile.weeds ? ' weedy' : '';
   const fertileSub = tile.fertile ? ' · 肥沃' : '';
-  if (tile.crop?.wilted && stage) return { cls: `wilted${weedCls}`, glyph: '枯', sub: `${stage.label} 已枯萎` };
-  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: stage.label[0], sub: `${stage.label} 可收获${fertileSub}` };
-  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: stage.label[0], sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${fertileSub}` };
+  if (tile.crop?.wilted && stage) return { cls: `wilted${weedCls}`, glyph: tileStatusSvg('withered'), sub: `${stage.label} 已枯萎` };
+  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: itemIconSvg(tile.crop!.cropId), sub: `${stage.label} 可收获${fertileSub}` };
+  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: tileStatusSvg('sprout'), sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${fertileSub}` };
   // 空垦地不再显示「已开垦/有杂草」文字：状态靠格子样式（土色/杂草绿饰）辨识，详情看浮层
   return { cls: `dry${weedCls}`, glyph: '土', sub: tile.fertile ? '肥沃' : '' };
 }
@@ -708,7 +709,7 @@ function forageNodesSection(label?: string): string {
       ${forage
         .map(
           (_, idx) => `<button class="forage-node unexplored" data-act="forage-one" data-idx="${idx}" aria-label="未探索的草丛，点击翻开">
-            <span class="forage-badge">草</span>
+            <span class="forage-badge">${tileStatusSvg('weed')}</span>
             <b>草丛 #${idx + 1}</b>
             <small class="dim">未探索 · 点击翻开</small>
           </button>`,
@@ -721,7 +722,7 @@ function forageNodesSection(label?: string): string {
       ${forage
         .map(
           (id, idx) => `<button class="forage-node" data-act="forage-one" data-idx="${idx}" title="点击拾取">
-            <span class="forage-badge">${itemName(id)[0]}</span>
+            <span class="forage-badge">${itemIconSvg(id)}</span>
             <b>${itemName(id)}</b>
             <small class="dim">#${idx + 1} 点击拾取</small>
           </button>`,
@@ -829,7 +830,7 @@ function forestScene(): string {
     return `<article class="card grove-card${ready ? ' clickable' : ''}${fxCls}"${ready ? ` data-act="grove" data-grove="${g.id}" role="button" tabindex="0" title="点击采摘${g.name}"` : ''}>
       ${floatText ? `<span class="slot-float">${esc(floatText)}</span>` : ''}
       <div style="display:flex;align-items:center;gap:10px;">
-        <span class="bag-item-icon">${g.icon}</span>
+        <span class="bag-item-icon">${itemIconSvg(g.id === 'mushroom' ? 'common_mushroom' : g.id === 'flowers' ? 'daffodil' : 'wild_plum')}</span>
         <b>${g.name}</b>
         <span class="badge ${ready ? 'ok' : ''}" style="margin-left:auto;">${status}</span>
       </div>
@@ -941,7 +942,7 @@ function scenePage(): string {
             (npc) => {
               const fx = npcFxState?.npcId === npc.id ? npcFxState : null;
               return `<button class="npc-pill ${fx ? `fx-${fx.tone}` : ''}" data-act="open-npc" data-npc="${npc.id}">
-              <span class="mini-ava">${npc.name[0]}</span>
+              <span class="mini-ava">${npcAvatarSvg(npc.id)}</span>
               <b>${npc.name}</b>
               <span class="hearts">${'♥'.repeat(Math.min(5, heartsOf(state, npc.id)) || 1)}</span>
               <small>${state.npcs[npc.id].talkedToday ? '已聊' : '可聊天'}</small>
@@ -1089,7 +1090,7 @@ function equipmentSection(warnings: string[]): string {
       const max = toolMaxDurability(state.tools[t]);
       const low = !broken && max > 0 && cur / max <= 0.3;
       return `<article class="equip-card ${equipped ? 'on' : ''} ${broken ? 'broken' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-tool" data-tool="${t}" title="点击查看${TOOL_NAMES[t]}详情">
-        <div class="equip-head"><b>${TOOL_NAMES[t]}</b>${broken ? '<span class="badge bad">已报废</span>' : upgrading ? '<span class="badge">升级中</span>' : equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
+        <div class="equip-head"><span class="equip-title-row"><span class="equip-icon">${toolIconSvg(t, Math.max(0, state.tools[t]))}</span><b>${TOOL_NAMES[t]}</b></span>${broken ? '<span class="badge bad">已报废</span>' : upgrading ? '<span class="badge">升级中</span>' : equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">${broken ? '需要买新的' : toolLabel(t)}</span>
         ${broken ? `<p class="equip-note">去${t === 'rod' ? '海滩渔具店' : '小镇铁匠铺'}买新的（300 金）。</p>` : durBar(cur, max)}
         ${low ? `<p class="equip-note warn-text">耐久偏低，及时修理。</p>` : ''}
@@ -1111,7 +1112,7 @@ function equipmentSection(warnings: string[]): string {
       const cur = state.weaponDurability[id] ?? max;
       const low = max > 0 && cur / max <= 0.3;
       return `<article class="equip-card weapon ${equipped ? 'on' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-weapon" data-item="${id}" title="点击查看${def.name}详情">
-        <div class="equip-head"><b>${def.name}</b>${equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
+        <div class="equip-head"><span class="equip-title-row"><span class="equip-icon">${itemIconSvg(id)}</span><b>${def.name}</b></span>${equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">伤害 ${def.damage[0]}-${def.damage[1]} · 暴击 ${5 + Math.max(0, WEAPONS.findIndex((w) => w.id === id)) * 2}%</span>
         ${durBar(cur, max)}
         ${low ? '<p class="equip-note warn-text">耐久偏低，及时修理。</p>' : ''}
@@ -1160,7 +1161,7 @@ function bagPage(): string {
           ? `<div class="bag-items-grid">${ids
               .map(
                 (id) => `<button class="bag-item ${selectedItem === id ? 'on' : ''}" data-act="item" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
-                  <span class="bag-item-icon">${ITEMS[id].name[0]}</span>
+                  <span class="bag-item-icon">${itemIconSvg(id)}</span>
                   <span class="bag-item-main"><b>${ITEMS[id].name}</b><small>${bagItemMeta(id)}</small></span>
                   <span class="bag-item-qty">×${state.inventory[id]}</span>
                 </button>`,
@@ -1201,7 +1202,7 @@ function socialPage(): string {
           const streak = st.talkStreak ?? 0;
           return `<article class="card npc ${isHere ? 'here' : 'away'} ${bday ? 'bday' : ''}">
             <div class="npc-top">
-              <div class="avatar">${npc.name[0]}</div>
+              <div class="avatar">${npcAvatarSvg(npc.id)}</div>
               <div class="npc-name-col">
                 <div class="npc-name-row">
                   <b>${npc.name}</b>
@@ -1417,7 +1418,7 @@ function toolModalHtml(tool: ToolId): string {
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="detail-title">
-      <span class="bag-item-icon">${TOOL_DETAILS[tool].icon}</span>
+      <span class="bag-item-icon">${toolIconSvg(tool, Math.max(0, state.tools[tool]))}</span>
       <div><b>${TOOL_NAMES[tool]}</b><span>${broken ? '工具 · 已报废' : `工具 · ${toolLabel(tool)}`}</span></div>
     </div>
     <dl class="detail-list">
@@ -1456,7 +1457,7 @@ function itemModalHtml(id: string): string {
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="detail-title">
-      <span class="bag-item-icon">${detail.name[0]}</span>
+      <span class="bag-item-icon">${itemIconSvg(detail.id)}</span>
       <div><b>${detail.name}</b><span>持有 ×${count} · ${category}</span></div>
     </div>
     <dl class="detail-list">
@@ -1505,7 +1506,7 @@ function npcModalHtml(npcId: string): string {
     </div>
     <div class="card npc npc-modal-card" style="margin-bottom:12px;">
       <div class="avatar-wrap">
-        <div class="avatar ${fx && fx.tone !== 'talk' ? `fx-${fx.tone}` : ''}">${npc.name[0]}</div>
+        <div class="avatar ${fx && fx.tone !== 'talk' ? `fx-${fx.tone}` : ''}">${npcAvatarSvg(npc.id)}</div>
         ${fx ? `<div class="npc-fx-particles tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].map((p, i) => `<span style="--i:${i}">${p}</span>`).join('')}</div>` : ''}
       </div>
       <div>
@@ -1533,7 +1534,7 @@ function npcModalHtml(npcId: string): string {
                   .map((id) => {
                     const preview = giftEvaluation(npc, id, isBirthday(state, npc));
                     return `<button class="item" data-act="gift-direct" data-npc="${npc.id}" data-item="${id}" title="价值 ${preview.value} 金（${preview.valueLabel}）">
-                      <b>${ITEMS[id].name[0]}</b>
+                      <b>${itemIconSvg(id)}</b>
                       <span>${ITEMS[id].name}</span>
                       <small>×${state.inventory[id]} · 值 ${preview.value} 金 · 点击赠送</small>
                     </button>`;
@@ -1625,7 +1626,7 @@ function shopModal(): string {
           .stock(state)
           .map(
             (e) => `<button class="item buy" data-act="buy" data-item="${e.itemId}" ${state.gold < e.price ? 'disabled' : ''}>
-              <b>${itemName(e.itemId)[0]}</b><span>${itemName(e.itemId)}</span><small>${e.price} 金${ITEMS[e.itemId].energy ? ` · +${ITEMS[e.itemId].energy} 体力` : ''}</small></button>`,
+              <b>${itemIconSvg(e.itemId)}</b><span>${itemName(e.itemId)}</span><small>${e.price} 金${ITEMS[e.itemId].energy ? ` · +${ITEMS[e.itemId].energy} 体力` : ''}</small></button>`,
           )
           .join('')}</div>`
       : '<p class="dim">暂时没货。</p>';
@@ -1669,8 +1670,8 @@ function shopModal(): string {
           const sellable = !closed && !equippedWeapon && shop.buys.includes(ITEMS[id].category) && sellPrice(state, id) > 0;
           const label = `${ITEMS[id].name} ×${state.inventory[id]}`;
           return sellable
-            ? `<button class="item" data-act="sell" data-item="${id}"><b>${ITEMS[id].name[0]}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]} · 卖 ${sellPrice(state, id)} 金</small></button>`
-            : `<div class="item off" title="${label}"><b>${ITEMS[id].name[0]}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}${closed ? '' : equippedWeapon ? ' · 已装备，先卸下' : ' · 本店不收'}</small></div>`;
+            ? `<button class="item" data-act="sell" data-item="${id}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]} · 卖 ${sellPrice(state, id)} 金</small></button>`
+            : `<div class="item off" title="${label}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}${closed ? '' : equippedWeapon ? ' · 已装备，先卸下' : ' · 本店不收'}</small></div>`;
         })
         .join('')}</div>`
     : '<p class="dim">背包是空的。</p>';

@@ -147,9 +147,10 @@
       }
       .npc-pill:hover { background: var(--gold); }
       .npc-pill .mini-ava {
-        width: 28px; height: 28px; background: var(--sky); border: 2px solid var(--wood-dark);
-        display: inline-grid; place-items: center; font-weight: bold;
+        width: 30px; height: 30px; background: transparent; border: none;
+        display: inline-grid; place-items: center; font-weight: bold; overflow: hidden;
       }
+      .npc-pill .mini-ava svg { width: 100%; height: 100%; display: block; }
       .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; align-items: center; }
       .sub-tabs {
         display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
@@ -189,7 +190,8 @@
         box-shadow: inset -4px -4px 0 rgba(0,0,0,0.18), inset 4px 4px 0 rgba(255,255,255,0.15);
       }
       .farm-grid.enter .tile { animation: tile-pop 0.28s steps(3) backwards; animation-delay: var(--d, 0ms); }
-      .tile b { font-size: 24px; line-height: 1; }
+      .tile b { font-size: 24px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+      .tile b svg { width: 32px; height: 32px; display: block; }
       .tile small { font-size: 15px; line-height: 1.05; text-align: center; }
       .tile.grass { background: var(--grass); }
       .tile.weed { background: #4e9b2a; }
@@ -527,15 +529,15 @@
       .npc-chips .chip:active { transform: none; box-shadow: 0 2px 0 var(--wood-dark); }
       .npc-main-btn { width: 100%; margin-top: auto; }
       .card.npc.away { background: #efe7d2; }
-      .card.npc.away .avatar { filter: saturate(0.35); opacity: 0.75; }
+      .card.npc.away .avatar { filter: saturate(0.8); opacity: 0.92; }
       .card.npc.away .npc-intro, .card.npc.away .hearts { opacity: 0.65; }
       .card.npc.bday { border-color: #b8860b; box-shadow: 0 4px 0 #b8860b, 0 0 0 3px #ffe9a8; }
       .card.npc.npc-modal-card { flex-direction: row; align-items: flex-start; }
       .avatar {
-        flex: 0 0 54px; height: 54px; background: var(--sky); border: 3px solid var(--wood-dark);
-        display: grid; place-items: center; font-size: 26px; font-weight: bold;
-        box-shadow: inset -6px -6px 0 rgba(0,0,0,0.15);
+        flex: 0 0 56px; width: 56px; height: 56px; background: transparent; border: none;
+        display: grid; place-items: center; font-size: 26px; font-weight: bold; overflow: hidden;
       }
+      .avatar svg { width: 100%; height: 100%; display: block; }
       .hearts { color: #e0483e; letter-spacing: 1px; }
       .card-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 
@@ -567,7 +569,13 @@
       .equip-card.broken { background: #f3c1ba; }
       .equip-card.low-dur { animation: pulse-warn 1.4s steps(2) infinite; }
       .equip-card.fx-wear { animation: acted 0.35s steps(3); }
-      .equip-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; width: 100%; }
+      .equip-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; }
+      .equip-title-row { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+      .equip-icon {
+        width: 32px; height: 32px; flex: 0 0 32px; display: inline-grid; place-items: center;
+        background: #fffdf7; border: 2px solid var(--wood-dark); border-radius: 4px;
+      }
+      .equip-icon svg { width: 26px; height: 26px; display: block; }
       .equip-meta { color: #6b5636; font-size: 17px; }
       .equip-card .bar { width: 100%; min-width: 0; flex: none; }
       .equip-note { font-size: 16px; line-height: 1.15; margin: 0; }
@@ -603,9 +611,11 @@
       .bag-item.on { background: var(--gold); outline: 3px solid var(--water); outline-offset: -6px; }
       .bag-item-icon {
         width: 42px; height: 42px; display: grid; place-items: center;
-        background: var(--sky); border: 3px solid var(--wood-dark); font-size: 23px; font-weight: bold;
-        box-shadow: inset -4px -4px 0 rgba(0,0,0,0.15);
+        background: #fffdf7; border: 3px solid var(--wood-dark); font-size: 23px; font-weight: bold;
+        box-shadow: inset -3px -3px 0 rgba(0,0,0,0.12); overflow: hidden;
       }
+      .bag-item-icon svg { width: 34px; height: 34px; display: block; }
+      .forage-badge svg { width: 28px; height: 28px; display: block; }
       .bag-item-main { min-width: 0; display: grid; gap: 2px; }
       .bag-item-main b { line-height: 1.05; overflow-wrap: anywhere; }
       .bag-item-main small { color: #6b5636; font-size: 16px; line-height: 1.05; }
@@ -653,7 +663,8 @@
         background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
         min-height: 78px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px;
       }
-      .item b { font-size: 24px; }
+      .item b { font-size: 24px; display: inline-flex; align-items: center; justify-content: center; }
+      .item b svg { width: 36px; height: 36px; display: block; }
       .item span { font-size: 16px; line-height: 1.05; text-align: center; }
       .item small { color: #6b5636; text-align: center; }
       .item.on { background: var(--gold); }
