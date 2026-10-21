@@ -254,7 +254,7 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
       } else if (kind === 'water') {
         floatText = '已浇水';
       } else if (kind === 'till') {
-        floatText = '已开垦';
+        floatText = undefined; // 开垦完成靠土地变色反馈，不再飘「已开垦」文字
       } else if (kind === 'deweed') {
         floatText = '已除草';
       } else if (kind === 'uproot') {
@@ -449,12 +449,12 @@ function tileFace(tile: Tile): { cls: string; glyph: string; sub: string } {
   if (tile.ground === 'stone') return { cls: 'stone', glyph: '石', sub: '石头' };
   if (tile.ground === 'grass') return { cls: 'grass', glyph: '地', sub: '空地' };
   const weedCls = tile.weeds ? ' weedy' : '';
-  const weedSub = tile.weeds ? ' · 有杂草' : '';
   const fertileSub = tile.fertile ? ' · 肥沃' : '';
   if (tile.crop?.wilted && stage) return { cls: `wilted${weedCls}`, glyph: '枯', sub: `${stage.label} 已枯萎` };
-  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: stage.label[0], sub: `${stage.label} 可收获${weedSub}${fertileSub}` };
-  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: stage.label[0], sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${weedSub}${fertileSub}` };
-  return { cls: `dry${weedCls}`, glyph: '土', sub: tile.weeds ? '已开垦 · 有杂草' : `已开垦${fertileSub}` };
+  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: stage.label[0], sub: `${stage.label} 可收获${fertileSub}` };
+  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: stage.label[0], sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${fertileSub}` };
+  // 空垦地不再显示「已开垦/有杂草」文字：状态靠格子样式（土色/杂草绿饰）辨识，详情看浮层
+  return { cls: `dry${weedCls}`, glyph: '土', sub: tile.fertile ? '肥沃' : '' };
 }
 
 /* ---------- 1. 场景整页 (Scene Page) ---------- */
@@ -611,7 +611,7 @@ function farmScene(): string {
     ${seedChips || '<span class="dim">背包里没有种子</span>'}
     <button class="pix-btn gold" data-act="bulk-plant" ${bulkSeedCropId ? '' : 'disabled'}>一键播种${bulkSeedName ? `（${bulkSeedName}）` : ''}</button>
     <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
-    <button class="pix-btn danger" data-act="bulk-uproot-wilted">一键铲除枯萎株</button>
+    <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${fieldStat.wiltedCount + ghStat.wiltedCount ? '' : 'disabled'}>一键铲除枯萎株${fieldStat.wiltedCount + ghStat.wiltedCount ? `（${fieldStat.wiltedCount + ghStat.wiltedCount} 株）` : ''}</button>
   </div>
   ${tilePopover()}
   <div class="farm-stage">${gridHtml}</div>`;
@@ -1092,9 +1092,8 @@ function equipmentSection(warnings: string[]): string {
         <div class="equip-head"><b>${TOOL_NAMES[t]}</b>${broken ? '<span class="badge bad">已报废</span>' : upgrading ? '<span class="badge">升级中</span>' : equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">${broken ? '需要买新的' : toolLabel(t)}</span>
         ${broken ? `<p class="equip-note">去${t === 'rod' ? '海滩渔具店' : '小镇铁匠铺'}买新的（300 金）。</p>` : durBar(cur, max)}
-        ${low ? `<p class="equip-note warn-text">耐久偏低，去${t === 'rod' ? '渔具店' : '铁匠铺'}修理。</p>` : ''}
+        ${low ? `<p class="equip-note warn-text">耐久偏低，及时修理。</p>` : ''}
         ${broken ? '' : `<p class="equip-note">效果：${toolPowerText(t)}</p>`}
-        <p class="equip-note">修理地点：${t === 'rod' ? '海滩 · 老渔夫的小屋' : '小镇 · 阿铁铁匠铺'} <button class="chip" data-act="go-repair-shop" data-to="${t === 'rod' ? 'beach' : 'town'}" data-shop="${t === 'rod' ? 'fish_shop' : 'blacksmith'}">前往</button></p>
         <div class="equip-actions">
           <button class="chip" data-act="view-tool" data-tool="${t}">查看</button>
           ${!broken && !upgrading ? (equipped ? `<button class="chip" data-act="unequip-tool" data-tool="${t}">卸下</button>` : `<button class="chip" data-act="equip-tool" data-tool="${t}">装备</button>`) : ''}
@@ -1115,8 +1114,7 @@ function equipmentSection(warnings: string[]): string {
         <div class="equip-head"><b>${def.name}</b>${equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">伤害 ${def.damage[0]}-${def.damage[1]} · 暴击 ${5 + Math.max(0, WEAPONS.findIndex((w) => w.id === id)) * 2}%</span>
         ${durBar(cur, max)}
-        ${low ? '<p class="equip-note warn-text">耐久偏低，去铁匠铺修理。</p>' : ''}
-        <p class="equip-note">修理地点：小镇 · 阿铁铁匠铺 <button class="chip" data-act="go-repair-shop" data-to="town" data-shop="blacksmith">前往</button></p>
+        ${low ? '<p class="equip-note warn-text">耐久偏低，及时修理。</p>' : ''}
         <div class="equip-actions">
           <button class="chip" data-act="view-weapon" data-item="${id}">查看</button>
           ${equipped ? `<button class="chip" data-act="unequip-weapon">卸下</button>` : `<button class="chip" data-act="equip-weapon" data-item="${id}">装备</button>`}
