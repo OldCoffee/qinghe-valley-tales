@@ -269,7 +269,7 @@ function tilePopover(): string {
   const tile = state.farm[row][col];
   const name = cellName({ row, col });
   const stage = cropStage(tile);
-  const seeds = Object.keys(state.inventory).filter((id) => ITEMS[id]?.category === 'seed');
+  const seeds = Object.keys(state.inventory).filter((id) => ITEMS[id]?.category === 'seed' && (state.inventory[id] ?? 0) > 0);
 
   let desc = '';
   let btns = '';
@@ -299,7 +299,7 @@ function tilePopover(): string {
               `<button class="pix-btn big-op" data-act="tile-plant" data-crop="${ITEMS[id].cropId}">种${ITEMS[id].name.replace('种子', '')}（×${state.inventory[id]}）</button>`,
           )
           .join('')
-      : '<span class="dim">没有种子了，去白鹭镇杂货铺买（点顶部当前地点切换）。</span>';
+      : '<span class="dim">没有种子了，去白鹭镇杂货铺买。</span><button class="pix-btn gold" data-act="go-general-store">前往</button>';
   }
 
   return `<div class="tile-popover" role="region" aria-label="地块操作浮层">
@@ -1433,6 +1433,17 @@ document.addEventListener('click', (e) => {
       uiModal = null;
       page = 'scene';
       doAction({ type: 'move', to: el.dataset.to as LocationId });
+      break;
+    case 'go-general-store':
+      selectedCell = null;
+      openShopId = null;
+      uiModal = null;
+      page = 'scene';
+      doAction({ type: 'move', to: 'town' });
+      if (state.location === 'town') {
+        openShopId = 'general';
+        render();
+      }
       break;
     case 'forage':
       doAction({ type: 'forage' });
