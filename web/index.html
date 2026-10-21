@@ -590,16 +590,6 @@
       }
       .shake { animation: rock-shake 0.3s steps(4); }
 
-      #terminal { max-width: 1180px; margin: 0 auto 20px; padding: 0 16px; }
-      #terminal .term-box { background: #141a16; color: #d8e6cf; border: 4px solid var(--wood-dark); padding: 12px; font-size: 16px; }
-      #t-output { max-height: 420px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
-      #t-form { display: flex; gap: 8px; border-top: 1px solid #39433f; padding-top: 8px; }
-      #t-input { flex: 1; background: transparent; border: none; outline: none; color: inherit; font: inherit; }
-      .opt { background: none; border: none; padding: 0; color: #8fc46a; font: inherit; cursor: pointer; }
-      .opt.stale { color: #8a8f85; cursor: default; }
-      .c1 { font-weight: bold; } .c2 { color: #8a8f85; } .c31 { color: #e0736a; } .c32 { color: #8fc46a; }
-      .c33 { color: #e3c26b; } .c34 { color: #6fa8dc; } .c35 { color: #e08fc0; } .c36 { color: #6cc5c0; }
-
       @media (max-width: 900px) {
         #hud-bars { flex: 1 1 100%; order: 5; }
         nav.page-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -623,7 +613,6 @@
       <div id="hud-bars"></div>
       <button class="pix-btn sleep" data-act="sleep">睡觉</button>
       <button class="pix-btn ghost" data-act="new-game">新游戏</button>
-      <button class="pix-btn ghost" id="terminal-toggle">终端模式（高级）</button>
     </header>
 
     <nav class="page-nav" id="page-nav" aria-label="主页面切换"></nav>
@@ -633,16 +622,6 @@
     </main>
 
     <footer class="log-panel"><div id="log" aria-live="polite"></div></footer>
-
-    <section id="terminal" style="display:none">
-      <div class="term-box">
-        <div id="t-output"></div>
-        <form id="t-form" autocomplete="off">
-          <span id="t-prompt"></span>
-          <input id="t-input" placeholder="输入命令或数字，也可以直接点击菜单" />
-        </form>
-      </div>
-    </section>
 
     <div id="fx-toast-layer" aria-live="polite"></div>
     <div id="ui-modal" role="dialog" aria-modal="true"><div id="ui-modal-card" class="modal-surface"></div></div>

@@ -82,8 +82,7 @@ cd web && python3 -m http.server 8765
 
 - 顶部 HUD 的「📍 当前地点」是唯一的切换地点入口，点它打开地图弹窗选目的地；
 - 上方四个页签整页切换：场景 / 背包与装备 / 社交与镇民 / 手册与收集；
-- 点农田格子弹出该格的操作浮层；点物品、工具、居民、收集包房间会打开对应弹窗；
-- 右上角「终端模式（高级）」可以在网页里打开和终端版相同的文字界面，与可视化版共用同一存档。
+- 点农田格子弹出该格的操作浮层；点物品、工具、居民、收集包房间会打开对应弹窗。
 
 ---
 
@@ -134,7 +133,6 @@ src/
   cli/           # 终端入口：存档读写、命令行参数
   web/           # 网页 UI
     main.ts      # 可视化界面（四大整页 + 弹窗 + 微动效，全部逻辑在这一文件）
-    terminal.ts  # 网页内嵌终端模式（复用 ui/ 的会话逻辑）
 web/
   index.html     # 网页版页面与全部 CSS（像素风样式、动画）
   app.js         # 打包产物（已 gitignore，不要手改，改 src/web 后重新 build）
@@ -145,7 +143,7 @@ design-system/   # 网页版设计系统与页面覆盖规范
 
 ### 架构约定
 
-- **引擎与 UI 完全分离**：引擎只做 `(state, action) → (newState, events[])`，不打印、不读文件。终端、网页可视化、网页内嵌终端三种前端都调用同一个 `applyAction`。
+- **引擎与 UI 完全分离**：引擎只做 `(state, action) → (newState, events[])`，不打印、不读文件。终端与网页可视化两种前端都调用同一个 `applyAction`。
 - **数据驱动**：加一种作物/鱼/物品，优先在 `src/data/` 加一条定义，`items.ts` 会自动汇总；只有引入新机制时才改 `engine/systems/`。
 - **可复现随机**：随机种子存在存档里（`rngState`），同一存档同一步操作结果一致，测试因此可以写确定性断言。
 - **存档兼容**：`GameState.version` 为存档版本；新增状态字段时要在 `ensureEquipment` / `ensureForest` 一类迁移函数里给老存档补默认值，不要直接升版本丢弃老存档。
@@ -155,7 +153,7 @@ design-system/   # 网页版设计系统与页面覆盖规范
 | 前端 | 位置 |
 | --- | --- |
 | 终端版 | `~/.qinghe-valley-tales/slot1.json`（每个动作后自动保存）；可用环境变量 `QINGHE_SAVE_DIR` 改目录；`NO_COLOR=1` 关闭终端颜色 |
-| 网页版 | 浏览器 `localStorage`，键名 `qinghe-valley-save`；网页内嵌终端模式共用这份存档 |
+| 网页版 | 浏览器 `localStorage`，键名 `qinghe-valley-save` |
 
 注意：终端版和网页版的存档互相独立。网页版换浏览器或清缓存会丢档，重要存档可从开发者工具里导出 localStorage 内容备份。
 

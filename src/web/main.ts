@@ -21,8 +21,6 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { heartsOf, isBirthday, npcLocation, npcsHere } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, GameEvent, GameState, GroveId, LocationId, Tile, ToolId } from '../engine/types.js';
-import { startTerminal } from './terminal.js';
-
 const SAVE_KEY = 'qinghe-valley-save';
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -1582,18 +1580,6 @@ document.addEventListener('keydown', (e) => {
       selectedCell = null;
       render();
     }
-  }
-});
-
-$('terminal-toggle').addEventListener('click', () => {
-  const box = $('terminal');
-  const opening = box.style.display === 'none';
-  box.style.display = opening ? '' : 'none';
-  $('terminal-toggle').textContent = opening ? '收起终端' : '终端模式（高级）';
-  if (opening && !box.dataset.started) {
-    box.dataset.started = '1';
-    save();
-    startTerminal(SAVE_KEY);
   }
 });
 
