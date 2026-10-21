@@ -965,13 +965,14 @@ function equipmentSection(warnings: string[]): string {
       const cur = state.durability[t] ?? 0;
       const max = toolMaxDurability(state.tools[t]);
       const low = !broken && max > 0 && cur / max <= 0.3;
-      return `<article class="equip-card ${equipped ? 'on' : ''} ${broken ? 'broken' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-tool" data-tool="${t}" title="点击打开${TOOL_NAMES[t]}详情弹窗">
+      return `<article class="equip-card ${equipped ? 'on' : ''} ${broken ? 'broken' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-tool" data-tool="${t}" title="点击查看${TOOL_NAMES[t]}详情">
         <div class="equip-head"><b>${TOOL_NAMES[t]}</b>${broken ? '<span class="badge bad">已报废</span>' : upgrading ? '<span class="badge">升级中</span>' : equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">${broken ? '需要买新的' : toolLabel(t)}</span>
         ${broken ? `<p class="equip-note">去${t === 'rod' ? '海滩渔具店' : '小镇铁匠铺'}买新的（300 金）。</p>` : durBar(cur, max)}
         ${low ? `<p class="equip-note warn-text">耐久偏低，去${t === 'rod' ? '渔具店' : '铁匠铺'}修理。</p>` : ''}
+        <p class="equip-note">修理地点：${t === 'rod' ? '海滩 · 老渔夫的小屋' : '小镇 · 阿铁铁匠铺'} <button class="chip" data-act="go-repair-shop" data-to="${t === 'rod' ? 'beach' : 'town'}" data-shop="${t === 'rod' ? 'fish_shop' : 'blacksmith'}">前往</button></p>
         <div class="equip-actions">
-          <button class="chip" data-act="view-tool" data-tool="${t}">详情弹窗</button>
+          <button class="chip" data-act="view-tool" data-tool="${t}">查看</button>
           ${!broken && !upgrading ? (equipped ? `<button class="chip" data-act="unequip-tool" data-tool="${t}">卸下</button>` : `<button class="chip" data-act="equip-tool" data-tool="${t}">装备</button>`) : ''}
         </div>
       </article>`;
@@ -986,13 +987,14 @@ function equipmentSection(warnings: string[]): string {
       const max = weaponMaxDurability(id);
       const cur = state.weaponDurability[id] ?? max;
       const low = max > 0 && cur / max <= 0.3;
-      return `<article class="equip-card weapon ${equipped ? 'on' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-weapon" data-item="${id}" title="点击打开${def.name}详情弹窗">
+      return `<article class="equip-card weapon ${equipped ? 'on' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-weapon" data-item="${id}" title="点击查看${def.name}详情">
         <div class="equip-head"><b>${def.name}</b>${equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">伤害 ${def.damage[0]}-${def.damage[1]}</span>
         ${durBar(cur, max)}
         ${low ? '<p class="equip-note warn-text">耐久偏低，去铁匠铺修理。</p>' : ''}
+        <p class="equip-note">修理地点：小镇 · 阿铁铁匠铺 <button class="chip" data-act="go-repair-shop" data-to="town" data-shop="blacksmith">前往</button></p>
         <div class="equip-actions">
-          <button class="chip" data-act="view-weapon" data-item="${id}">详情弹窗</button>
+          <button class="chip" data-act="view-weapon" data-item="${id}">查看</button>
           ${equipped ? `<button class="chip" data-act="unequip-weapon">卸下</button>` : `<button class="chip" data-act="equip-weapon" data-item="${id}">装备</button>`}
         </div>
       </article>`;
@@ -1000,7 +1002,7 @@ function equipmentSection(warnings: string[]): string {
     .join('');
 
   return `<section class="bag-section equipment-section" aria-labelledby="bag-equipment-title">
-    <div class="bag-section-head"><h3 id="bag-equipment-title">随身工具与武器槽位（点击卡片弹出详情与修复指引）</h3><span>${warnings.length ? `待处理 ${warnings.length} 件` : '状态良好'}</span></div>
+    <div class="bag-section-head"><h3 id="bag-equipment-title">随身工具与武器槽位（点击卡片查看详情与修复指引）</h3><span>${warnings.length ? `待处理 ${warnings.length} 件` : '状态良好'}</span></div>
     <div class="equip-grid">${toolCards}${weaponCards}</div>
   </section>`;
 }
@@ -1035,7 +1037,7 @@ function bagPage(): string {
         ids.length
           ? `<div class="bag-items-grid">${ids
               .map(
-                (id) => `<button class="bag-item ${selectedItem === id ? 'on' : ''}" data-act="item" data-item="${id}" aria-label="打开${ITEMS[id].name}详情弹窗">
+                (id) => `<button class="bag-item ${selectedItem === id ? 'on' : ''}" data-act="item" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
                   <span class="bag-item-icon">${ITEMS[id].name[0]}</span>
                   <span class="bag-item-main"><b>${ITEMS[id].name}</b><small>${bagItemMeta(id)}</small></span>
                   <span class="bag-item-qty">×${state.inventory[id]}</span>
@@ -1259,7 +1261,7 @@ function toolModalHtml(tool: ToolId): string {
       <div><dt>用途</dt><dd>${TOOL_DETAILS[tool].use}</dd></div>
       <div><dt>耐久</dt><dd>${broken ? '0/0' : `${cur}/${max}`}</dd></div>
       <div><dt>磨损规则</dt><dd>${TOOL_DETAILS[tool].wear}</dd></div>
-      <div><dt>${broken ? '重新购买' : '修理地点'}</dt><dd>${repairShop}${broken ? ` · ${DURABILITY.baseToolPrice} 金` : ''}</dd></div>
+      <div><dt>${broken ? '重新购买' : '修理地点'}</dt><dd>${repairShop}${broken ? ` · ${DURABILITY.baseToolPrice} 金` : ''} <button class="chip" data-act="go-repair-shop" data-to="${tool === 'rod' ? 'beach' : 'town'}" data-shop="${tool === 'rod' ? 'fish_shop' : 'blacksmith'}">前往</button></dd></div>
       ${!broken ? `<div><dt>修理费用</dt><dd>${cost === null ? '耐久已满' : `${cost} 金（修满）`}</dd></div>` : ''}
       ${nextUpgrade ? `<div><dt>下一次升级</dt><dd>${nextUpgrade.gold} 金 + ${itemName(nextUpgrade.ore)} ×${nextUpgrade.oreQty}</dd></div>` : ''}
     </dl>
@@ -1296,7 +1298,7 @@ function itemModalHtml(id: string): string {
       <div><dt>单件售价</dt><dd>${sellPrice(state, detail.id)} 金</dd></div>
       ${detail.energy ? `<div><dt>食用恢复</dt><dd>+${detail.energy} 体力</dd></div>` : ''}
       ${cropDef ? `<div><dt>种植季节与周期</dt><dd>${cropDef.seasons.map((s) => SEASON_NAMES[s]).join('、')}季 · ${cropDef.growDays} 天成熟</dd></div>` : ''}
-      ${weaponDef ? `<div><dt>攻击伤害</dt><dd>${weaponDef.damage[0]}-${weaponDef.damage[1]}</dd></div><div><dt>武器耐久</dt><dd>${weaponCur}/${weaponMax}</dd></div><div><dt>装备状态</dt><dd>${state.weapon === detail.id ? '已装备' : '未装备'}</dd></div><div><dt>铁匠铺修理费</dt><dd>${weaponRepair === null ? '耐久已满' : `${weaponRepair} 金`}</dd></div>` : ''}
+      ${weaponDef ? `<div><dt>攻击伤害</dt><dd>${weaponDef.damage[0]}-${weaponDef.damage[1]}</dd></div><div><dt>武器耐久</dt><dd>${weaponCur}/${weaponMax}</dd></div><div><dt>装备状态</dt><dd>${state.weapon === detail.id ? '已装备' : '未装备'}</dd></div><div><dt>修理地点</dt><dd>小镇 · 阿铁铁匠铺 <button class="chip" data-act="go-repair-shop" data-to="town" data-shop="blacksmith">前往</button></dd></div><div><dt>铁匠铺修理费</dt><dd>${weaponRepair === null ? '耐久已满' : `${weaponRepair} 金`}</dd></div>` : ''}
       ${detail.id === 'scrap' ? '<div><dt>说明</dt><dd>工具或武器报废后留下的金属碎片，可卖给铁匠铺回收。</dd></div>' : ''}
     </dl>
     ${weaponDef ? durBar(weaponCur, weaponMax) : ''}
@@ -1626,8 +1628,17 @@ function render(): void {
     $('stage').innerHTML = journalPage();
   }
   pageEnterPending = false;
-  // 地块动效是一次性的：本次渲染已消费，立即清空，避免后续任何重渲染（切页、失败的批量操作等）重播旧飘字
+  // 各类动效都是一次性的：本次渲染已消费，立即清空，避免后续任何重渲染（切页、失败操作等）重播旧飘字
   tileFxMap.clear();
+  groveFloatMap.clear();
+  groveFxId = null;
+  forestChopFx = false;
+  for (const slot of forestTreeSlots) {
+    slot.fx = undefined;
+    slot.floatText = undefined;
+  }
+  mysteryState.flipFx = false;
+  mineFxState = { rockHit: false, slash: false };
 
   $('log').innerHTML = log.map((e) => `<div class="log-line ${e.level}">${esc(e.text)}</div>`).join('');
   renderToasts();
@@ -1818,6 +1829,20 @@ document.addEventListener('click', (e) => {
         render();
       }
       break;
+    case 'go-repair-shop': {
+      const to = el.dataset.to as LocationId;
+      const shopId = el.dataset.shop!;
+      selectedCell = null;
+      openShopId = null;
+      uiModal = null;
+      page = 'scene';
+      if (state.location !== to) doAction({ type: 'move', to });
+      if (state.location === to) {
+        openShopId = shopId;
+        render();
+      }
+      break;
+    }
     case 'forage':
       doAction({ type: 'forage' });
       break;
