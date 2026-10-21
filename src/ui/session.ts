@@ -109,6 +109,8 @@ export async function runSession(io: GameIO, store: SaveStore, seed: number): Pr
   io.print(renderTitle());
   let state = await startGame(io, store, seed);
   if (!state) return;
+  // 开局（或续档）立刻落盘，保证打开过就有存档
+  store.save(JSON.stringify(state));
   io.print(renderScreen(state));
 
   while (true) {
