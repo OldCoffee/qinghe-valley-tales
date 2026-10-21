@@ -1,12 +1,37 @@
 {
-  "name": "qinghe-valley",
+  "name": "qinghe-valley-tales",
   "version": "1.0.0",
-  "description": "青禾谷物语：一款终端和浏览器里的田园文字游戏",
+  "description": "青禾谷物语 Qinghe Valley Tales：一款终端和浏览器里的田园经营游戏，npx qinghe-valley-tales 即可在终端游玩",
   "type": "module",
-  "private": true,
+  "license": "MIT",
+  "author": "OldCoffee",
+  "homepage": "https://oldcoffee.github.io/qinghe-valley-tales/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OldCoffee/qinghe-valley-tales.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OldCoffee/qinghe-valley-tales/issues"
+  },
+  "keywords": [
+    "game",
+    "cli",
+    "terminal",
+    "farming",
+    "text-game",
+    "stardew-like"
+  ],
+  "bin": {
+    "qinghe-valley-tales": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "start": "node --import tsx src/cli/main.ts",
+    "build:cli": "esbuild src/cli/main.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/cli.js --banner:js=\"#!/usr/bin/env node\" && chmod +x dist/cli.js",
     "build:web": "esbuild src/web/main.ts --bundle --format=iife --target=es2020 --minify --outfile=web/app.js",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build:cli",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

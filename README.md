@@ -7,7 +7,7 @@
 同一套游戏引擎提供两种玩法：
 
 - **网页版（推荐）**：像素风可视化界面，点格子种田、整页切换、弹窗交互，打开浏览器就能玩。
-- **终端版**：纯文字 CLI，数字菜单 + 快捷命令，适合在终端里摸鱼。
+- **终端版**：纯文字 CLI，数字菜单 + 快捷命令。已发布到 npm，终端输 `npx qinghe-valley-tales` 就能玩，不用克隆、不用装。
 
 > 详细产品设计见 [docs/PRD.md](docs/PRD.md)，网页版视觉规范见 [design-system/default/pages/web-game.md](design-system/default/pages/web-game.md)。
 
@@ -45,14 +45,26 @@ cd StardewValley
 npm install
 ```
 
-### 玩终端版
+### 玩终端版（最简单，不用克隆）
+
+已发布到 npm，任意终端（需要 Node.js >= 20）直接运行：
 
 ```bash
-npm start
+npx qinghe-valley-tales
 ```
 
-- 用数字菜单或快捷命令操作（例如 `浇水 全部`、`go town`），输入 `help` 或 `?` 查看当前可用命令。
-- 可选参数：`npm start -- --seed 42` 用固定随机种子开局（结果可复现，方便调试）。
+- 首次运行会从 npm 自动下载（约几十 KB），之后输数字选菜单或敲命令（`?` 查看全部命令），`quit` 退出。
+- 存档自动保存在**你运行命令时所在目录**的 `saves/slot1.json`，下次在同一目录再运行就接着玩；想换存档位置可用环境变量 `QINGHE_SAVE_DIR=/path/to/dir`。
+- 可选参数：`npx qinghe-valley-tales -- --seed 42` 用固定随机种子开局（结果可复现，方便调试）。
+
+### 玩终端版（克隆源码方式，适合开发）
+
+```bash
+git clone git@github.com:OldCoffee/qinghe-valley-tales.git
+cd qinghe-valley-tales
+npm install
+npm start
+```
 
 ### 玩网页版
 
@@ -82,6 +94,7 @@ cd web && python3 -m http.server 8765
 | 命令 | 作用 |
 | --- | --- |
 | `npm start` | 启动终端版（`tsx` 直接跑 TypeScript，无需预编译） |
+| `npm run build:cli` | 用 esbuild 把终端版打包成单文件 `dist/cli.js`（带 shebang，npm 包的入口） |
 | `npm run build:web` | 用 esbuild 把 `src/web/main.ts` 打包成 `web/app.js`（压缩、IIFE） |
 | `npm test` | 运行全部单元测试（vitest） |
 | `npm run typecheck` | TypeScript 类型检查（`tsc --noEmit`） |
@@ -199,6 +212,21 @@ cd web && python3 -m http.server 8765
 - **`web/app.js` 不在仓库里**：每次改了 `src/` 下的代码，都要重新 `npm run build:web` 再发布，只更新 `web/index.html` 不会带上新逻辑。
 - **字体走 Google Fonts CDN**：`web/index.html` 引用了 Press Start 2P / VT323；无外网环境会自动回退系统等宽字体，不影响游玩。
 - **没有后端、没有账号系统**：所有状态在浏览器 localStorage，不收集任何数据。
+
+---
+
+## 发布终端版到 npm（维护者）
+
+终端版以单文件包发布，玩家 `npx qinghe-valley-tales` 即可游玩。发布流程：
+
+```bash
+npm login              # 首次需要在浏览器完成 npm 登录
+npm version patch      # 按需改版本号（patch/minor/major）
+npm publish            # 发布；prepublishOnly 会自动跑类型检查、测试并重新构建 dist/cli.js
+```
+
+- 包入口是 `dist/cli.js`（esbuild 打包的单文件，已带可执行权限），`files` 白名单只发布 `dist`；`dist/` 本身被 gitignore，不进 Git 仓库。
+- 发版前可用 `npm pack` 生成 tarball，在空目录用 `npx --package ./qinghe-valley-tales-<版本>.tgz qinghe-valley-tales` 先本地验证一次再正式发布。
 
 ---
 
