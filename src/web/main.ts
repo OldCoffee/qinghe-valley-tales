@@ -1186,6 +1186,11 @@ function socialPage(): string {
   const hereList = npcsHere(state);
   const list = socialSubTab === 'here' ? hereList : NPCS;
 
+  const RELATION_BADGE: Record<string, string> = {
+    dating: '<span class="badge ok">💐 交往中</span>',
+    engaged: '<span class="badge ok">💍 已订婚</span>',
+    married: '<span class="badge ok">💒 已婚</span>',
+  };
   const cardsHtml = list.length
     ? `<div class="cards grid-2">${list
         .map((npc) => {
@@ -1193,27 +1198,32 @@ function socialPage(): string {
           const locId = npcLocation(state, npc);
           const isHere = locId === state.location;
           const bday = isBirthday(state, npc);
-          return `<article class="card npc">
-            <div class="avatar">${npc.name[0]}</div>
-            <div style="min-width:0;flex:1;">
-              <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <b>${npc.name}</b>
-                <span class="hearts">${hearts(heartsOf(state, npc.id))}</span>
-                ${bday ? '<span class="badge ok">🎂 今日生日</span>' : ''}
+          const streak = st.talkStreak ?? 0;
+          return `<article class="card npc ${isHere ? 'here' : 'away'} ${bday ? 'bday' : ''}">
+            <div class="npc-top">
+              <div class="avatar">${npc.name[0]}</div>
+              <div class="npc-name-col">
+                <div class="npc-name-row">
+                  <b>${npc.name}</b>
+                  <span class="hearts">${hearts(heartsOf(state, npc.id))}</span>
+                  ${RELATION_BADGE[st.status] ?? ''}
+                  ${bday ? '<span class="badge ok">🎂 今日生日</span>' : ''}
+                </div>
+                <p class="npc-intro">${npc.intro}</p>
               </div>
-              <p>${npc.intro}</p>
-              ${friendshipBarHtml(npc.id)}
-              <p class="dim">
-                当前位置：<b>${locId ? LOCATIONS[locId].name : '家中休息'}</b> ·
-                生日：${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日 ·
-                ${st.talkedToday ? '今日已聊' : '今日未聊'} · 本周送礼 ${st.giftsThisWeek}/2
-              </p>
+              <span class="npc-loc-badge ${isHere ? 'on' : ''}">${isHere ? '📍 在场' : locId ? LOCATIONS[locId].name : '家中休息'}</span>
             </div>
-            <div class="card-btns">
-              <button class="pix-btn ${isHere ? 'gold' : ''}" data-act="open-npc" data-npc="${npc.id}">
-                ${isHere ? '互动 / 送礼' : '查看资料'}
-              </button>
+            ${friendshipBarHtml(npc.id)}
+            <div class="npc-chips">
+              <span class="chip ${st.talkedToday ? 'ok' : ''}">${st.talkedToday ? '✔ 今日已聊' : '今日未聊'}</span>
+              <span class="chip">本周送礼 ${st.giftsThisWeek}/2</span>
+              ${streak > 1 ? `<span class="chip ok">🔥 连聊 ${streak} 天</span>` : ''}
+              <span class="chip ${bday ? 'ok' : ''}">🎂 ${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日</span>
+              ${npc.marriageable ? '<span class="chip">可恋爱</span>' : ''}
             </div>
+            <button class="pix-btn ${isHere ? 'gold' : 'ghost'} npc-main-btn" data-act="open-npc" data-npc="${npc.id}">
+              ${isHere ? '互动 / 送礼' : '查看资料'}
+            </button>
           </article>`;
         })
         .join('')}</div>`
@@ -1493,7 +1503,7 @@ function npcModalHtml(npcId: string): string {
       <h2>💬 居民互动 · ${npc.name}</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
-    <div class="card npc" style="margin-bottom:12px;">
+    <div class="card npc npc-modal-card" style="margin-bottom:12px;">
       <div class="avatar-wrap">
         <div class="avatar ${fx && fx.tone !== 'talk' ? `fx-${fx.tone}` : ''}">${npc.name[0]}</div>
         ${fx ? `<div class="npc-fx-particles tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].map((p, i) => `<span style="--i:${i}">${p}</span>`).join('')}</div>` : ''}

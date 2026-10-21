@@ -512,8 +512,25 @@
       button.card:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood-dark); }
       .card.place { display: flex; justify-content: space-between; width: 100%; min-height: 56px; align-items: center; gap: 10px; }
       .card.place.on { background: var(--gold); }
-      .card.npc { display: flex; gap: 12px; align-items: center; }
+      .card.npc { display: flex; flex-direction: column; gap: 10px; align-items: stretch; }
       .card.npc p { margin: 2px 0; font-size: 18px; }
+      /* 社交卡优化布局：顶行（头像+名列+地点徽标）/ 全宽进度条 / 状态芯片行 / 整宽主按钮 */
+      .npc-top { display: flex; gap: 12px; align-items: flex-start; }
+      .npc-name-col { flex: 1; min-width: 0; }
+      .npc-name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 20px; }
+      .npc-intro { color: #6b5636; font-size: 16px !important; line-height: 1.25; }
+      .npc-loc-badge { flex: none; font-size: 14px; padding: 3px 8px; border: 2px solid var(--wood-dark); background: #e8e2d4; color: #6b5636; }
+      .npc-loc-badge.on { background: #cdeac0; color: #2f5d23; font-weight: bold; }
+      .card.npc .friend-bar { max-width: none; margin: 0; }
+      .npc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+      .npc-chips .chip { cursor: default; font-size: 14px; padding: 3px 8px; }
+      .npc-chips .chip:active { transform: none; box-shadow: 0 2px 0 var(--wood-dark); }
+      .npc-main-btn { width: 100%; margin-top: auto; }
+      .card.npc.away { background: #efe7d2; }
+      .card.npc.away .avatar { filter: saturate(0.35); opacity: 0.75; }
+      .card.npc.away .npc-intro, .card.npc.away .hearts { opacity: 0.65; }
+      .card.npc.bday { border-color: #b8860b; box-shadow: 0 4px 0 #b8860b, 0 0 0 3px #ffe9a8; }
+      .card.npc.npc-modal-card { flex-direction: row; align-items: flex-start; }
       .avatar {
         flex: 0 0 54px; height: 54px; background: var(--sky); border: 3px solid var(--wood-dark);
         display: grid; place-items: center; font-size: 26px; font-weight: bold;
