@@ -99,11 +99,33 @@ export const MONSTERS_ATTACKING = 2;
 export const BASE_CRIT_CHANCE = 0.05;
 
 export const TALK_POINTS = 20;
+/** 连日聊天奖励：连续天数每多 1 天额外 +2，最多计 5 天（封顶 +10） */
+export const TALK_STREAK_BONUS_PER_DAY = 2;
+export const TALK_STREAK_MAX_DAYS = 5;
+/** 生日当天聊天、与配偶聊天的额外亲密度 */
+export const TALK_BIRTHDAY_BONUS = 10;
+export const TALK_SPOUSE_BONUS = 10;
 export const DAILY_DECAY = 2;
 export const POINTS_PER_HEART = 250;
 export const GIFTS_PER_WEEK = 2;
+/** 生日只放大正面礼物分，负面分不放大 */
 export const BIRTHDAY_MULTIPLIER = 8;
 export const GIFT_POINTS = { loved: 80, liked: 45, neutral: 20, disliked: -20, hated: -40 };
+/** 礼物价值档：按售价给正面口味分加权，越贵重心意越足 */
+export const GIFT_VALUE_TIERS: { min: number; factor: number; label: string }[] = [
+  { min: 1000, factor: 2, label: '价值连城' },
+  { min: 400, factor: 1.6, label: '贵重' },
+  { min: 150, factor: 1.3, label: '体面' },
+  { min: 50, factor: 1, label: '适中' },
+  { min: 15, factor: 0.7, label: '朴素' },
+  { min: 0, factor: 0.4, label: '廉价' },
+];
+/** 售价不高于此值的礼物被视为敷衍（垃圾/废料级），无论口味都会掉亲密度 */
+export const GIFT_CHEAP_MAX_VALUE = 5;
+export const GIFT_CHEAP_POINTS = -10;
+/** 送出贵重（≥此售价）却不合口味的礼物，额外扣分：浪费又不合心意 */
+export const GIFT_WASTED_VALUE = 300;
+export const GIFT_WASTED_EXTRA = -10;
 export const FRIENDSHIP_CAP = { friendMarriageable: 2000, max: 2500 };
 export const DATING_HEARTS = 8;
 export const PROPOSAL_HEARTS = 10;

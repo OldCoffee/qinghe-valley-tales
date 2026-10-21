@@ -843,6 +843,36 @@
         .bag-summary > div + div { border-left: 0; border-top: 3px solid var(--wood-dark); }
         body { font-size: 19px; }
       }
+      /* 居民互动：亲密度细进度条 */
+      .friend-bar { position: relative; height: 16px; margin: 6px 0; background: #3a2a1e; border: 2px solid var(--wood-dark); overflow: hidden; max-width: 340px; }
+      .friend-bar-fill { height: 100%; background: linear-gradient(90deg, #ff8fab, #e75480); transition: width .5s ease; }
+      .friend-bar span { position: absolute; inset: 0; font-size: 11px; line-height: 14px; text-align: center; color: #fff8dc; text-shadow: 1px 1px 0 #000; }
+      /* 居民互动动效：头像反应 */
+      .avatar-wrap { position: relative; flex: none; }
+      .avatar.fx-beloved, .avatar.fx-loved { animation: npcBounce .7s ease; }
+      .avatar.fx-liked { animation: npcBounce .5s ease; }
+      .avatar.fx-cheap, .avatar.fx-disliked { animation: npcShake .45s ease; filter: saturate(.6); }
+      .avatar.fx-hated { animation: npcShake .55s ease; filter: saturate(.3) brightness(.85); }
+      @keyframes npcBounce { 0% { transform: translateY(0) scale(1); } 30% { transform: translateY(-10px) scale(1.12); } 55% { transform: translateY(2px) scale(1.04); } 100% { transform: translateY(0) scale(1); } }
+      @keyframes npcShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+      /* 互动粒子：按评价档位上飘/下坠 */
+      .npc-fx-particles { position: absolute; left: 50%; top: -6px; width: 0; height: 0; pointer-events: none; z-index: 3; }
+      .npc-fx-particles span { position: absolute; font-size: 18px; opacity: 0; animation: heartFloat 1.4s ease-out forwards; animation-delay: calc(var(--i) * .12s); transform: translateX(calc((var(--i) - 2) * 13px)); }
+      .npc-fx-particles.tone-cheap span, .npc-fx-particles.tone-disliked span, .npc-fx-particles.tone-hated span { animation-name: heartFall; }
+      @keyframes heartFloat { 0% { opacity: 0; transform: translate(calc((var(--i) - 2) * 13px), 6px) scale(.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(calc((var(--i) - 2) * 16px), -52px) scale(1.25); } }
+      @keyframes heartFall { 0% { opacity: 0; transform: translate(calc((var(--i) - 1) * 14px), -4px) scale(.7); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(calc((var(--i) - 1) * 18px), 34px) scale(.9) rotate(24deg); } }
+      /* 互动评价气泡 */
+      .npc-react { margin: 0 0 12px; padding: 8px 12px; border: 3px solid var(--wood-dark); background: #fff8dc; color: #4a3220; font-size: 15px; animation: reactPop .45s ease; }
+      .npc-react.tone-beloved, .npc-react.tone-loved { background: #ffe3ee; border-color: #c14b78; }
+      .npc-react.tone-cheap, .npc-react.tone-disliked { background: #e8e2d4; }
+      .npc-react.tone-hated { background: #d8d3cc; border-color: #5a4a42; }
+      @keyframes reactPop { 0% { transform: scale(.85); opacity: 0; } 60% { transform: scale(1.04); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+      /* 在场居民 pill 上的迷你粒子 */
+      .npc-pill { position: relative; }
+      .npc-pill.fx-beloved, .npc-pill.fx-loved, .npc-pill.fx-liked { animation: npcBounce .6s ease; }
+      .npc-pill.fx-cheap, .npc-pill.fx-disliked, .npc-pill.fx-hated { animation: npcShake .45s ease; }
+      .npc-pill-fx { position: absolute; left: 50%; top: -8px; pointer-events: none; }
+      .npc-pill-fx span { position: absolute; font-size: 14px; opacity: 0; animation: heartFloat 1.2s ease-out forwards; animation-delay: calc(var(--i) * .12s); }
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation: none !important; transition: none !important; }
       }

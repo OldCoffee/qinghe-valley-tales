@@ -4,12 +4,21 @@ import {
   DATING_HEARTS,
   DAY_START_MINUTES,
   FRIENDSHIP_CAP,
+  GIFT_CHEAP_MAX_VALUE,
+  GIFT_CHEAP_POINTS,
   GIFT_POINTS,
+  GIFT_VALUE_TIERS,
+  GIFT_WASTED_EXTRA,
+  GIFT_WASTED_VALUE,
   GIFTS_PER_WEEK,
   NPC_BEDTIME_MINUTES,
   POINTS_PER_HEART,
   PROPOSAL_HEARTS,
+  TALK_BIRTHDAY_BONUS,
   TALK_POINTS,
+  TALK_SPOUSE_BONUS,
+  TALK_STREAK_BONUS_PER_DAY,
+  TALK_STREAK_MAX_DAYS,
   WEDDING_DELAY_DAYS,
 } from '../../data/config.js';
 import { EVENT_BY_ID, HEART_EVENTS } from '../../data/events.js';
@@ -73,13 +82,65 @@ export function tasteOf(npc: NpcDef, itemId: string): Taste {
   return item.category === 'trash' || item.category === 'monster' ? 'disliked' : 'neutral';
 }
 
-const REACTIONS: Record<Taste, string> = {
+/** 赠礼评价档位：由口味 × 价值共同决定，驱动文案与网页动效强度 */
+export type GiftTier = 'beloved' | 'loved' | 'liked' | 'neutral' | 'cheap' | 'disliked' | 'hated';
+
+export interface GiftEvaluation {
+  taste: Taste;
+  /** 礼物售价（金） */
+  value: number;
+  /** 价值加权系数（负面口味恒为 1） */
+  factor: number;
+  valueLabel: string;
+  /** 是否触发「太廉价敷衍」惩罚 */
+  cheap: boolean;
+  /** 最终亲密度变化（已含生日放大，仅正面分放大） */
+  points: number;
+  tier: GiftTier;
+  reaction: string;
+}
+
+const REACTIONS: Record<GiftTier, string> = {
+  beloved: '眼睛一下子亮了，小心翼翼地捧在手里："这、这也太贵重了……还是我最喜欢的东西！你怎么知道的？我会好好珍藏的！"',
   loved: '眼睛一下子亮了："这是我最喜欢的东西！你怎么知道的？"',
   liked: '开心地收下了："谢谢你，我很喜欢。"',
   neutral: '礼貌地收下了："谢谢。"',
+  cheap: '捏着这件小东西翻来覆去看了看，勉强笑了笑："呃……你还挺会省钱的哈。"',
   disliked: '皱了皱眉："呃……谢谢。"',
   hated: '脸色一沉："你是故意的吗？"',
 };
+
+/** 计算一次赠礼的亲密度变化与评价（纯函数，网页用它预览动效档位，引擎用它结算） */
+export function giftEvaluation(npc: NpcDef, itemId: string, birthday = false): GiftEvaluation {
+  const item = ITEMS[itemId];
+  const taste = tasteOf(npc, itemId);
+  const value = item?.sellPrice ?? 0;
+  const tierDef = GIFT_VALUE_TIERS.find((t) => value >= t.min) ?? GIFT_VALUE_TIERS[GIFT_VALUE_TIERS.length - 1];
+  const negative = taste === 'disliked' || taste === 'hated';
+  const cheap = !negative && value <= GIFT_CHEAP_MAX_VALUE;
+
+  let points: number;
+  let tier: GiftTier;
+  if (cheap) {
+    points = GIFT_CHEAP_POINTS;
+    tier = 'cheap';
+  } else if (negative) {
+    points = GIFT_POINTS[taste] + (value >= GIFT_WASTED_VALUE ? GIFT_WASTED_EXTRA : 0);
+    tier = taste;
+  } else {
+    points = Math.round(GIFT_POINTS[taste] * tierDef.factor);
+    if (birthday) points *= BIRTHDAY_MULTIPLIER;
+    tier = taste === 'loved' && tierDef.factor >= 1.3 ? 'beloved' : taste === 'neutral' && tierDef.factor >= 1.6 ? 'liked' : taste;
+  }
+
+  let reaction = REACTIONS[tier];
+  if (!negative && !cheap && taste !== 'loved' && tierDef.factor >= 1.6) {
+    reaction = '有些受宠若惊："这么贵重的东西……真的送给我吗？谢谢你，我会好好收着的。"';
+  } else if (!negative && !cheap && tierDef.factor <= 0.4 && taste !== 'neutral') {
+    reaction = '笑着收下了，只是笑意有点勉强："心意我领了……下次不用这么客气。"';
+  }
+  return { taste, value, factor: negative || cheap ? 1 : tierDef.factor, valueLabel: tierDef.label, cheap, points, tier, reaction };
+}
 
 function requirePresent(s: GameState, npc: NpcDef | undefined, events: GameEvent[]): npc is NpcDef {
   if (!npc) {
@@ -110,7 +171,26 @@ export function talk(s: GameState, events: GameEvent[], npcId: string): boolean 
   s.minutes += TALK_MINUTES;
   if (!state.talkedToday) {
     state.talkedToday = true;
-    addFriendship(s, npc.id, TALK_POINTS);
+    // 连日聊天：与昨天连上则 streak+1，断一天重置；奖励封顶，避免刷分失衡
+    const today = absoluteDay(s);
+    const streak = state.lastTalkDay === today - 1 ? (state.talkStreak ?? 0) + 1 : 1;
+    state.talkStreak = streak;
+    state.lastTalkDay = today;
+    let points = TALK_POINTS + Math.min(streak - 1, TALK_STREAK_MAX_DAYS) * TALK_STREAK_BONUS_PER_DAY;
+    const bonusNotes: string[] = [];
+    if (streak > 1) bonusNotes.push(`连聊第 ${streak} 天`);
+    if (isBirthday(s, npc)) {
+      points += TALK_BIRTHDAY_BONUS;
+      bonusNotes.push('生日祝福');
+    }
+    if (state.status === 'married') {
+      points += TALK_SPOUSE_BONUS;
+      bonusNotes.push('夫妻闲话');
+    }
+    addFriendship(s, npc.id, points);
+    if (bonusNotes.length) {
+      events.push(love(`💬 和${npc.name}聊得很投机（${bonusNotes.join('、')}，亲密度 +${points}）`));
+    }
   }
 
   const hearts = heartsOf(s, npc.id);
@@ -193,15 +273,17 @@ export function gift(s: GameState, events: GameEvent[], npcId: string, itemId: s
     return false;
   }
 
-  const taste = tasteOf(npc, itemId);
-  const points = GIFT_POINTS[taste] * (birthday ? BIRTHDAY_MULTIPLIER : 1);
+  const ev = giftEvaluation(npc, itemId, birthday);
   removeItem(s, itemId, 1);
   state.giftedToday = true;
   state.giftsThisWeek += 1;
-  addFriendship(s, npc.id, points);
-  const birthdayText = birthday ? '（生日礼物，效果翻倍！）' : '';
-  const level = points >= 0 ? 'love' : 'warn';
-  events.push({ level, text: `${npc.name}${REACTIONS[taste]}${birthdayText}` });
+  const beforePts = state.friendship;
+  addFriendship(s, npc.id, ev.points);
+  const actual = state.friendship - beforePts; // 受 0 与上限钳制后的真实变化，文案与气泡统一用它
+  const birthdayText = birthday && ev.points > 0 ? '（生日礼物，效果×8！）' : '';
+  const level = actual > 0 ? 'love' : actual < 0 ? 'warn' : 'info';
+  const sign = actual > 0 ? `+${actual}` : `${actual}`;
+  events.push({ level, text: `${npc.name}${ev.reaction}${birthdayText}（亲密度 ${sign}）` });
   return true;
 }
 

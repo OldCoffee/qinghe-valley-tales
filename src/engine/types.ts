@@ -43,6 +43,9 @@ export type RelationStatus = 'friend' | 'dating' | 'engaged' | 'married';
 
 export interface NpcState {
   friendship: number;
+  /** 连续聊天天数与上次聊天的绝对天数（旧存档可能缺失，读取时按 0 兜底） */
+  talkStreak?: number;
+  lastTalkDay?: number;
   talkedToday: boolean;
   giftedToday: boolean;
   giftsThisWeek: number;

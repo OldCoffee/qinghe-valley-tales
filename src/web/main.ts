@@ -1,5 +1,5 @@
 import { BUNDLES, ROOMS } from '../data/bundles.js';
-import { BAG_SELL_RATE, CLINIC, DURABILITY, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
+import { BAG_SELL_RATE, CLINIC, DURABILITY, POINTS_PER_HEART, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
 import { FISH, ROD_NAMES } from '../data/fish.js';
 import { ITEMS, itemName } from '../data/items.js';
@@ -20,7 +20,7 @@ import { shopsAt } from '../engine/systems/economy.js';
 import { availableFish, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
-import { heartsOf, isBirthday, npcLocation, npcsHere } from '../engine/systems/social.js';
+import { giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
 const SAVE_KEY = 'qinghe-valley-save';
@@ -87,6 +87,33 @@ let mineFxState: { rockHit: boolean; slash: boolean; dmgText?: string; crit?: bo
 let forestChopFx = false;
 let wearFlash = false;
 let breakShake = false;
+
+/** 居民互动动效（一次性）：聊天/赠礼后按亲密度变化与赠礼评价档位播放粒子、头像与气泡 */
+type NpcFxTone = 'beloved' | 'loved' | 'liked' | 'neutral' | 'cheap' | 'disliked' | 'hated' | 'talk';
+let npcFxState: { npcId: string; tone: NpcFxTone; delta: number; label?: string } | null = null;
+
+const NPC_FX_PARTICLES: Record<NpcFxTone, string[]> = {
+  beloved: ['💖', '✨', '💖', '🌟', '💕', '✨'],
+  loved: ['💖', '💕', '💖', '✨', '💕'],
+  liked: ['💗', '💗', '✨', '💗'],
+  neutral: ['💛', '💛'],
+  cheap: ['💧', '…'],
+  disliked: ['💔', '💧'],
+  hated: ['💔', '🖤', '💢'],
+  talk: ['💬', '💗', '♪'],
+};
+
+/** 亲密度细进度：当前心内点数进度与距下一心差值 */
+function friendshipBarHtml(npcId: string): string {
+  const pts = state.npcs[npcId].friendship;
+  const into = pts % POINTS_PER_HEART;
+  const pct = Math.round((into / POINTS_PER_HEART) * 100);
+  const isMax = heartsOf(state, npcId) >= 10;
+  return `<div class="friend-bar" title="亲密度 ${pts} 点">
+    <div class="friend-bar-fill" style="width:${isMax ? 100 : pct}%"></div>
+    <span>${pts} 点${isMax ? ' · 已满心' : ` · 距下一心还差 ${POINTS_PER_HEART - into} 点`}</span>
+  </div>`;
+}
 let toastSeq = 1;
 let toasts: ToastFx[] = [];
 let nightFlash = false;
@@ -315,6 +342,29 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
     const failEv = events.find((e) => e.text.includes('鱼线断了') || e.text.includes('跑掉了'));
     if (catchEv) pushToast(catchEv.text, 'good');
     else if (failEv) pushToast(failEv.text, 'bad');
+  }
+
+  // 居民互动动效：聊天小爱心，赠礼按评价档位决定粒子与头像反应
+  npcFxState = null;
+  if (action.type === 'talk') {
+    const npc = NPC_BY_ID[action.npcId];
+    const delta = next.npcs[action.npcId].friendship - prev.npcs[action.npcId].friendship;
+    if (npc) npcFxState = { npcId: action.npcId, tone: 'talk', delta, label: delta > 0 ? `亲密度 +${delta}` : '今天已经聊过了' };
+  }
+  if (action.type === 'gift') {
+    const npc = NPC_BY_ID[action.npcId];
+    const item = ITEMS[action.itemId];
+    if (npc && item && action.itemId !== 'bouquet' && action.itemId !== 'pendant') {
+      const ev = giftEvaluation(npc, action.itemId, isBirthday(next, npc));
+      const delta = next.npcs[action.npcId].friendship - prev.npcs[action.npcId].friendship;
+      npcFxState = {
+        npcId: action.npcId,
+        tone: ev.tier,
+        delta,
+        label: `${item.name}（${ev.value} 金）· 亲密度 ${delta > 0 ? `+${delta}` : delta}`,
+      };
+      pushToast(`${npc.name}：${delta > 0 ? '很开心' : delta < 0 ? '不太高兴' : '收下了'}（亲密度 ${delta > 0 ? `+${delta}` : delta}）`, delta > 0 ? 'good' : delta < 0 ? 'bad' : 'warn');
+    }
   }
 }
 
@@ -888,12 +938,16 @@ function scenePage(): string {
         <span>在场居民（点击互动/送礼）：</span>
         ${hereNpcs
           .map(
-            (npc) => `<button class="npc-pill" data-act="open-npc" data-npc="${npc.id}">
+            (npc) => {
+              const fx = npcFxState?.npcId === npc.id ? npcFxState : null;
+              return `<button class="npc-pill ${fx ? `fx-${fx.tone}` : ''}" data-act="open-npc" data-npc="${npc.id}">
               <span class="mini-ava">${npc.name[0]}</span>
               <b>${npc.name}</b>
               <span class="hearts">${'♥'.repeat(Math.min(5, heartsOf(state, npc.id)) || 1)}</span>
               <small>${state.npcs[npc.id].talkedToday ? '已聊' : '可聊天'}</small>
-            </button>`,
+              ${fx ? `<span class="npc-pill-fx tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].slice(0, 3).map((p, i) => `<span style="--i:${i}">${p}</span>`).join('')}</span>` : ''}
+            </button>`;
+            },
           )
           .join('')}
       </div>`
@@ -1150,6 +1204,7 @@ function socialPage(): string {
                 ${bday ? '<span class="badge ok">🎂 今日生日</span>' : ''}
               </div>
               <p>${npc.intro}</p>
+              ${friendshipBarHtml(npc.id)}
               <p class="dim">
                 当前位置：<b>${locId ? LOCATIONS[locId].name : '家中休息'}</b> ·
                 生日：${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日 ·
@@ -1422,6 +1477,7 @@ function npcModalHtml(npcId: string): string {
   const npc = NPC_BY_ID[npcId];
   if (!npc) return '';
   const st = state.npcs[npcId];
+  const fx = npcFxState?.npcId === npcId ? npcFxState : null;
   const locId = npcLocation(state, npc);
   const isHere = locId === state.location;
   const giftableIds = Object.keys(state.inventory).filter((id) => {
@@ -1440,9 +1496,13 @@ function npcModalHtml(npcId: string): string {
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="card npc" style="margin-bottom:12px;">
-      <div class="avatar">${npc.name[0]}</div>
+      <div class="avatar-wrap">
+        <div class="avatar ${fx && fx.tone !== 'talk' ? `fx-${fx.tone}` : ''}">${npc.name[0]}</div>
+        ${fx ? `<div class="npc-fx-particles tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].map((p, i) => `<span style="--i:${i}">${p}</span>`).join('')}</div>` : ''}
+      </div>
       <div>
         <b>${npc.name}</b> <span class="hearts">${hearts(heartsOf(state, npc.id))}</span>
+        ${friendshipBarHtml(npc.id)}
         <p>${npc.intro}</p>
         <p class="dim">
           所在位置：<b>${locId ? LOCATIONS[locId].name : '家中'}</b> ·
@@ -1452,6 +1512,7 @@ function npcModalHtml(npcId: string): string {
         <p class="dim">${st.talkedToday ? '✔ 今天已经聊过天了' : '今天还没打招呼'} · 本周已送礼 ${st.giftsThisWeek}/2 次</p>
       </div>
     </div>
+    ${fx ? `<div class="npc-react tone-${fx.tone}">${fx.tone === 'talk' ? '💬' : '🎁'} ${esc(fx.label ?? '')}</div>` : ''}
     ${
       isHere
         ? `<div class="toolbar">
@@ -1461,14 +1522,16 @@ function npcModalHtml(npcId: string): string {
           ${
             giftableIds.length
               ? `<div class="bag-grid">${giftableIds
-                  .map(
-                    (id) => `<button class="item" data-act="gift-direct" data-npc="${npc.id}" data-item="${id}">
+                  .map((id) => {
+                    const preview = giftEvaluation(npc, id, isBirthday(state, npc));
+                    return `<button class="item" data-act="gift-direct" data-npc="${npc.id}" data-item="${id}" title="价值 ${preview.value} 金（${preview.valueLabel}）">
                       <b>${ITEMS[id].name[0]}</b>
                       <span>${ITEMS[id].name}</span>
-                      <small>×${state.inventory[id]} · 点击赠送</small>
-                    </button>`,
-                  )
-                  .join('')}</div>`
+                      <small>×${state.inventory[id]} · 值 ${preview.value} 金 · 点击赠送</small>
+                    </button>`;
+                  })
+                  .join('')}</div>
+          <p class="dim">提示：越合口味、越贵重的礼物加的亲密度越多；太廉价（≤5 金）或不合口味的礼物反而会掉亲密度。</p>`
               : '<p class="dim">背包里暂时没有可赠送的礼物。</p>'
           }`
         : `<div class="bag-empty">
@@ -1745,6 +1808,7 @@ function render(): void {
   }
   mysteryState.flipFx = false;
   mineFxState = { rockHit: false, slash: false };
+  // npcFxState 不在此清：居民弹窗在下方 uiModalContent() 生成后才消费（见 ui-modal 渲染处）
 
   $('log').innerHTML = log.map((e) => `<div class="log-line ${e.level}">${esc(e.text)}</div>`).join('');
   renderToasts();
@@ -1774,6 +1838,8 @@ function render(): void {
   const uiHtml = view || shopHtml ? '' : uiModalContent();
   $('ui-modal').style.display = uiHtml ? 'flex' : 'none';
   if (uiHtml) $('ui-modal-card').innerHTML = uiHtml;
+  // 居民互动动效在弹窗 HTML 生成后才消费（stage 里的在场 pill 已在上方消费过同一状态）
+  npcFxState = null;
 
   if (nightFlash) {
     $('night').classList.remove('show');

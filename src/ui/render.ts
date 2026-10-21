@@ -275,7 +275,7 @@ export function renderPeople(s: GameState): string {
     const state = s.npcs[npc.id];
     const tag = npc.marriageable ? color.dim(' 可恋爱') : '';
     const gifts = color.dim(` 本周送礼 ${state.giftsThisWeek}/2${state.talkedToday ? ' · 今天聊过' : ''}`);
-    lines.push(`   ${npc.name.padEnd(3, '　')} ${hearts(s, npc.id)}${STATUS_NAMES[state.status]}${tag}${gifts}`);
+    lines.push(`   ${npc.name.padEnd(3, '　')} ${hearts(s, npc.id)} ${color.dim(`${state.friendship} 点`)}${STATUS_NAMES[state.status]}${tag}${gifts}`);
     lines.push(color.dim(`        ${npc.intro} 生日：${{ spring: '春', summer: '夏', fall: '秋', winter: '冬' }[npc.birthday.season]} ${npc.birthday.day} 日`));
   }
   lines.push(color.dim(`   每 ${POINTS_PER_HEART} 点好感 = 1 颗心。8 心送花束可以交往，10 心送美人鱼吊坠可以求婚。`));
