@@ -5,6 +5,7 @@ import {
   MONSTER_HIT_CHANCE,
   MONSTERS_ATTACKING,
   PASS_OUT_MINUTES,
+  TOOL_POWER,
 } from '../../data/config.js';
 import { itemName } from '../../data/items.js';
 import { ELEVATOR_STEP, GEMS, MINE_CHESTS, MONSTERS, ORES, WEAPONS, type MonsterDef } from '../../data/mine.js';
@@ -27,6 +28,15 @@ export function elevatorFloors(s: GameState): number[] {
 
 export function weaponDamage(s: GameState): [number, number] {
   return WEAPONS.find((w) => w.id === s.weapon)!.damage;
+}
+
+/** 武器档位（WEAPONS 顺序，拳头为 0）：越好的武器暴击率越高 */
+export function weaponTier(s: GameState): number {
+  return Math.max(0, WEAPONS.findIndex((w) => w.id === s.weapon));
+}
+
+export function weaponCritChance(s: GameState): number {
+  return BASE_CRIT_CHANCE + (hasProf(s, 'scout') ? 0.15 : 0) + TOOL_POWER.weaponCritPerTier * weaponTier(s);
 }
 
 function requireMine(s: GameState, events: GameEvent[]): boolean {
@@ -184,14 +194,15 @@ export function mineRock(s: GameState, events: GameEvent[], count: Quantity): bo
     broken += 1;
     let xp = 1;
 
-    if (random(s) < 0.35) {
+    const pickLevel = Math.max(0, s.tools.pickaxe);
+    if (random(s) < 0.35 + TOOL_POWER.pickaxeOreChancePerLevel * pickLevel) {
       const ore = ORES.find((o) => inRange(floor, o.floors))!;
       const qty = 1 + (random(s) < 0.3 ? 1 : 0) + (hasProf(s, 'miner') ? 1 : 0);
       addItem(s, ore.id, qty);
       loot[ore.id] = (loot[ore.id] ?? 0) + qty;
       xp += 3;
     }
-    if (random(s) < 0.04 * (hasProf(s, 'geologist') ? 2 : 1)) {
+    if (random(s) < (0.04 + TOOL_POWER.pickaxeGemChancePerLevel * pickLevel) * (hasProf(s, 'geologist') ? 2 : 1)) {
       const pool = GEMS.filter((g) => inRange(floor, g.floors));
       let roll = random(s) * pool.reduce((sum, g) => sum + g.weight, 0);
       const gem = pool.find((g) => (roll -= g.weight) < 0) ?? pool[0];
@@ -240,7 +251,7 @@ export function attack(s: GameState, events: GameEvent[]): boolean {
   let mult = 1 + 0.03 * skillLevel(s, 'combat');
   if (hasProf(s, 'fighter')) mult *= 1.1;
   if (hasProf(s, 'brute')) mult *= 1.15;
-  const crit = random(s) < BASE_CRIT_CHANCE + (hasProf(s, 'scout') ? 0.15 : 0);
+  const crit = random(s) < weaponCritChance(s);
   const damage = Math.round((lo + random(s) * (hi - lo)) * mult * (crit ? 2 : 1));
   target.hp -= damage;
   events.push(info(`你砍向${def.name}，造成 ${damage} 点伤害${crit ? '（暴击！）' : ''}。`));

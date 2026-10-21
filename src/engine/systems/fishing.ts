@@ -3,6 +3,7 @@ import {
   FISH_CAST,
   FISH_MAX_ROUNDS,
   FISH_ROUND_MINUTES,
+  TOOL_POWER,
   TRASH_CHANCE,
 } from '../../data/config.js';
 import { FISH, TRASH, weatherMatches, type FishDef } from '../../data/fish.js';
@@ -67,7 +68,10 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
   s.minutes += FISH_CAST.minutes;
   if (wearTool(s, events, 'rod')) return true;
 
-  const trashChance = hasProf(s, 'lucky_lure') ? 0 : Math.max(0.03, TRASH_CHANCE - level * 0.01);
+  const rodLevel = Math.max(0, s.tools.rod);
+  const trashChance = hasProf(s, 'lucky_lure')
+    ? 0
+    : Math.max(0.01, TRASH_CHANCE - level * 0.01 - TOOL_POWER.rodTrashReductionPerLevel * rodLevel);
   if (random(s) < trashChance) {
     const trash = pick(s, TRASH);
     addItem(s, trash.id, 1);
@@ -81,7 +85,10 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
     events.push(info('等了半天，一条鱼都没有咬钩。也许换个时间或地点试试。'));
     return true;
   }
-  const weights = candidates.map((f) => (hasProf(s, 'lucky_lure') ? 3 : 7 - f.difficulty));
+  // 好鱼竿更容易引来稀有鱼：难度越高的鱼，权重随鱼竿等级提升越多
+  const weights = candidates.map(
+    (f) => (hasProf(s, 'lucky_lure') ? 3 : 7 - f.difficulty) + rodLevel * f.difficulty * 0.6,
+  );
   let roll = random(s) * weights.reduce((a, b) => a + b, 0);
   let fish = candidates[0];
   for (let i = 0; i < candidates.length; i++) {

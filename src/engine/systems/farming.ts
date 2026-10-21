@@ -1,4 +1,4 @@
-import { PASS_OUT_MINUTES, TILE_COSTS } from '../../data/config.js';
+import { PASS_OUT_MINUTES, TILE_COSTS, TOOL_POWER } from '../../data/config.js';
 import { CROPS } from '../../data/crops.js';
 import { itemName, seedIdOf } from '../../data/items.js';
 import { TOOL_NAMES } from '../../data/skills.js';
@@ -122,6 +122,8 @@ export function till(s: GameState, events: GameEvent[], target: Target): boolean
     cost: () => diligent(s, scaledCost(s, TILE_COSTS.till, 'hoe', 'farming')),
     apply: (tile) => {
       tile.ground = 'tilled';
+      // 高级锄头翻出的土更肥沃：作物首次正常生长额外 +1 天
+      tile.fertile = s.tools.hoe > 0 && random(s) < TOOL_POWER.hoeFertileChancePerLevel * s.tools.hoe;
     },
     toolFor: () => 'hoe',
   });
@@ -133,6 +135,7 @@ export function water(s: GameState, events: GameEvent[], target: Target): boolea
     events.push(warn(`${busy}。`));
     return false;
   }
+  let sprouted = 0;
   return runTileOp(s, events, target, {
     verb: '浇水',
     check: (tile) => {
@@ -145,8 +148,17 @@ export function water(s: GameState, events: GameEvent[], target: Target): boolea
     cost: () => diligent(s, scaledCost(s, TILE_COSTS.water, 'can', 'farming')),
     apply: (tile) => {
       tile.watered = true;
+      // 高级水壶出水更匀：有概率把作物立即催长 1 天
+      if (tile.crop && !tile.crop.wilted && s.tools.can > 0 && random(s) < TOOL_POWER.canSproutChancePerLevel * s.tools.can) {
+        const maxAge = CROPS[tile.crop.cropId].growDays;
+        if (tile.crop.age < maxAge) {
+          tile.crop.age += 1;
+          sprouted += 1;
+        }
+      }
     },
     toolFor: () => 'can',
+    summary: () => (sprouted > 0 ? `（好水壶催长了 ${sprouted} 格作物）` : ''),
   });
 }
 

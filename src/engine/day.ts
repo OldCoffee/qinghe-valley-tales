@@ -46,6 +46,11 @@ function growCrops(s: GameState, events: GameEvent[]): void {
         // 有杂草时作物暂停生长（抢水抢肥），除草后才恢复
         if (!tile.weeds && crop.age < CROPS[crop.cropId].growDays) {
           crop.age += 1;
+          // 肥沃土地让作物第一次正常生长时额外多长 1 天，触发后消耗
+          if (tile.fertile) {
+            crop.age = Math.min(CROPS[crop.cropId].growDays, crop.age + 1);
+            tile.fertile = false;
+          }
         }
       } else {
         crop.dryDays = (crop.dryDays ?? 0) + 1;

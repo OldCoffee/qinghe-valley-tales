@@ -35,6 +35,8 @@ export interface Tile {
   greenhouse?: boolean;
   /** 已开垦地块上滋生的杂草（与地面 ground:'weed' 区分）；有杂草时作物暂停生长、成熟收获减半 */
   weeds?: boolean;
+  /** 肥沃土地（高级锄头开垦时概率产生）：作物首次正常生长额外 +1 天，触发后消耗 */
+  fertile?: boolean;
 }
 
 export type RelationStatus = 'friend' | 'dating' | 'engaged' | 'married';

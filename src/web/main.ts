@@ -1,5 +1,5 @@
 import { BUNDLES, ROOMS } from '../data/bundles.js';
-import { DURABILITY, SAVE_VERSION } from '../data/config.js';
+import { DURABILITY, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
 import { FISH, ROD_NAMES } from '../data/fish.js';
 import { ITEMS, itemName } from '../data/items.js';
@@ -398,10 +398,11 @@ function tileFace(tile: Tile): { cls: string; glyph: string; sub: string } {
   if (tile.ground === 'grass') return { cls: 'grass', glyph: '地', sub: '空地' };
   const weedCls = tile.weeds ? ' weedy' : '';
   const weedSub = tile.weeds ? ' · 有杂草' : '';
+  const fertileSub = tile.fertile ? ' · 肥沃' : '';
   if (tile.crop?.wilted && stage) return { cls: `wilted${weedCls}`, glyph: '枯', sub: `${stage.label} 已枯萎` };
-  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: stage.label[0], sub: `${stage.label} 可收获${weedSub}` };
-  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: stage.label[0], sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${weedSub}` };
-  return { cls: `dry${weedCls}`, glyph: '土', sub: tile.weeds ? '已开垦 · 有杂草' : '已开垦' };
+  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: stage.label[0], sub: `${stage.label} 可收获${weedSub}${fertileSub}` };
+  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: stage.label[0], sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${weedSub}${fertileSub}` };
+  return { cls: `dry${weedCls}`, glyph: '土', sub: tile.weeds ? '已开垦 · 有杂草' : `已开垦${fertileSub}` };
 }
 
 /* ---------- 1. 场景整页 (Scene Page) ---------- */
@@ -983,6 +984,28 @@ function bagItemMeta(id: string): string {
   return `${category} · 卖 ${sellPrice(state, id)} 金`;
 }
 
+/** 工具越好效果越强：当前等级的专属效果（与引擎 TOOL_POWER 数值一致） */
+function toolPowerText(t: ToolId): string {
+  const lv = Math.max(0, state.tools[t]);
+  const discount = lv * 15;
+  switch (t) {
+    case 'hoe':
+      return lv === 0
+        ? '普通锄头：升级后开垦有概率翻出肥沃土地'
+        : `开垦省时省力 ${discount}%；开垦 ${Math.round(TOOL_POWER.hoeFertileChancePerLevel * lv * 100)}% 概率肥沃（作物首长 +1 天）`;
+    case 'can':
+      return lv === 0
+        ? '普通水壶：升级后浇水有概率催长作物'
+        : `浇水省时省力 ${discount}%；浇水 ${Math.round(TOOL_POWER.canSproutChancePerLevel * lv * 100)}% 概率立即催长 1 天`;
+    case 'pickaxe':
+      return `敲石省时省力 ${discount}%；矿石概率 ${35 + Math.round(TOOL_POWER.pickaxeOreChancePerLevel * lv * 100)}%、宝石概率 ${4 + Math.round(TOOL_POWER.pickaxeGemChancePerLevel * lv * 100)}%`;
+    case 'rod':
+      return `收线 +${lv * 8}；钓到垃圾概率 -${lv * 2}%、稀有鱼更容易咬钩`;
+    case 'axe':
+      return `砍树省时省力 ${discount}%；${Math.round(TOOL_POWER.axeExtraWoodChancePerLevel * lv * 100)}% 概率额外 +1 木材${lv >= 2 ? '、钢斧起每棵保底 +1' : ''}`;
+  }
+}
+
 const TOOL_DETAILS: Record<ToolId, { icon: string; use: string; wear: string }> = {
   hoe: { icon: '锄', use: '开垦空地，把土地翻松后播种', wear: '每开垦 1 格 -1' },
   can: { icon: '壶', use: '给已经种下作物的土地浇水', wear: '每浇 1 格 -1' },
@@ -1005,6 +1028,7 @@ function equipmentSection(warnings: string[]): string {
         <span class="equip-meta">${broken ? '需要买新的' : toolLabel(t)}</span>
         ${broken ? `<p class="equip-note">去${t === 'rod' ? '海滩渔具店' : '小镇铁匠铺'}买新的（300 金）。</p>` : durBar(cur, max)}
         ${low ? `<p class="equip-note warn-text">耐久偏低，去${t === 'rod' ? '渔具店' : '铁匠铺'}修理。</p>` : ''}
+        ${broken ? '' : `<p class="equip-note">效果：${toolPowerText(t)}</p>`}
         <p class="equip-note">修理地点：${t === 'rod' ? '海滩 · 老渔夫的小屋' : '小镇 · 阿铁铁匠铺'} <button class="chip" data-act="go-repair-shop" data-to="${t === 'rod' ? 'beach' : 'town'}" data-shop="${t === 'rod' ? 'fish_shop' : 'blacksmith'}">前往</button></p>
         <div class="equip-actions">
           <button class="chip" data-act="view-tool" data-tool="${t}">查看</button>
@@ -1024,7 +1048,7 @@ function equipmentSection(warnings: string[]): string {
       const low = max > 0 && cur / max <= 0.3;
       return `<article class="equip-card weapon ${equipped ? 'on' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-weapon" data-item="${id}" title="点击查看${def.name}详情">
         <div class="equip-head"><b>${def.name}</b>${equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
-        <span class="equip-meta">伤害 ${def.damage[0]}-${def.damage[1]}</span>
+        <span class="equip-meta">伤害 ${def.damage[0]}-${def.damage[1]} · 暴击 ${5 + Math.max(0, WEAPONS.findIndex((w) => w.id === id)) * 2}%</span>
         ${durBar(cur, max)}
         ${low ? '<p class="equip-note warn-text">耐久偏低，去铁匠铺修理。</p>' : ''}
         <p class="equip-note">修理地点：小镇 · 阿铁铁匠铺 <button class="chip" data-act="go-repair-shop" data-to="town" data-shop="blacksmith">前往</button></p>
@@ -1301,6 +1325,7 @@ function toolModalHtml(tool: ToolId): string {
       <div><dt>用途</dt><dd>${TOOL_DETAILS[tool].use}</dd></div>
       <div><dt>耐久</dt><dd>${broken ? '0/0' : `${cur}/${max}`}</dd></div>
       <div><dt>磨损规则</dt><dd>${TOOL_DETAILS[tool].wear}</dd></div>
+      ${broken ? '' : `<div><dt>当前效果</dt><dd>${toolPowerText(tool)}</dd></div>`}
       <div><dt>${broken ? '重新购买' : '修理地点'}</dt><dd>${repairShop}${broken ? ` · ${DURABILITY.baseToolPrice} 金` : ''} <button class="chip" data-act="go-repair-shop" data-to="${tool === 'rod' ? 'beach' : 'town'}" data-shop="${tool === 'rod' ? 'fish_shop' : 'blacksmith'}">前往</button></dd></div>
       ${!broken ? `<div><dt>修理费用</dt><dd>${cost === null ? '耐久已满' : `${cost} 金（修满）`}</dd></div>` : ''}
       ${nextUpgrade ? `<div><dt>下一次升级</dt><dd>${nextUpgrade.gold} 金 + ${itemName(nextUpgrade.ore)} ×${nextUpgrade.oreQty}</dd></div>` : ''}
@@ -1338,7 +1363,7 @@ function itemModalHtml(id: string): string {
       <div><dt>单件售价</dt><dd>${sellPrice(state, detail.id)} 金</dd></div>
       ${detail.energy ? `<div><dt>食用恢复</dt><dd>+${detail.energy} 体力</dd></div>` : ''}
       ${cropDef ? `<div><dt>种植季节与周期</dt><dd>${cropDef.seasons.map((s) => SEASON_NAMES[s]).join('、')}季 · ${cropDef.growDays} 天成熟</dd></div>` : ''}
-      ${weaponDef ? `<div><dt>攻击伤害</dt><dd>${weaponDef.damage[0]}-${weaponDef.damage[1]}</dd></div><div><dt>武器耐久</dt><dd>${weaponCur}/${weaponMax}</dd></div><div><dt>装备状态</dt><dd>${state.weapon === detail.id ? '已装备' : '未装备'}</dd></div><div><dt>修理地点</dt><dd>小镇 · 阿铁铁匠铺 <button class="chip" data-act="go-repair-shop" data-to="town" data-shop="blacksmith">前往</button></dd></div><div><dt>铁匠铺修理费</dt><dd>${weaponRepair === null ? '耐久已满' : `${weaponRepair} 金`}</dd></div>` : ''}
+      ${weaponDef ? `<div><dt>攻击伤害</dt><dd>${weaponDef.damage[0]}-${weaponDef.damage[1]} · 暴击 ${5 + Math.max(0, WEAPONS.findIndex((w) => w.id === detail.id)) * 2}%（越好的武器暴击越高）</dd></div><div><dt>武器耐久</dt><dd>${weaponCur}/${weaponMax}</dd></div><div><dt>装备状态</dt><dd>${state.weapon === detail.id ? '已装备' : '未装备'}</dd></div><div><dt>修理地点</dt><dd>小镇 · 阿铁铁匠铺 <button class="chip" data-act="go-repair-shop" data-to="town" data-shop="blacksmith">前往</button></dd></div><div><dt>铁匠铺修理费</dt><dd>${weaponRepair === null ? '耐久已满' : `${weaponRepair} 金`}</dd></div>` : ''}
       ${detail.id === 'scrap' ? '<div><dt>说明</dt><dd>工具或武器报废后留下的金属碎片，可卖给铁匠铺回收。</dd></div>' : ''}
     </dl>
     ${weaponDef ? durBar(weaponCur, weaponMax) : ''}

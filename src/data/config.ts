@@ -51,6 +51,23 @@ export const TILE_COSTS = {
 export const CROP_CARE = { dryDaysToWilt: 2, weedChancePerDay: 0.08, weedSpreadChance: 0.05 };
 /** 每级工具降低的体力与时间比例 */
 export const TOOL_LEVEL_DISCOUNT = 0.15;
+
+/** 工具专属效果（按工具等级每级增量，等级越高效果越强） */
+export const TOOL_POWER = {
+  /** 锄头：开垦时每级 +15% 概率使土地肥沃（肥沃地块作物首次正常生长额外 +1 天，触发后消耗） */
+  hoeFertileChancePerLevel: 0.15,
+  /** 水壶：浇水时每级 +10% 概率立即催长 1 天（不超过成熟） */
+  canSproutChancePerLevel: 0.1,
+  /** 镐子：每级矿石出现概率 +5%、宝石概率 +1% */
+  pickaxeOreChancePerLevel: 0.05,
+  pickaxeGemChancePerLevel: 0.01,
+  /** 斧头：每级 +25% 概率额外多得 1 块木材 */
+  axeExtraWoodChancePerLevel: 0.25,
+  /** 鱼竿：每级钓到垃圾概率 -2%、稀有鱼权重提升（见 fishing.ts） */
+  rodTrashReductionPerLevel: 0.02,
+  /** 武器：按武器档位（WEAPONS 顺序）每档暴击率 +2% */
+  weaponCritPerTier: 0.02,
+};
 export const SKILL_LEVEL_DISCOUNT = 0.02;
 
 export const FORAGE_MINUTES = 10;

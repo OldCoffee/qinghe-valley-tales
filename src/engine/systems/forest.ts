@@ -1,4 +1,4 @@
-import { FOREST } from '../../data/config.js';
+import { FOREST, TOOL_POWER } from '../../data/config.js';
 import { GROVES, groveById } from '../../data/forest.js';
 import { FORAGE } from '../../data/forage.js';
 import { itemName } from '../../data/items.js';
@@ -63,7 +63,11 @@ export function chopTree(s: GameState, events: GameEvent[]): boolean {
   }
   spend(s, cost);
   s.forest.trees -= 1;
-  const qty = 2 + (random(s) < 0.5 ? 1 : 0) + (s.tools.axe >= 2 ? 1 : 0);
+  const qty =
+    2 +
+    (random(s) < 0.5 ? 1 : 0) +
+    (s.tools.axe >= 2 ? 1 : 0) +
+    (s.tools.axe > 0 && random(s) < TOOL_POWER.axeExtraWoodChancePerLevel * s.tools.axe ? 1 : 0);
   addItem(s, 'wood', qty);
   events.push(good(`🪓 砍倒一棵树，得到木材 ×${qty}（今天还能砍 ${s.forest.trees} 棵）。`));
   addXp(s, 'foraging', 3, events);
