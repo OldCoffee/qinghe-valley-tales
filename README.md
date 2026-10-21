@@ -54,7 +54,7 @@ npx qinghe-valley-tales
 ```
 
 - 首次运行会从 npm 自动下载（约几十 KB），之后输数字选菜单或敲命令（`?` 查看全部命令），`quit` 退出。
-- 存档自动保存在**你运行命令时所在目录**的 `saves/slot1.json`，下次在同一目录再运行就接着玩；想换存档位置可用环境变量 `QINGHE_SAVE_DIR=/path/to/dir`。
+- 每个动作后自动存档，固定保存在用户主目录的 `~/.qinghe-valley-tales/slot1.json`，在任何目录运行都是同一份档；想换位置可用环境变量 `QINGHE_SAVE_DIR=/path/to/dir`。旧版在运行目录 `saves/slot1.json` 的存档会被自动沿用。
 - 可选参数：`npx qinghe-valley-tales -- --seed 42` 用固定随机种子开局（结果可复现，方便调试）。
 
 ### 玩终端版（克隆源码方式，适合开发）
@@ -154,7 +154,7 @@ design-system/   # 网页版设计系统与页面覆盖规范
 
 | 前端 | 位置 |
 | --- | --- |
-| 终端版 | `saves/slot1.json`（已 gitignore）；可用环境变量 `QINGHE_SAVE_DIR` 改目录；`NO_COLOR=1` 关闭终端颜色 |
+| 终端版 | `~/.qinghe-valley-tales/slot1.json`（每个动作后自动保存）；可用环境变量 `QINGHE_SAVE_DIR` 改目录；`NO_COLOR=1` 关闭终端颜色 |
 | 网页版 | 浏览器 `localStorage`，键名 `qinghe-valley-save`；网页内嵌终端模式共用这份存档 |
 
 注意：终端版和网页版的存档互相独立。网页版换浏览器或清缓存会丢档，重要存档可从开发者工具里导出 localStorage 内容备份。

@@ -98,7 +98,7 @@ async function handleUi(io: GameIO, s: GameState, parsed: Extract<Parsed, { kind
       break;
     }
     case 'quit': {
-      const answer = await io.ask(' 今天还没睡觉，今天的进度不会保存。确定退出？(y/N) > ');
+      const answer = await io.ask(' 进度已自动保存。确定退出？(y/N) > ');
       return answer === null || answer.trim().toLowerCase() === 'y';
     }
   }
@@ -150,8 +150,9 @@ export async function runSession(io: GameIO, store: SaveStore, seed: number): Pr
     if (!result.ok) continue;
     state = result.state;
 
+    // 每个成功动作后都自动存档，避免没睡觉就退出时丢失当天进度
+    store.save(JSON.stringify(state));
     if (absoluteDay(state) !== before) {
-      store.save(JSON.stringify(state));
       io.print(color.dim(' （已自动存档）'));
     }
     if (!state.activity) io.print(renderScreen(state));
