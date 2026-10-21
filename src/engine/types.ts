@@ -174,7 +174,7 @@ export type Action =
   | { type: 'wait'; minutes: number }
   | { type: 'sleep' }
   | { type: 'fish' }
-  | { type: 'forage' }
+  | { type: 'forage'; index?: number }
   | { type: 'chop' }
   | { type: 'grove'; grove: GroveId }
   | { type: 'forestExplore' }

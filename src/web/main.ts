@@ -100,8 +100,8 @@ let forestTreeSlots: { hits: number; stump: boolean; floatText?: string; fx?: 'h
 let activeChopIdx: number | null = null;
 let groveFxId: GroveId | null = null;
 let groveFloatMap = new Map<GroveId, string>();
-let mysteryState: { pickedIdx: number | null; resultText: string; flipFx: boolean } = {
-  pickedIdx: null,
+let mysteryState: { spotIdx: number | null; resultText: string; flipFx: boolean } = {
+  spotIdx: null,
   resultText: '',
   flipFx: false,
 };
@@ -113,7 +113,7 @@ function syncForestUiState(): void {
     forestTreeSlots = Array.from({ length: 8 }, () => ({ hits: 0, stump: false }));
     groveFloatMap.clear();
     mysteryState = {
-      pickedIdx: state.forest.exploredToday ? 0 : null,
+      spotIdx: null,
       resultText: state.forest.exploredToday ? '今天已在林间探索过，收获了一份林间奇遇。' : '',
       flipFx: false,
     };
@@ -295,7 +295,7 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
     if (exEv) {
       mysteryState.resultText = exEv.text;
       mysteryState.flipFx = true;
-      if (mysteryState.pickedIdx === null) mysteryState.pickedIdx = 0;
+      if (mysteryState.spotIdx === null) mysteryState.spotIdx = 0;
       pushToast(exEv.text, exEv.level === 'warn' ? 'warn' : 'good');
     }
   }
@@ -548,26 +548,39 @@ function mineFloorHint(floor: number): string {
   </div>`;
 }
 
-/** 野外散落采集物舞台（点击任意野果物块直接拾取） */
-function forageNodesSection(label = '草丛散落野果（点击物块直接拾取）'): string {
+/** 野外散落采集物舞台：点击哪个只拾取哪个；森林为未知草丛探索节点，不预先展示物品 */
+function forageNodesSection(label?: string): string {
   const forage = state.forage[state.location] ?? [];
   if (!forage.length) {
     return state.location === 'forest'
-      ? '<p class="dim">今天林间草丛没有新长的散落野果，下面的林木砍伐、三大采集点位与深林奇遇每天都可互动。</p>'
+      ? '<p class="dim">今天林间草丛已经探索完了，下面的林木砍伐、三大采集点位与深林奇遇每天都可互动。</p>'
       : '';
   }
-  return `<h3>${label}</h3>
+  if (state.location === 'forest') {
+    return `<h3>${label ?? '林间草丛探索（点击草丛逐个寻找）'}</h3>
     <div class="forage-stage">
       ${forage
         .map(
-          (id, idx) => `<button class="forage-node" data-act="forage" title="点击拾取">
+          (_, idx) => `<button class="forage-node unexplored" data-act="forage-one" data-idx="${idx}" aria-label="未探索的草丛，点击翻开">
+            <span class="forage-badge">草</span>
+            <b>草丛 #${idx + 1}</b>
+            <small class="dim">未探索 · 点击翻开</small>
+          </button>`,
+        )
+        .join('')}
+    </div>`;
+  }
+  return `<h3>${label ?? '草丛散落采集物（点击哪个拾取哪个）'}</h3>
+    <div class="forage-stage">
+      ${forage
+        .map(
+          (id, idx) => `<button class="forage-node" data-act="forage-one" data-idx="${idx}" title="点击拾取">
             <span class="forage-badge">${itemName(id)[0]}</span>
             <b>${itemName(id)}</b>
             <small class="dim">#${idx + 1} 点击拾取</small>
           </button>`,
         )
         .join('')}
-      <button class="pix-btn gold" data-act="forage" style="margin-left:auto;">全部拾取（${forage.length} 件）</button>
     </div>`;
 }
 
@@ -601,7 +614,6 @@ function fishingDockSection(): string {
           <span>🎣</span>
           <span>${canCast ? '点击水面抛竿下钩' : rodBroken ? '鱼竿已报废' : '请先在背包装备鱼竿'}</span>
         </div>
-        <small style="color:#d9ecff;">咬钩后进入「收线 vs 放线」可视化拉锯战 · 小心张力过高断线</small>
       </button>
       <div class="dock-info">
         <div>
@@ -645,7 +657,6 @@ function forestScene(): string {
           ${floatHtml}
           <span class="tree-crown">┻</span>
           <b>${name} #${idx + 1}</b>
-          <small>已砍伐 · 明日复生</small>
         </button>`;
       }
       const rem = 3 - slot.hits;
@@ -659,7 +670,6 @@ function forestScene(): string {
         <span class="tree-crown">木</span>
         <b>${name} #${idx + 1}</b>
         <div class="tree-hp-dots" aria-label="树木耐久">${dots}</div>
-        <small>${slot.hits === 0 ? '点击挥斧（需 3 击）' : `已裂开 · 再砍 ${rem} 下`}</small>
       </button>`;
     })
     .join('');
@@ -670,7 +680,7 @@ function forestScene(): string {
     const status = !yields ? '本季休眠' : f.groves[g.id] ? '今日可采' : '今日已采';
     const fxCls = groveFxId === g.id ? ' fx-grove-pick' : '';
     const floatText = groveFloatMap.get(g.id);
-    return `<article class="card grove-card${fxCls}">
+    return `<article class="card grove-card${ready ? ' clickable' : ''}${fxCls}"${ready ? ` data-act="grove" data-grove="${g.id}" role="button" tabindex="0" title="点击采摘${g.name}"` : ''}>
       ${floatText ? `<span class="slot-float">${esc(floatText)}</span>` : ''}
       <div style="display:flex;align-items:center;gap:10px;">
         <span class="bag-item-icon">${g.icon}</span>
@@ -683,33 +693,21 @@ function forestScene(): string {
     </article>`;
   }).join('');
 
-  const mysteryCardsHtml = MYSTERY_CARDS.map((c, idx) => {
-    const isPicked = f.exploredToday && (mysteryState.pickedIdx ?? 0) === idx;
-    if (isPicked) {
-      const flipCls = mysteryState.flipFx ? ' fx-card-flip' : '';
-      return `<div class="mystery-card revealed${flipCls}">
+  const mysteryHtml = f.exploredToday
+    ? `<div class="mystery-card revealed${mysteryState.flipFx ? ' fx-card-flip' : ''}">
         <span class="mystery-glyph">✔</span>
-        <b>${c.title} · 今日奇遇已揭晓</b>
+        <b>${mysteryState.spotIdx !== null ? `${MYSTERY_CARDS[mysteryState.spotIdx].title} · ` : ''}今日奇遇已揭晓</b>
         <small>${esc(mysteryState.resultText || '你已在林间探索过，收获了一份奇遇。')}</small>
-      </div>`;
-    }
-    if (f.exploredToday) {
-      return `<button class="mystery-card" disabled>
+      </div>`
+    : `<button class="mystery-card" data-act="forest-explore">
         <span class="mystery-glyph">？</span>
-        <b>${c.title}</b>
-        <small>今日已探索其他秘境 · 明日重置</small>
+        <b>深林秘境</b>
+        <small>林间古树洞、灌木丛深处、溪畔小空地……走进去才知道会遇见什么</small>
+        <span class="badge ok">走进深林秘境（每天一次）</span>
       </button>`;
-    }
-    return `<button class="mystery-card" data-act="forest-explore-card" data-idx="${idx}">
-      <span class="mystery-glyph">？</span>
-      <b>${c.title}</b>
-      <small>${c.sub}</small>
-      <span class="badge ok">点击翻开奇遇（30 分钟）</span>
-    </button>`;
-  }).join('');
 
   return `
-  ${forageNodesSection('今日林间散落野果（点击草丛物块直接拾取）')}
+  ${forageNodesSection()}
   <h3>林间伐木舞台（点击树木连续挥斧 3 下砍倒，掉落木材 ×2~4）</h3>
   <div class="forest-stage ${forestChopFx ? 'fx-chop' : ''}">
     <div class="forest-stage-head">
@@ -720,8 +718,8 @@ function forestScene(): string {
   </div>
   <h3>三大固定采集点位（每天各可采摘一次，产出随季节变化）</h3>
   <div class="cards grid-2">${groveCards}</div>
-  <h3>深林秘境奇遇（三选一盲盒翻牌 · 每天一次）</h3>
-  <div class="mystery-grid">${mysteryCardsHtml}</div>
+  <h3>深林秘境奇遇（每天一次）</h3>
+  <div class="mystery-single">${mysteryHtml}</div>
   ${fishingDockSection()}`;
 }
 
@@ -810,12 +808,12 @@ function scenePage(): string {
   else if (state.location === 'forest') body = forestScene();
   else if (state.location === 'mine' || state.location === 'mountain') {
     body = `
-      ${forageNodesSection('山间散落采集物（点击物块直接拾取）')}
+      ${forageNodesSection('山间散落采集物（点击哪个拾取哪个）')}
       ${state.location === 'mountain' ? fishingDockSection() : ''}
       ${mineScene()}`;
   } else {
     body = `
-      ${forageNodesSection('野外散落采集物（点击物块直接拾取）')}
+      ${forageNodesSection('野外散落采集物（点击哪个拾取哪个）')}
       ${fishingDockSection()}
       ${shopCards()}
       ${townExtras()}`;
@@ -827,7 +825,6 @@ function scenePage(): string {
         <div><h2>${loc.name}</h2><p>${loc.arrival}</p></div>
         <div class="toolbar">
           ${FISHING_SPOTS.includes(state.location) ? '<button class="pix-btn" data-act="fish">抛竿钓鱼</button>' : ''}
-          ${state.location !== 'farm' && forage.length ? '<button class="pix-btn" data-act="forage">采集野果</button>' : ''}
           ${festival && festival.location === state.location ? `<button class="pix-btn gold" data-act="festival">参加${festival.name}</button>` : ''}
           ${state.location === 'farm' ? '<button class="pix-btn ghost" data-act="wait">休息 1 小时</button>' : ''}
         </div>
@@ -1759,6 +1756,9 @@ document.addEventListener('click', (e) => {
     case 'forage':
       doAction({ type: 'forage' });
       break;
+    case 'forage-one':
+      doAction({ type: 'forage', index: Number(el.dataset.idx) });
+      break;
     case 'tree-hit': {
       syncForestUiState();
       const idx = Number(el.dataset.idx);
@@ -1786,12 +1786,8 @@ document.addEventListener('click', (e) => {
     case 'grove':
       doAction({ type: 'grove', grove: el.dataset.grove as GroveId });
       break;
-    case 'forest-explore-card':
-      mysteryState.pickedIdx = Number(el.dataset.idx);
-      doAction({ type: 'forestExplore' });
-      break;
     case 'forest-explore':
-      mysteryState.pickedIdx = 0;
+      mysteryState.spotIdx = Math.floor(Math.random() * MYSTERY_CARDS.length);
       doAction({ type: 'forestExplore' });
       break;
     case 'fish':

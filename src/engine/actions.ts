@@ -69,7 +69,7 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
     case 'fish':
       return startFishing(s, events);
     case 'forage':
-      return forage(s, events);
+      return forage(s, events, action.index);
     case 'chop':
       return chopTree(s, events);
     case 'grove':

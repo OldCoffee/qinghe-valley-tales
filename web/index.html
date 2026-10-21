@@ -314,6 +314,13 @@
         position: relative; animation: bob-gentle 1.8s steps(2) infinite;
       }
       .forage-node:hover { background: var(--gold); transform: translateY(-2px); }
+      .forage-node.unexplored { background: #5d8f4e; color: #fff8dc; border-style: dashed; }
+      .forage-node.unexplored:hover { background: #6fa55d; }
+      .forage-node.unexplored .forage-badge { background: #2f5427; }
+      .grove-card.clickable { cursor: pointer; }
+      .grove-card.clickable:hover { border-color: var(--gold); transform: translateY(-2px); }
+      .mystery-single { margin-top: 8px; }
+      .mystery-single .mystery-card { width: 100%; }
       .forage-node .forage-badge {
         background: var(--grass); color: #fff; border: 2px solid var(--wood-dark);
         padding: 1px 6px; font-size: 16px; font-weight: bold;

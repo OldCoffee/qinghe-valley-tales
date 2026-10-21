@@ -143,6 +143,8 @@ export function chooseFishing(s: GameState, act: FishingActivity, index: number,
   if (index === 0) {
     if (act.actual === 'rest') {
       act.progress += 22 + rodBonus + level * 1.5;
+      // 平静时收线也会慢慢绷紧鱼线，保证张力每回合都有变化
+      act.tension += (6 + fish.difficulty * 2) * tensionMult;
       events.push(info('你趁机飞快地收线！'));
     } else {
       act.tension += (25 + fish.difficulty * 6) * tensionMult;
@@ -154,9 +156,10 @@ export function chooseFishing(s: GameState, act: FishingActivity, index: number,
     events.push(info('你顺势放线，卸掉了鱼的力气。'));
   } else {
     act.progress -= 10;
-    act.tension = Math.max(0, act.tension - 5);
+    act.tension = Math.max(0, act.tension - 12);
     events.push(info('鱼趁你放线往回游了一段。'));
   }
+  act.tension = Math.max(0, Math.min(100, act.tension));
 
   if (act.progress >= 100) {
     s.activity = null;
