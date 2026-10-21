@@ -55,6 +55,7 @@ const ALIASES: Record<string, string[]> = {
   repair: ['repair', '修理', '修复'],
   donate: ['donate', '捐', '捐献'],
   festival: ['festival', '节日', '参加'],
+  heal: ['heal', '治疗', '看病'],
   inv: ['inv', 'i', '背包'],
   map: ['map', 'm', '地图', '看看'],
   tv: ['tv', '天气', '电视'],
@@ -294,6 +295,8 @@ export function parseCommand(line: string): Parsed {
     }
     case 'festival':
       return action({ type: 'festival' });
+    case 'heal':
+      return action({ type: 'heal' });
     default:
       return { kind: 'ui', command: verb as UiCommand, args };
   }

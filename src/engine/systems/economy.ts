@@ -1,3 +1,4 @@
+import { BAG_SELL_RATE } from '../../data/config.js';
 import { ITEMS, itemName } from '../../data/items.js';
 import { WEAPONS } from '../../data/mine.js';
 import { SHOPS, type ShopDef } from '../../data/shops.js';
@@ -121,6 +122,31 @@ export function sell(s: GameState, events: GameEvent[], itemId: string, qty: Qua
   s.gold += total;
   s.stats.totalEarned += total;
   events.push(good(`在${shop.name}卖出 ${item.name} ×${n}，获得 ${total} 金。`));
+  return true;
+}
+
+/** 背包直接出售：不限地点立即卖出，但只按售价八折结算（方便，去商店卖是全价） */
+export function sellFromBag(s: GameState, events: GameEvent[], itemId: string, qty: Quantity): boolean {
+  const item = ITEMS[itemId];
+  if (!item) {
+    events.push(warn('没有这种东西。'));
+    return false;
+  }
+  if (item.category === 'weapon' && s.weapon === itemId) {
+    events.push(warn('这件武器正装备着，先在背包里卸下再卖。'));
+    return false;
+  }
+  if (item.category === 'tool' || sellPrice(s, itemId) <= 0) {
+    events.push(warn('这个不能直接出售。'));
+    return false;
+  }
+  const n = resolveQty(s, events, itemId, qty);
+  if (n === null) return false;
+  const total = Math.floor(sellPrice(s, itemId) * BAG_SELL_RATE) * n;
+  removeItem(s, itemId, n);
+  s.gold += total;
+  s.stats.totalEarned += total;
+  events.push(good(`直接出售 ${item.name} ×${n}，获得 ${total} 金（背包出售八折）。`));
   return true;
 }
 

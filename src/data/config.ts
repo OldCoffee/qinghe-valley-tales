@@ -78,6 +78,12 @@ export const FOREST = {
   grove: { minutes: 10, energy: 2 },
   explore: { minutes: 30, energy: 5 },
 };
+/** 白鹭镇诊所（白芷坐诊）：按缺失生命收费补满 */
+export const CLINIC = { goldPerHp: 2, minutes: 10 };
+
+/** 背包直接出售折扣（不去商店，随时卖但只拿八折） */
+export const BAG_SELL_RATE = 0.8;
+
 export const FISH_CAST = { minutes: 20, energy: 8, minEnergy: 3 };
 export const FISH_ROUND_MINUTES = 5;
 export const FISH_MAX_ROUNDS = 14;

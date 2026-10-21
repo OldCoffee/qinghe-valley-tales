@@ -6,7 +6,8 @@ import { ensureEquipment, equipWeapon, repair, setToolEquipped, unequipWeapon } 
 import { endDay } from './day.js';
 import { maxHp } from './skills.js';
 import { donate } from './systems/bundles.js';
-import { buy, sell, ship } from './systems/economy.js';
+import { buy, sell, sellFromBag, ship } from './systems/economy.js';
+import { healAtClinic } from './systems/clinic.js';
 import { clear, deweed, harvest, plant, till, uproot, water } from './systems/farming.js';
 import { joinFestival } from './systems/festivals.js';
 import { startFishing } from './systems/fishing.js';
@@ -62,6 +63,10 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
       return buy(s, events, action.itemId, action.qty);
     case 'sell':
       return sell(s, events, action.itemId, action.qty);
+    case 'sellBag':
+      return sellFromBag(s, events, action.itemId, action.qty);
+    case 'heal':
+      return healAtClinic(s, events);
     case 'ship':
       return ship(s, events, action.itemId, action.qty);
     case 'eat':

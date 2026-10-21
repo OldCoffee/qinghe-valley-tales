@@ -1,5 +1,5 @@
 import { BUNDLES, ROOMS } from '../data/bundles.js';
-import { DURABILITY, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
+import { BAG_SELL_RATE, CLINIC, DURABILITY, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
 import { FISH, ROD_NAMES } from '../data/fish.js';
 import { ITEMS, itemName } from '../data/items.js';
@@ -18,6 +18,7 @@ import { maxHp, sellPrice, skillLevel, skillProgressOf, type SkillProgress } fro
 import { bundleDone, donatedCount, neededItems } from '../engine/systems/bundles.js';
 import { shopsAt } from '../engine/systems/economy.js';
 import { availableFish, FISHING_SPOTS } from '../engine/systems/fishing.js';
+import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
 import { heartsOf, isBirthday, npcLocation, npcsHere } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
@@ -39,6 +40,7 @@ type UiModalState =
   | { kind: 'tool'; tool: ToolId }
   | { kind: 'npc'; npcId: string }
   | { kind: 'bundle'; roomId: string }
+  | { kind: 'clinic' }
   | null;
 
 type TileFxKind = 'till' | 'water' | 'plant' | 'harvest' | 'clear' | 'deweed' | 'uproot';
@@ -586,7 +588,16 @@ function shopCards(): string {
 function townExtras(): string {
   if (state.location !== 'town') return '';
   const need = neededItems(state).filter((id) => (state.inventory[id] ?? 0) > 0);
-  return `<h3>社区中心（点击房间打开收集包捐献弹窗）</h3>
+  const hpMaxTown = maxHp(state);
+  const missingTown = Math.max(0, hpMaxTown - state.hp);
+  return `<h3>白芷诊所（支付诊金恢复生命）</h3>
+    <div class="cards grid-2">
+      <button class="card place" data-act="open-clinic">
+        <b>🏥 白芷诊所</b>
+        <span>${clinicOpen(state) ? '白芷坐诊中' : '白芷去森林采药了（晴天 10 点后回镇）'} · 生命 ${state.hp}/${hpMaxTown}${missingTown ? ` · 缺 ${missingTown} 点，补满 ${missingTown * CLINIC.goldPerHp} 金` : ' · 健康'} · 点击进入诊所</span>
+      </button>
+    </div>
+    <h3>社区中心（点击房间打开收集包捐献弹窗）</h3>
     <div class="room-grid">
       ${ROOMS.map((room) => {
         const bundles = BUNDLES.filter((b) => b.room === room.id);
@@ -1300,6 +1311,32 @@ function mapModalHtml(): string {
     <p class="hint" style="margin-top:12px;">提示：前往山区后即可乘电梯下矿洞；修好社区中心「工艺室」可开通矿车令全图移动耗时减半。</p>`;
 }
 
+function clinicModalHtml(): string {
+  const hpMax = maxHp(state);
+  const { missing, cost } = clinicCost(state);
+  const open = clinicOpen(state);
+  return `
+    <div class="modal-head">
+      <h2>🏥 白芷诊所</h2>
+      <button class="pix-btn" data-act="close-ui-modal">关闭</button>
+    </div>
+    <div class="detail-title">
+      <span class="bag-item-icon">芷</span>
+      <div><b>白芷</b><span>${open ? '坐诊中 · 镇上的草药医生' : '去森林采药了 · 晴天 10 点后回镇，雨天整天在镇上'}</span></div>
+    </div>
+    <dl class="detail-list">
+      <div><dt>当前生命</dt><dd>${state.hp}/${hpMax}</dd></div>
+      <div><dt>诊金</dt><dd>每点生命 ${CLINIC.goldPerHp} 金${missing ? ` · 补满共 ${cost} 金` : ''}</dd></div>
+      <div><dt>耗时</dt><dd>${CLINIC.minutes} 分钟</dd></div>
+    </dl>
+    ${bar(state.hp, hpMax, 'hp')}
+    <div class="detail-actions">
+      <button class="pix-btn gold" data-act="heal" ${open && missing > 0 && state.gold >= CLINIC.goldPerHp ? '' : 'disabled'}>支付诊金治疗${missing ? `（补 ${missing} 点 · ${cost} 金）` : ''}</button>
+      <button class="pix-btn ghost" data-act="close-ui-modal">返回</button>
+    </div>
+    ${missing === 0 ? '<p class="dim">你现在生命全满，不需要治疗。</p>' : !open ? '<p class="dim">白芷不在诊所，等她回镇上再来。</p>' : state.gold < CLINIC.goldPerHp ? '<p class="dim">金币不够支付诊金。</p>' : state.gold < cost ? '<p class="dim">金币不够补满，会先按能付的金额治一部分。</p>' : ''}`;
+}
+
 function toolModalHtml(tool: ToolId): string {
   const broken = state.tools[tool] < 0;
   const upgrading = state.toolUpgrade?.tool === tool;
@@ -1368,15 +1405,17 @@ function itemModalHtml(id: string): string {
     </dl>
     ${weaponDef ? durBar(weaponCur, weaponMax) : ''}
     <div class="qty-row" style="margin:10px 0;">
-      <span>出货数量：</span>
+      <span>数量：</span>
       ${([1, 5, 'all'] as const).map((q) => `<button class="chip ${qty === q ? 'on' : ''}" data-act="qty" data-q="${q}">${q === 'all' ? '全部' : q}</button>`).join('')}
     </div>
     <div class="detail-actions">
       ${weaponDef ? (state.weapon === detail.id ? `<button class="pix-btn" data-act="unequip-weapon">卸下武器</button>` : `<button class="pix-btn gold" data-act="equip-weapon" data-item="${detail.id}">装备武器</button>`) : ''}
       ${detail.energy ? `<button class="pix-btn gold" data-act="eat" data-item="${detail.id}">吃掉 (+${detail.energy} 体力)</button>` : ''}
+      ${sellPrice(state, detail.id) > 0 && detail.category !== 'tool' && !(weaponDef && state.weapon === detail.id) ? `<button class="pix-btn" data-act="sell-bag" data-item="${detail.id}">直接出售（八折 ${Math.floor(sellPrice(state, detail.id) * BAG_SELL_RATE)} 金/件）</button>` : ''}
       ${state.location === 'farm' && sellPrice(state, detail.id) > 0 && !(weaponDef && state.weapon === detail.id) ? `<button class="pix-btn" data-act="ship" data-item="${detail.id}">放进出货箱</button>` : ''}
       <button class="pix-btn ghost" data-act="close-ui-modal">关闭</button>
-    </div>`;
+    </div>
+    ${sellPrice(state, detail.id) > 0 && detail.category !== 'tool' ? '<p class="dim">背包直接出售随时可卖、立即到账，但只按八折；去对应商店出售是全价。</p>' : ''}`;
 }
 
 function npcModalHtml(npcId: string): string {
@@ -1497,6 +1536,8 @@ function uiModalContent(): string {
       return npcModalHtml(uiModal.npcId);
     case 'bundle':
       return bundleModalHtml(uiModal.roomId);
+    case 'clinic':
+      return clinicModalHtml();
   }
 }
 
@@ -1781,6 +1822,13 @@ document.addEventListener('click', (e) => {
       uiModal = { kind: 'bundle', roomId: el.dataset.room! };
       render();
       break;
+    case 'open-clinic':
+      uiModal = { kind: 'clinic' };
+      render();
+      break;
+    case 'heal':
+      doAction({ type: 'heal' });
+      break;
     case 'close-ui-modal':
       uiModal = null;
       render();
@@ -1957,6 +2005,16 @@ document.addEventListener('click', (e) => {
     case 'sell':
       doAction({ type: 'sell', itemId: el.dataset.item!, qty });
       break;
+    case 'sell-bag': {
+      const itemId = el.dataset.item!;
+      doAction({ type: 'sellBag', itemId, qty });
+      if (!state.inventory[itemId]) {
+        uiModal = null;
+        selectedItem = null;
+        render();
+      }
+      break;
+    }
     case 'upgrade':
       doAction({ type: 'upgrade', tool: el.dataset.tool as ToolId });
       break;

@@ -179,6 +179,8 @@ export type Action =
   | { type: 'move'; to: LocationId }
   | { type: 'buy'; itemId: string; qty: number }
   | { type: 'sell'; itemId: string; qty: Quantity }
+  | { type: 'sellBag'; itemId: string; qty: Quantity }
+  | { type: 'heal' }
   | { type: 'ship'; itemId: string | 'all'; qty: Quantity }
   | { type: 'eat'; itemId: string }
   | { type: 'wait'; minutes: number }
