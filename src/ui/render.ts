@@ -11,8 +11,7 @@ import type { ActivityView } from '../engine/activity.js';
 import { formatDate, formatTime, shopClosedReason, todayFestival } from '../engine/calendar.js';
 import { shippingValue } from '../engine/day.js';
 import { cellName, tileAt } from '../engine/farm.js';
-import { LEVEL_XP } from '../data/skills.js';
-import { maxHp, sellPrice, skillLevel } from '../engine/skills.js';
+import { maxHp, sellPrice, skillProgress } from '../engine/skills.js';
 import { bundleDone, donatedCount } from '../engine/systems/bundles.js';
 import { shopsAt } from '../engine/systems/economy.js';
 import { FISHING_SPOTS } from '../engine/systems/fishing.js';
@@ -246,10 +245,11 @@ export function renderTile(s: GameState, cell: Cell): string {
 export function renderStatus(s: GameState): string {
   const lines = [color.bold(' 📊 状态')];
   for (const id of SKILL_ORDER) {
-    const level = skillLevel(s, id);
-    const next = LEVEL_XP[level];
-    const progress = next ? color.dim(`（${s.skills[id]}/${next} 经验）`) : color.dim('（满级）');
-    lines.push(`   ${SKILL_NAMES[id]} ${String(level).padStart(2)} 级 ${progress}`);
+    const p = skillProgress(s.skills[id]);
+    const progress = p.isMax
+      ? color.dim('（已满级）')
+      : color.dim(`（本级 ${p.into}/${p.span} 经验，还差 ${p.toNext}）`);
+    lines.push(`   ${SKILL_NAMES[id]} ${String(p.level).padStart(2)} 级 ${progress}`);
   }
   const profs = PROFESSIONS.filter((p) => s.professions.includes(p.id)).map((p) => `${p.name}(${p.desc})`);
   if (profs.length > 0) lines.push(`   职业：${profs.join('；')}`);

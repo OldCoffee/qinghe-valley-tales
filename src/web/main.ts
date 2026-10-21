@@ -14,14 +14,14 @@ import { formatDate, formatTime, shopClosedReason, todayFestival } from '../engi
 import { cellName } from '../engine/farm.js';
 import { createNewGame } from '../engine/state.js';
 import { ensureEquipment, repairCost, toolMaxDurability, weaponMaxDurability } from '../engine/systems/equipment.js';
-import { maxHp, sellPrice, skillLevel } from '../engine/skills.js';
+import { maxHp, sellPrice, skillLevel, skillProgressOf, type SkillProgress } from '../engine/skills.js';
 import { bundleDone, donatedCount, neededItems } from '../engine/systems/bundles.js';
 import { shopsAt } from '../engine/systems/economy.js';
 import { availableFish, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
 import { heartsOf, isBirthday, npcLocation, npcsHere } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
-import type { Action, GameEvent, GameState, GroveId, LocationId, Tile, ToolId } from '../engine/types.js';
+import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -348,6 +348,40 @@ function doAction(action: Action, cells: string[] = []): void {
 const hearts = (n: number) => '♥'.repeat(n) + '♡'.repeat(Math.max(0, 10 - n));
 const bar = (value: number, max: number, cls: string) =>
   `<div class="bar ${cls}"><i style="width:${Math.max(0, Math.min(100, (value / max) * 100))}%"></i><span>${Math.ceil(value)}/${max}</span></div>`;
+
+/** 各技能在对应场景里的实际加成说明（与引擎数值一致：每级 -2% 体力、收线 +1.5、伤害 +3%、生命 +10 等） */
+function skillEffectText(sk: SkillId): string {
+  const lv = skillLevel(state, sk);
+  const pct = lv * 2;
+  switch (sk) {
+    case 'farming':
+      return `农事体力消耗 -${pct}%（开垦/浇水/收获）`;
+    case 'foraging':
+      return `砍树/采集体力消耗 -${pct}%`;
+    case 'fishing':
+      return `收线速度 +${(lv * 1.5).toFixed(1)}、钓到垃圾概率降低、高等级解锁稀有鱼`;
+    case 'mining':
+      return `敲石体力消耗 -${pct}%`;
+    case 'combat':
+      return `伤害 +${lv * 3}%、生命上限 +${lv * 10}`;
+  }
+}
+
+function skillBadge(sk: SkillId, icon: string): string {
+  const p: SkillProgress = skillProgressOf(state, sk);
+  const next = p.isMax ? '已满级' : `还差 ${p.toNext} 经验升 Lv.${p.level + 1}`;
+  return `<span class="skill-badge">${icon} ${SKILL_NAMES[sk]} Lv.${p.level} <small>${skillEffectText(sk)} · ${next}</small></span>`;
+}
+
+/** 当前场景对应的技能徽标（农场=耕种、森林=采集、水域=钓鱼、山区/矿洞=采矿+战斗） */
+function sceneSkillBadges(): string {
+  let badges = '';
+  if (state.location === 'farm') badges = skillBadge('farming', '🌱');
+  else if (state.location === 'forest') badges = skillBadge('foraging', '🌿') + skillBadge('fishing', '🎣');
+  else if (state.location === 'beach') badges = skillBadge('fishing', '🎣');
+  else if (state.location === 'mountain' || state.location === 'mine') badges = skillBadge('mining', '⛏') + skillBadge('combat', '⚔');
+  return badges ? `<div class="skill-badge-row">${badges}</div>` : '';
+}
 
 function cropStage(tile: Tile): { label: string; pct: number; ready: boolean } | null {
   if (!tile.crop) return null;
@@ -881,6 +915,7 @@ function scenePage(): string {
       </div>
       ${npcBar}
     </div>
+    ${sceneSkillBadges()}
     ${body}
   </div>`;
 }
@@ -1120,9 +1155,14 @@ function journalPage(): string {
     content = `
       <h3>五项专精技能</h3>
       <div class="skill-grid">
-        ${SKILL_ORDER.map(
-          (sk) => `<div class="skill"><b>${SKILL_NAMES[sk]} Lv.${skillLevel(state, sk)}</b>${bar(state.skills[sk] % 15000, 15000, 'xp')}</div>`,
-        ).join('')}
+        ${SKILL_ORDER.map((sk) => {
+          const p = skillProgressOf(state, sk);
+          return `<div class="skill"><b>${SKILL_NAMES[sk]} Lv.${p.level}</b>${
+            p.isMax
+              ? `${bar(1, 1, 'xp')}<small class="dim">已满级（累计 ${state.skills[sk]} 经验）</small>`
+              : `${bar(p.into, p.span, 'xp')}<small class="dim">还差 ${p.toNext} 经验升 Lv.${p.level + 1}</small>`
+          }<small class="skill-effect">${skillEffectText(sk)}</small></div>`;
+        }).join('')}
       </div>
       <p class="dim">已选职业专精：${state.professions.length ? state.professions.join('、') : '暂无（任意技能达到 5 级、10 级时自动弹出职业选择）'}</p>
       <h3>工具与武器状态速览</h3>

@@ -14,6 +14,32 @@ export function skillLevel(s: GameState, skill: SkillId): number {
   return levelFromXp(s.skills[skill]);
 }
 
+export interface SkillProgress {
+  level: number;
+  /** 当前等级内的经验（从本级起点算起） */
+  into: number;
+  /** 从当前等级升到下一级需要的经验（本级区间长度）；满级为 0 */
+  span: number;
+  /** 距离下一级还差多少经验；满级为 0 */
+  toNext: number;
+  isMax: boolean;
+}
+
+/** 按「一级一级」计算经验进度：只看当前等级区间，而不是累计总经验 */
+export function skillProgress(xp: number): SkillProgress {
+  const level = levelFromXp(xp);
+  if (level >= LEVEL_XP.length) {
+    return { level, into: 0, span: 0, toNext: 0, isMax: true };
+  }
+  const floor = level === 0 ? 0 : LEVEL_XP[level - 1];
+  const next = LEVEL_XP[level];
+  return { level, into: xp - floor, span: next - floor, toNext: next - xp, isMax: false };
+}
+
+export function skillProgressOf(s: GameState, skill: SkillId): SkillProgress {
+  return skillProgress(s.skills[skill]);
+}
+
 export function hasProf(s: GameState, id: string): boolean {
   return s.professions.includes(id);
 }
