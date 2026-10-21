@@ -1,0 +1,654 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>青禾谷物语</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --ink: #2b1b0e;
+        --wood: #7a4a21;
+        --wood-dark: #3d2410;
+        --parchment: #f3e5be;
+        --parchment-dim: #e8d8a8;
+        --grass: #6abe30;
+        --soil: #8a5a2b;
+        --soil-wet: #5b3a1e;
+        --water: #3a86ff;
+        --gold: #ffd23f;
+        --sky: #87ceeb;
+        --night: #1b2340;
+        --red: #e0483e;
+      }
+      * { box-sizing: border-box; border-radius: 0 !important; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        background: #1e3a24 repeating-conic-gradient(#24452b 0% 25%, #1e3a24 0% 50%) 0 0 / 32px 32px;
+        color: var(--ink);
+        font-family: 'VT323', 'PingFang SC', 'Microsoft YaHei', monospace;
+        font-size: 20px;
+        line-height: 1.35;
+      }
+      body.break-shake {
+        animation: break-shake 0.42s steps(5);
+      }
+      h1, h2, h3 { font-family: 'Press Start 2P', 'PingFang SC', monospace; font-weight: 400; margin: 0 0 10px; }
+      h2 { font-size: 17px; }
+      h3 { font-size: 13px; margin-top: 14px; }
+      button { font: inherit; color: inherit; cursor: pointer; }
+      button:disabled { opacity: 0.45; cursor: not-allowed; }
+      button:focus-visible, [tabindex]:focus-visible { outline: 3px solid var(--water); outline-offset: 2px; }
+
+      /* 顶部 HUD (z-index: 10) */
+      header.hud {
+        position: sticky; top: 0; z-index: 10;
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+        background: var(--wood); color: #fff3c4;
+        border-bottom: 4px solid var(--wood-dark);
+        padding: 10px 16px;
+        box-shadow: 0 4px 0 rgba(0,0,0,0.35);
+      }
+      header.hud h1 { font-size: 15px; margin: 0; text-shadow: 2px 2px 0 var(--wood-dark); }
+      .loc-pill {
+        background: #2b1b0e; color: var(--gold); border: 3px solid var(--gold);
+        box-shadow: 0 3px 0 rgba(0,0,0,0.45);
+        padding: 4px 12px; min-height: 40px; font-size: 20px;
+        display: inline-flex; align-items: center; gap: 8px;
+      }
+      .loc-pill:hover { background: #3d2410; }
+      .loc-pill small { color: #fff3c4; font-size: 15px; }
+      #hud-gold { color: var(--gold); font-size: 24px; font-weight: bold; }
+      #hud-bars { display: flex; gap: 10px; flex: 1; min-width: 220px; }
+      .bar { position: relative; flex: 1; height: 22px; background: #201408; border: 3px solid var(--wood-dark); min-width: 120px; }
+      .bar i { display: block; height: 100%; transition: width 200ms steps(6); }
+      .bar.energy i { background: var(--grass); }
+      .bar.hp i { background: var(--red); }
+      .bar.xp i { background: var(--water); }
+      .bar.warnbar i { background: var(--gold); }
+      .bar.fx-hit { animation: hp-hit 0.36s steps(4); }
+      .bar span { position: absolute; inset: 0; text-align: center; color: #fff; font-size: 17px; line-height: 18px; text-shadow: 1px 1px 0 #000; }
+
+      /* 主页面切换导航条 (z-index: 10) */
+      nav.page-nav {
+        max-width: 1180px; margin: 14px auto 0; padding: 0 16px;
+        display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
+      }
+      .nav-tab {
+        background: var(--parchment-dim); border: 4px solid var(--wood-dark);
+        box-shadow: 0 4px 0 var(--wood-dark);
+        min-height: 52px; padding: 8px 12px;
+        display: flex; align-items: center; justify-content: space-between; gap: 8px;
+        font-size: 22px; text-align: left;
+      }
+      .nav-tab:hover { background: #fff3c4; }
+      .nav-tab:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood-dark); }
+      .nav-tab.on {
+        background: var(--gold);
+        outline: 3px solid var(--wood-dark); outline-offset: -7px;
+        font-weight: bold;
+      }
+      .nav-tab .nav-badge {
+        background: var(--wood-dark); color: #fff3c4;
+        padding: 1px 7px; font-size: 16px; line-height: 1.1;
+      }
+      .nav-tab.on .nav-badge { background: #2b1b0e; color: var(--gold); }
+      .nav-tab .nav-badge.warn { background: var(--red); color: #fff; animation: pulse-warn 1.2s steps(2) infinite; }
+
+      .pix-btn {
+        background: var(--parchment); border: 3px solid var(--wood-dark);
+        box-shadow: 0 4px 0 var(--wood-dark); padding: 6px 14px; min-height: 44px;
+      }
+      .pix-btn:hover { background: #fff3c4; }
+      .pix-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood-dark); }
+      .pix-btn.on { background: var(--gold); }
+      .pix-btn.gold { background: var(--gold); }
+      .pix-btn.ghost { background: transparent; color: #fff3c4; box-shadow: 0 4px 0 rgba(0,0,0,0.4); }
+      .panel .pix-btn.ghost, #ui-modal .pix-btn.ghost { color: var(--ink); background: #e8d8a8; }
+      header .pix-btn.ghost { border-color: var(--wood-dark); }
+      .pix-btn.danger { background: #f0a49e; }
+      .pix-btn.big { font-size: 24px; padding: 12px 18px; width: 100%; text-align: left; }
+      .pix-btn.sleep { background: var(--night); color: var(--gold); border-color: var(--gold); }
+
+      /* 单舞台主容器 */
+      main.stage-wrap {
+        max-width: 1180px; margin: 12px auto 14px; padding: 0 16px;
+      }
+      .panel {
+        background: var(--parchment); border: 4px solid var(--wood-dark);
+        box-shadow: 0 6px 0 rgba(0,0,0,0.35); padding: 18px;
+        position: relative;
+      }
+      .page-view.enter { animation: page-enter 0.18s steps(3); }
+      @keyframes page-enter {
+        from { opacity: 0.5; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      /* 场景头与在场人物芯片条 */
+      .scene-head {
+        background: linear-gradient(var(--sky), #cdeac0);
+        border: 3px solid var(--wood-dark);
+        padding: 14px; margin: -4px -4px 14px;
+      }
+      .scene-head-top {
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+      }
+      .scene-head p { margin: 6px 0 10px; }
+      .scene-npcs {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        margin-top: 10px; padding-top: 10px; border-top: 2px dashed rgba(61,36,16,0.35);
+      }
+      .npc-pill {
+        background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 4px 10px; min-height: 42px;
+        display: inline-flex; align-items: center; gap: 8px;
+      }
+      .npc-pill:hover { background: var(--gold); }
+      .npc-pill .mini-ava {
+        width: 28px; height: 28px; background: var(--sky); border: 2px solid var(--wood-dark);
+        display: inline-grid; place-items: center; font-weight: bold;
+      }
+      .toolbar { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; align-items: center; }
+      .sub-tabs {
+        display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px;
+        border-bottom: 3px solid var(--wood-dark); padding-bottom: 10px;
+      }
+      .sub-tab {
+        background: #e8d8a8; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 6px 14px; min-height: 44px; display: inline-flex; align-items: center; gap: 8px;
+        font-size: 21px;
+      }
+      .sub-tab.on { background: var(--gold); font-weight: bold; }
+      .sub-tab small {
+        background: rgba(43,27,14,0.14); border: 2px solid var(--wood-dark);
+        padding: 0 6px; font-size: 16px;
+      }
+      .hint, .dim { color: #6b5636; }
+      .hint { font-size: 18px; }
+
+      .seed-row, .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+      .chip {
+        background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 4px 10px; min-height: 40px;
+      }
+      .chip:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood-dark); }
+      .chip.on { background: var(--gold); }
+      .chip.ok { background: #cdeac0; }
+      .chip.foe { background: #f0a49e; }
+      .chip.off { opacity: 0.6; }
+
+      /* 农田网格与操作微动效 */
+      .farm-stage { position: relative; }
+      .farm-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+      .tile {
+        aspect-ratio: 1 / 0.88; border: 3px solid var(--wood-dark); padding: 4px 2px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+        position: relative; overflow: visible;
+        box-shadow: inset -4px -4px 0 rgba(0,0,0,0.18), inset 4px 4px 0 rgba(255,255,255,0.15);
+      }
+      .farm-grid.enter .tile { animation: tile-pop 0.28s steps(3) backwards; animation-delay: var(--d, 0ms); }
+      .tile b { font-size: 24px; line-height: 1; }
+      .tile small { font-size: 15px; line-height: 1.05; text-align: center; }
+      .tile.grass { background: var(--grass); }
+      .tile.weed { background: #4e9b2a; }
+      .tile.stone { background: #9a9a92; }
+      .tile.dry { background: var(--soil); color: #ffe9c4; }
+      .tile.wet { background: var(--soil-wet); color: #bcd8ff; }
+      .tile.ready { background: var(--gold); animation: blink 1s steps(2) infinite; }
+      .tile.locked { background: #6d6d64; color: #ddd; }
+      .tile.selected { outline: 4px solid var(--water); outline-offset: -7px; z-index: 2; }
+      .tile .grow { position: absolute; left: 4px; right: 4px; bottom: 3px; height: 6px; background: rgba(0,0,0,0.35); }
+      .tile .grow em { display: block; height: 100%; background: var(--grass); }
+
+      /* 农事格子微动效：till / water / plant / harvest / clear */
+      .tile.fx-till { animation: fx-till 0.36s steps(4); }
+      .tile.fx-till::after {
+        content: '▪ ▫ ▪'; position: absolute; top: -14px; color: #5b3a1e; font-size: 18px;
+        pointer-events: none; animation: fx-particles 0.36s steps(4) forwards;
+      }
+      .tile.fx-water { animation: fx-water-tile 0.42s steps(4); }
+      .tile.fx-water::after {
+        content: '💧💧💧'; position: absolute; top: -18px; color: var(--water); font-size: 16px;
+        pointer-events: none; animation: fx-water-drop 0.42s steps(4) forwards;
+      }
+      .tile.fx-plant b { animation: fx-plant-sprout 0.38s steps(4); display: inline-block; }
+      .tile.fx-harvest { animation: fx-harvest-glow 0.48s steps(4); }
+      .tile.fx-clear { animation: fx-clear-burst 0.32s steps(4); }
+      .tile .tile-float {
+        position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
+        background: #2b1b0e; color: var(--gold); border: 2px solid var(--gold);
+        padding: 1px 6px; font-size: 15px; white-space: nowrap; z-index: 16;
+        pointer-events: none; animation: float-up 0.75s steps(6) forwards;
+      }
+
+      /* 地块就近操作浮层 (Tile Popover, z-index: 15) */
+      .tile-popover {
+        position: sticky; top: 76px; z-index: 15;
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+        background: #cdeac0; border: 4px solid var(--wood-dark);
+        box-shadow: 0 6px 0 rgba(0,0,0,0.4);
+        padding: 12px 14px; margin-bottom: 12px;
+      }
+      .tile-popover-head { display: flex; align-items: center; gap: 10px; }
+      .tile-popover-badge {
+        background: var(--wood-dark); color: var(--gold);
+        padding: 2px 8px; font-size: 19px; font-weight: bold;
+      }
+      .tile-ops { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; align-items: center; }
+      .pix-btn.big-op { font-size: 21px; background: var(--gold); font-weight: bold; }
+
+      /* 矿洞与战斗微动效 */
+      .mine-arena {
+        display: grid; grid-template-columns: 1.15fr 1fr; gap: 14px; margin: 12px 0;
+      }
+      .mine-box {
+        background: #2b2623; color: #f3e5be; border: 3px solid var(--wood-dark);
+        padding: 12px; position: relative; overflow: hidden;
+      }
+      .mine-box h4 { margin: 0 0 8px; color: var(--gold); font-size: 19px; }
+      .rocks { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+      .rock {
+        background: #7f858d; color: #fff; border: 3px solid #1c1e22;
+        padding: 8px 12px; min-height: 44px; min-width: 48px;
+        box-shadow: inset -4px -4px 0 rgba(0,0,0,0.35), 0 3px 0 #1c1e22;
+        font-size: 20px; position: relative;
+      }
+      .rock:hover { background: #959ba3; }
+      .rock.fx-rock-hit, .mine-box.fx-rock-hit {
+        animation: rock-shake 0.34s steps(4);
+      }
+      .foe-list { display: grid; gap: 8px; }
+      .foe-card {
+        background: #472422; color: #ffe3de; border: 3px solid #1c1010;
+        padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        position: relative; overflow: hidden;
+      }
+      .foe-card.fx-slash {
+        animation: foe-hit 0.38s steps(4);
+      }
+      .foe-card.fx-slash::before {
+        content: ''; position: absolute; inset: -10px;
+        background: linear-gradient(125deg, transparent 42%, #fff 46%, var(--gold) 50%, transparent 55%);
+        pointer-events: none; animation: slash-sweep 0.34s steps(4) forwards;
+      }
+      .dmg-badge {
+        background: var(--red); color: #fff; border: 2px solid #fff;
+        padding: 1px 8px; font-weight: bold; font-size: 20px;
+        animation: float-up 0.65s steps(5) forwards;
+      }
+      .dmg-badge.crit {
+        background: var(--gold); color: #2b1b0e; border-color: #2b1b0e; font-size: 23px;
+      }
+
+      /* 矿洞层头提示横幅与森林玩法 */
+      .mine-hint {
+        display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center;
+        background: #fff3c4; border: 3px solid var(--wood-dark);
+        box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 8px 12px; margin: 10px 0 4px; font-size: 19px;
+      }
+      .mine-hint b { background: var(--wood-dark); color: var(--gold); padding: 1px 8px; }
+      .forest-chop {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px;
+        background: #cdeac0; border: 3px solid var(--wood-dark);
+        box-shadow: 0 4px 0 var(--wood-dark);
+        padding: 12px 14px; margin-bottom: 8px;
+      }
+      .forest-chop.fx-chop { animation: rock-shake 0.34s steps(4); }
+      .grove-card { display: flex; flex-direction: column; }
+      .grove-card .pix-btn { margin-top: auto; }
+
+      /* 卡片通用 */
+      .cards { display: grid; gap: 10px; }
+      .cards.grid-2 { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+      .card { background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 4px 0 var(--wood-dark); padding: 12px; text-align: left; }
+      button.card:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--wood-dark); }
+      .card.place { display: flex; justify-content: space-between; width: 100%; min-height: 56px; align-items: center; gap: 10px; }
+      .card.place.on { background: var(--gold); }
+      .card.npc { display: flex; gap: 12px; align-items: center; }
+      .card.npc p { margin: 2px 0; font-size: 18px; }
+      .avatar {
+        flex: 0 0 54px; height: 54px; background: var(--sky); border: 3px solid var(--wood-dark);
+        display: grid; place-items: center; font-size: 26px; font-weight: bold;
+        box-shadow: inset -6px -6px 0 rgba(0,0,0,0.15);
+      }
+      .hearts { color: #e0483e; letter-spacing: 1px; }
+      .card-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+
+      /* 背包与装备整页 */
+      .bag-shell { display: grid; gap: 14px; min-width: 0; }
+      .bag-summary {
+        display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0;
+        background: var(--wood); color: #fff3c4; border: 3px solid var(--wood-dark);
+        box-shadow: 0 4px 0 var(--wood-dark);
+      }
+      .bag-summary > div { padding: 10px 12px; min-width: 0; }
+      .bag-summary > div + div { border-left: 3px solid var(--wood-dark); }
+      .bag-summary span, .bag-summary b { display: block; }
+      .bag-summary span { font-size: 15px; color: var(--parchment-dim); line-height: 1; }
+      .bag-summary b { font-size: 20px; line-height: 1.15; }
+      .bag-summary .needs-repair { background: #8f2f27; color: #fff; }
+      .bag-summary .needs-repair span { color: #ffd7d2; }
+      .bag-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+      .bag-section-head h3 { margin: 0; }
+      .bag-section-head span { color: #6b5636; font-size: 17px; }
+      .equip-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 10px; }
+      .equip-card {
+        background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start;
+        cursor: pointer; min-height: 136px;
+      }
+      .equip-card:hover { background: #fff3c4; }
+      .equip-card.on { background: #ffe9a8; outline: 3px solid var(--grass); outline-offset: -6px; }
+      .equip-card.broken { background: #f3c1ba; }
+      .equip-card.low-dur { animation: pulse-warn 1.4s steps(2) infinite; }
+      .equip-card.fx-wear { animation: acted 0.35s steps(3); }
+      .equip-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; width: 100%; }
+      .equip-meta { color: #6b5636; font-size: 17px; }
+      .equip-card .bar { width: 100%; min-width: 0; flex: none; }
+      .equip-note { font-size: 16px; line-height: 1.15; margin: 0; }
+      .equip-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; width: 100%; }
+      .badge { border: 2px solid var(--wood-dark); background: #d8c9a3; padding: 0 6px; font-size: 14px; }
+      .badge.ok { background: var(--grass); color: #fff; }
+      .badge.bad { background: var(--red); color: #fff; }
+      .warn-text { color: #b3541e; }
+
+      .bag-controls {
+        background: #cdeac0; border: 3px solid var(--wood-dark); box-shadow: 0 4px 0 var(--wood-dark);
+        padding: 10px;
+      }
+      .bag-filters {
+        display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px;
+      }
+      .bag-filters .chip { display: inline-flex; align-items: center; gap: 6px; }
+      .bag-filters .chip small {
+        background: rgba(61,36,16,0.12); border: 2px solid rgba(61,36,16,0.35);
+        min-width: 22px; padding: 0 4px; text-align: center;
+      }
+      .qty-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+      .bag-items-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px;
+      }
+      .bag-item {
+        display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; align-items: center; gap: 10px;
+        width: 100%; min-height: 62px; padding: 8px 10px; text-align: left;
+        background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
+      }
+      .bag-item:hover { background: #fff3c4; }
+      .bag-item:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--wood-dark); }
+      .bag-item.on { background: var(--gold); outline: 3px solid var(--water); outline-offset: -6px; }
+      .bag-item-icon {
+        width: 42px; height: 42px; display: grid; place-items: center;
+        background: var(--sky); border: 3px solid var(--wood-dark); font-size: 23px; font-weight: bold;
+        box-shadow: inset -4px -4px 0 rgba(0,0,0,0.15);
+      }
+      .bag-item-main { min-width: 0; display: grid; gap: 2px; }
+      .bag-item-main b { line-height: 1.05; overflow-wrap: anywhere; }
+      .bag-item-main small { color: #6b5636; font-size: 16px; line-height: 1.05; }
+      .bag-item-qty { font-size: 21px; font-weight: bold; white-space: nowrap; }
+      .bag-empty {
+        display: grid; gap: 4px; padding: 18px 14px;
+        background: #fff8dc; border: 3px dashed var(--wood); color: #6b5636;
+      }
+      .shipping-strip {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+        background: #fff8dc; border: 3px solid var(--wood-dark); padding: 10px 12px;
+      }
+      .shipping-strip small { margin-left: auto; color: #6b5636; }
+
+      /* 手册与状态页（技能 / 收集包房间卡 / 记录） */
+      .skill-grid { display: grid; gap: 10px; margin: 10px 0; }
+      .skill {
+        display: grid; grid-template-columns: 130px 1fr; align-items: center; gap: 12px;
+        background: #fff8dc; border: 3px solid var(--wood-dark); padding: 8px 12px;
+      }
+      .room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 12px; }
+      .room-card {
+        background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 4px 0 var(--wood-dark);
+        padding: 14px; display: flex; flex-direction: column; gap: 8px; text-align: left;
+      }
+      .room-card.done { background: #cdeac0; }
+      .bundle-box {
+        background: #fff8dc; border: 3px solid var(--wood-dark); padding: 12px; margin-bottom: 10px;
+      }
+      .bundle-box.done { background: #cdeac0; }
+      .bundle-needs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+
+      /* 店铺与通用弹窗网格 */
+      .bag-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+      .item {
+        background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
+        min-height: 78px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px;
+      }
+      .item b { font-size: 24px; }
+      .item span { font-size: 16px; line-height: 1.05; text-align: center; }
+      .item small { color: #6b5636; text-align: center; }
+      .item.on { background: var(--gold); }
+      .item.off { opacity: 0.62; box-shadow: none; cursor: default; }
+
+      /* 详情列表样式 */
+      .detail-title { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+      .detail-title b { font-size: 24px; display: block; }
+      .detail-title span { color: #52634d; }
+      .detail-list { margin: 0 0 12px; display: grid; gap: 6px; background: #fff8dc; border: 3px solid var(--wood-dark); padding: 10px 12px; }
+      .detail-list > div {
+        display: flex; justify-content: space-between; gap: 14px;
+        border-top: 2px dashed rgba(61,36,16,0.3); padding-top: 6px;
+      }
+      .detail-list > div:first-child { border-top: 0; padding-top: 0; }
+      .detail-list dt { color: #52634d; }
+      .detail-list dd { margin: 0; text-align: right; font-weight: bold; }
+      .detail-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+
+      /* 底部日志面板 */
+      footer.log-panel {
+        max-width: 1180px; margin: 0 auto 18px; padding: 0 16px;
+      }
+      #log {
+        background: #201408; color: var(--parchment); border: 4px solid var(--wood-dark);
+        box-shadow: 0 6px 0 rgba(0,0,0,0.35); padding: 10px 14px; max-height: 150px; overflow-y: auto;
+      }
+      .log-line.good { color: #9be15d; }
+      .log-line.warn { color: var(--gold); }
+      .log-line.bad { color: #ff9a92; }
+      .log-line.love { color: #ffb3d9; }
+
+      /* 多样化模态弹窗层 (z-index: 20) */
+      #modal, #shop-modal, #ui-modal {
+        position: fixed; inset: 0; z-index: 20; display: none; align-items: center; justify-content: center;
+        background: rgba(20, 12, 4, 0.72); padding: 16px;
+      }
+      .modal-surface {
+        background: var(--parchment); border: 4px solid var(--wood-dark); box-shadow: 0 8px 0 #000;
+        width: 100%; max-height: 88vh; overflow-y: auto; padding: 20px;
+        animation: tile-pop 0.22s steps(3);
+      }
+      #modal-card { max-width: 560px; }
+      #ui-modal-card { max-width: 720px; }
+      #shop-modal-card { max-width: 1024px; }
+      .modal-head {
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+        background: var(--wood); color: #fff3c4; border: 3px solid var(--wood-dark);
+        padding: 8px 12px; margin: -6px -6px 14px;
+      }
+      .modal-head h2 { margin: 0; font-size: 15px; }
+      .modal-head .pix-btn { color: var(--ink); min-height: 38px; padding: 4px 12px; }
+      .shop-head {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+        background: var(--wood); color: #fff3c4; border: 3px solid var(--wood-dark);
+        padding: 8px 12px; margin: -6px -6px 14px;
+      }
+      .shop-head h2 { margin: 0; font-size: 14px; }
+      .shop-head .gold { color: var(--gold); font-size: 24px; }
+      .shop-head .qty-row { margin: 0 0 0 auto; }
+      .shop-head .chip, .shop-head .pix-btn { color: var(--ink); }
+      .shop-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
+      .shop-grid section { min-width: 0; }
+      .shop-bag { background: #cdeac0; border: 3px solid var(--wood-dark); padding: 10px; }
+      .modal-btns { display: grid; gap: 10px; margin-top: 14px; }
+
+      /* 浮动飘字反馈层 (z-index: 25) */
+      #fx-toast-layer {
+        position: fixed; top: 74px; right: 20px; z-index: 25;
+        display: grid; gap: 8px; pointer-events: none;
+      }
+      .fx-toast {
+        background: #201408; color: var(--gold); border: 3px solid var(--gold);
+        box-shadow: 0 4px 0 #000; padding: 6px 12px; font-size: 20px;
+        animation: toast-pop 0.3s steps(3);
+      }
+      .fx-toast.good { border-color: var(--grass); color: #b8f28b; }
+      .fx-toast.bad { border-color: var(--red); color: #ffb3ad; }
+
+      /* 过夜遮罩 (z-index: 30) */
+      #night { position: fixed; inset: 0; background: var(--night); opacity: 0; pointer-events: none; z-index: 30; }
+      #night.show { animation: night 1.4s steps(14); }
+
+      /* 像素阶梯关键帧动画定义 */
+      @keyframes tile-pop { from { transform: scale(0.75); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      @keyframes acted { 0% { filter: brightness(1.7); } 100% { filter: brightness(1); } }
+      @keyframes blink { 50% { filter: brightness(1.18); } }
+      @keyframes fx-till {
+        0% { transform: translateY(0); filter: brightness(1.6); }
+        35% { transform: translateY(4px) scale(0.95); background: #a86f38; }
+        75% { transform: translateY(-2px); }
+        100% { transform: translateY(0); filter: brightness(1); }
+      }
+      @keyframes fx-particles {
+        0% { opacity: 1; transform: translateY(6px) scale(0.8); }
+        100% { opacity: 0; transform: translateY(-14px) scale(1.25); }
+      }
+      @keyframes fx-water-tile {
+        0% { background: var(--water); filter: brightness(1.4); }
+        50% { background: #3f6ca8; }
+        100% { background: var(--soil-wet); filter: brightness(1); }
+      }
+      @keyframes fx-water-drop {
+        0% { opacity: 1; transform: translateY(-12px); }
+        100% { opacity: 0; transform: translateY(10px); }
+      }
+      @keyframes fx-plant-sprout {
+        0% { transform: scale(0.35) translateY(8px); }
+        60% { transform: scale(1.25) translateY(-4px); }
+        100% { transform: scale(1) translateY(0); }
+      }
+      @keyframes fx-harvest-glow {
+        0% { box-shadow: 0 0 0 4px var(--gold), inset 0 0 0 4px #fff; filter: brightness(1.6); }
+        100% { box-shadow: none; filter: brightness(1); }
+      }
+      @keyframes fx-clear-burst {
+        0% { transform: rotate(-4deg) scale(1.08); filter: brightness(1.5); }
+        50% { transform: rotate(4deg) scale(0.92); }
+        100% { transform: none; filter: brightness(1); }
+      }
+      @keyframes float-up {
+        0% { opacity: 1; transform: translate(-50%, 0); }
+        80% { opacity: 1; transform: translate(-50%, -16px); }
+        100% { opacity: 0; transform: translate(-50%, -22px); }
+      }
+      @keyframes rock-shake {
+        0%, 100% { transform: translateX(0); }
+        25% { transform: translateX(-6px) rotate(-2deg); filter: brightness(1.5); }
+        50% { transform: translateX(6px) rotate(2deg); }
+        75% { transform: translateX(-4px); }
+      }
+      @keyframes foe-hit {
+        0%, 100% { transform: translateX(0); }
+        25% { background: #a82820; transform: translateX(7px); }
+        60% { transform: translateX(-5px); }
+      }
+      @keyframes slash-sweep {
+        0% { transform: translateX(-80%); opacity: 1; }
+        100% { transform: translateX(80%); opacity: 0; }
+      }
+      @keyframes hp-hit {
+        0%, 100% { transform: translateX(0); }
+        30% { transform: translateX(-5px); filter: brightness(1.6); }
+        70% { transform: translateX(5px); }
+      }
+      @keyframes pulse-warn {
+        50% { outline: 3px solid var(--red); outline-offset: -3px; }
+      }
+      @keyframes break-shake {
+        0%, 100% { transform: translate(0, 0); }
+        20% { transform: translate(-8px, 3px); }
+        40% { transform: translate(8px, -3px); }
+        60% { transform: translate(-6px, -2px); }
+        80% { transform: translate(6px, 2px); }
+      }
+      @keyframes toast-pop {
+        from { opacity: 0; transform: translateX(14px); }
+        to { opacity: 1; transform: translateX(0); }
+      }
+      @keyframes night {
+        0% { opacity: 0; }
+        35% { opacity: 1; }
+        70% { opacity: 1; background: #3a4a7a; }
+        100% { opacity: 0; }
+      }
+      .shake { animation: rock-shake 0.3s steps(4); }
+
+      #terminal { max-width: 1180px; margin: 0 auto 20px; padding: 0 16px; }
+      #terminal .term-box { background: #141a16; color: #d8e6cf; border: 4px solid var(--wood-dark); padding: 12px; font-size: 16px; }
+      #t-output { max-height: 420px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+      #t-form { display: flex; gap: 8px; border-top: 1px solid #39433f; padding-top: 8px; }
+      #t-input { flex: 1; background: transparent; border: none; outline: none; color: inherit; font: inherit; }
+      .opt { background: none; border: none; padding: 0; color: #8fc46a; font: inherit; cursor: pointer; }
+      .opt.stale { color: #8a8f85; cursor: default; }
+      .c1 { font-weight: bold; } .c2 { color: #8a8f85; } .c31 { color: #e0736a; } .c32 { color: #8fc46a; }
+      .c33 { color: #e3c26b; } .c34 { color: #6fa8dc; } .c35 { color: #e08fc0; } .c36 { color: #6cc5c0; }
+
+      @media (max-width: 900px) {
+        #hud-bars { flex: 1 1 100%; order: 5; }
+        nav.page-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .mine-arena, .shop-grid { grid-template-columns: 1fr; }
+        .farm-grid { grid-template-columns: repeat(4, 1fr); }
+        .bag-summary { grid-template-columns: 1fr; }
+        .bag-summary > div + div { border-left: 0; border-top: 3px solid var(--wood-dark); }
+        body { font-size: 19px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="hud">
+      <h1>青禾谷物语</h1>
+      <button class="loc-pill" id="hud-loc" data-act="open-map" title="打开世界地图快速移动"></button>
+      <span id="hud-date"></span>
+      <span id="hud-gold"></span>
+      <div id="hud-bars"></div>
+      <button class="pix-btn sleep" data-act="sleep">睡觉</button>
+      <button class="pix-btn ghost" data-act="new-game">新游戏</button>
+      <button class="pix-btn ghost" id="terminal-toggle">终端模式（高级）</button>
+    </header>
+
+    <nav class="page-nav" id="page-nav" aria-label="主页面切换"></nav>
+
+    <main class="stage-wrap">
+      <section class="panel" id="stage" aria-live="polite"></section>
+    </main>
+
+    <footer class="log-panel"><div id="log" aria-live="polite"></div></footer>
+
+    <section id="terminal" style="display:none">
+      <div class="term-box">
+        <div id="t-output"></div>
+        <form id="t-form" autocomplete="off">
+          <span id="t-prompt"></span>
+          <input id="t-input" placeholder="输入命令或数字，也可以直接点击菜单" />
+        </form>
+      </div>
+    </section>
+
+    <div id="fx-toast-layer" aria-live="polite"></div>
+    <div id="ui-modal" role="dialog" aria-modal="true"><div id="ui-modal-card" class="modal-surface"></div></div>
+    <div id="shop-modal" role="dialog" aria-modal="true"><div id="shop-modal-card" class="modal-surface"></div></div>
+    <div id="modal" role="dialog" aria-modal="true"><div id="modal-card" class="modal-surface"></div></div>
+    <div id="night"></div>
+    <script src="app.js"></script>
+  </body>
+</html>

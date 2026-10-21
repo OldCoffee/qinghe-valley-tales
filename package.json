@@ -1,0 +1,23 @@
+{
+  "name": "qinghe-valley",
+  "version": "1.0.0",
+  "description": "青禾谷物语：一款终端和浏览器里的田园文字游戏",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --import tsx src/cli/main.ts",
+    "build:web": "esbuild src/web/main.ts --bundle --format=iife --target=es2020 --minify --outfile=web/app.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
+  }
+}

@@ -1,0 +1,10 @@
+node_modules/
+dist/
+saves/
+.DS_Store
+web/app.js
+
+# 不入库：测试、文档与设计稿（本地保留）
+tests/
+docs/
+design-system/
