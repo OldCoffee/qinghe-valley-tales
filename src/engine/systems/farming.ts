@@ -169,12 +169,49 @@ export function clear(s: GameState, events: GameEvent[], target: Target): boolea
   });
 }
 
+/** 除草：清掉已开垦地块上的杂草，保留作物与土地 */
+export function deweed(s: GameState, events: GameEvent[], target: Target): boolean {
+  return runTileOp(s, events, target, {
+    verb: '除草',
+    check: (tile) => {
+      if (tile.ground === 'locked') return LOCKED_REASON;
+      if (tile.ground !== 'tilled') return '还没开垦，没有杂草可除';
+      return tile.weeds ? null : '没有杂草';
+    },
+    cost: () => TILE_COSTS.deweed,
+    apply: (tile) => {
+      tile.weeds = false;
+    },
+  });
+}
+
+/** 铲除：把作物整株铲掉（不返种子、不产出），土地保持已开垦，杂草一并清除；onlyWilted 时只铲枯萎株 */
+export function uproot(s: GameState, events: GameEvent[], target: Target, onlyWilted = false): boolean {
+  return runTileOp(s, events, target, {
+    verb: '铲除',
+    check: (tile) => {
+      if (!tile.crop) return '没有作物可铲';
+      if (onlyWilted && !tile.crop.wilted) return '还没枯萎';
+      return null;
+    },
+    cost: () => TILE_COSTS.uproot,
+    apply: (tile) => {
+      tile.crop = null;
+      tile.weeds = false;
+    },
+  });
+}
+
 export function harvest(s: GameState, events: GameEvent[], target: Target): boolean {
   const harvested: Record<string, number> = {};
+  /** 带草收获减半计数：同一轮里每两株带草作物出一份产出 */
+  const weedySeen: Record<string, number> = {};
+  let weedyShortfall = 0;
   return runTileOp(s, events, target, {
     verb: '收获',
     check: (tile) => {
       if (!tile.crop) return '没有作物';
+      if (tile.crop.wilted) return '已枯萎，没有产出，先铲除';
       const left = CROPS[tile.crop.cropId].growDays - tile.crop.age;
       return left > 0 ? `还要 ${left} 天` : null;
     },
@@ -182,19 +219,29 @@ export function harvest(s: GameState, events: GameEvent[], target: Target): bool
     apply: (tile) => {
       const crop = tile.crop!;
       const def = CROPS[crop.cropId];
-      const qty = hasProf(s, 'bountiful') && random(s) < 0.2 ? 2 : 1;
-      addItem(s, def.id, qty);
-      harvested[def.id] = (harvested[def.id] ?? 0) + qty;
-      s.stats.cropsHarvested += qty;
+      let qty = hasProf(s, 'bountiful') && random(s) < 0.2 ? 2 : 1;
+      if (tile.weeds) {
+        // 有杂草时最终收获减半：每两株带草作物出一份
+        weedySeen[def.id] = (weedySeen[def.id] ?? 0) + 1;
+        qty = weedySeen[def.id] % 2 === 0 ? qty : 0;
+        if (qty === 0) weedyShortfall += 1;
+      }
+      if (qty > 0) {
+        addItem(s, def.id, qty);
+        harvested[def.id] = (harvested[def.id] ?? 0) + qty;
+        s.stats.cropsHarvested += qty;
+      }
       addXp(s, 'farming', Math.max(2, Math.round(def.sellPrice * 0.12)), events);
       if (def.regrowDays) crop.age = def.growDays - def.regrowDays;
       else tile.crop = null;
     },
-    summary: () =>
-      '：' +
-      Object.entries(harvested)
+    summary: () => {
+      const list = Object.entries(harvested)
         .map(([id, n]) => `${itemName(id)} ×${n}`)
-        .join('、'),
+        .join('、');
+      const short = weedyShortfall > 0 ? `（${weedyShortfall} 株被杂草抢了养分，没有产出）` : '';
+      return (list ? `：${list}` : '：没有产出') + short;
+    },
   });
 }
 
@@ -221,13 +268,14 @@ export function plant(s: GameState, events: GameEvent[], cropId: string, target:
       if (tile.ground === 'locked') return LOCKED_REASON;
       if (tile.ground !== 'tilled') return '还没开垦';
       if (tile.crop) return '已经种了东西';
+      if (tile.weeds) return '有杂草，先除草';
       if (!inSeason && !tile.greenhouse) return '不是当季，只能种在温室';
       return null;
     },
     cost: () => TILE_COSTS.plant,
     apply: (tile) => {
       removeItem(s, seedId, 1);
-      tile.crop = { cropId, age: 0 };
+      tile.crop = { cropId, age: 0, dryDays: 0, wilted: false };
     },
     blocker: () => (s.inventory[seedId] ? null : `${seedName}用完了。`),
   });

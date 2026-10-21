@@ -43,7 +43,12 @@ export const TILE_COSTS = {
   harvest: { minutes: 3, energy: 0 },
   clearWeed: { minutes: 2, energy: 1 },
   clearStone: { minutes: 6, energy: 4 },
+  deweed: { minutes: 3, energy: 1 },
+  uproot: { minutes: 4, energy: 1 },
 };
+
+/** 农田养护：连续缺水枯萎阈值、杂草每日滋生与邻格蔓延概率 */
+export const CROP_CARE = { dryDaysToWilt: 2, weedChancePerDay: 0.08, weedSpreadChance: 0.05 };
 /** 每级工具降低的体力与时间比例 */
 export const TOOL_LEVEL_DISCOUNT = 0.15;
 export const SKILL_LEVEL_DISCOUNT = 0.02;

@@ -28,6 +28,8 @@ const ALIASES: Record<string, string[]> = {
   plant: ['plant', 'p', '播种', '种'],
   harvest: ['harvest', 'h', '收获'],
   clear: ['clear', 'c', '清理'],
+  deweed: ['deweed', '除草'],
+  uproot: ['uproot', '铲除', '拔除'],
   go: ['go', 'g', '去', '前往'],
   buy: ['buy', 'b', '买', '购买'],
   sell: ['sell', '卖', '出售'],
@@ -157,6 +159,8 @@ export function parseCommand(line: string): Parsed {
       return withTarget(false, args, (target) => ({ type: verb, target }));
     case 'water':
     case 'harvest':
+    case 'deweed':
+    case 'uproot':
       return withTarget(true, args, (target) => ({ type: verb, target }));
     case 'plant': {
       if (args.length === 0) return error('要种什么？例如：plant 防风草 A1-B4');

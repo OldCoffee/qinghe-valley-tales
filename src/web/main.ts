@@ -41,7 +41,7 @@ type UiModalState =
   | { kind: 'bundle'; roomId: string }
   | null;
 
-type TileFxKind = 'till' | 'water' | 'plant' | 'harvest' | 'clear';
+type TileFxKind = 'till' | 'water' | 'plant' | 'harvest' | 'clear' | 'deweed' | 'uproot';
 
 interface ToastFx {
   id: number;
@@ -57,6 +57,8 @@ let journalSubTab: JournalSubTab = 'skills';
 
 /** 当前点中的农田格子；点中后在就近浮层里展示操作 */
 let selectedCell: { row: number; col: number } | null = null;
+/** 一键播种选中的作物 id；为空时默认背包第一种种子 */
+let bulkSeedCropId: string | null = null;
 let qty: number | 'all' = 1;
 let selectedItem: string | null = null;
 let giftNpc: string | null = null;
@@ -191,7 +193,7 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
   }
 
   // 农田操作微动效
-  if (action.type === 'clear' || action.type === 'till' || action.type === 'water' || action.type === 'plant' || action.type === 'harvest') {
+  if (action.type === 'clear' || action.type === 'till' || action.type === 'water' || action.type === 'plant' || action.type === 'harvest' || action.type === 'deweed' || action.type === 'uproot') {
     const kind: TileFxKind = action.type;
     let targetCells = [...cells];
     if (!targetCells.length && action.target === 'all') {
@@ -204,6 +206,9 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
           if (action.type === 'harvest' && beforeTile.crop && (!afterTile.crop || afterTile.crop.age < beforeTile.crop.age)) {
             targetCells.push(`${r}-${c}`);
           }
+          if (action.type === 'deweed' && beforeTile.weeds && !afterTile.weeds) targetCells.push(`${r}-${c}`);
+          if (action.type === 'uproot' && beforeTile.crop && !afterTile.crop) targetCells.push(`${r}-${c}`);
+          if (action.type === 'plant' && !beforeTile.crop && afterTile.crop) targetCells.push(`${r}-${c}`);
         }
       }
     }
@@ -221,6 +226,10 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
         floatText = '已浇水';
       } else if (kind === 'till') {
         floatText = '已开垦';
+      } else if (kind === 'deweed') {
+        floatText = '已除草';
+      } else if (kind === 'uproot') {
+        floatText = '已铲除';
       }
       tileFxMap.set(key, { kind, floatText });
     }
@@ -353,9 +362,12 @@ function tileFace(tile: Tile): { cls: string; glyph: string; sub: string } {
   if (tile.ground === 'weed') return { cls: 'weed', glyph: '草', sub: '杂草' };
   if (tile.ground === 'stone') return { cls: 'stone', glyph: '石', sub: '石头' };
   if (tile.ground === 'grass') return { cls: 'grass', glyph: '地', sub: '空地' };
-  if (stage?.ready) return { cls: 'ready', glyph: stage.label[0], sub: `${stage.label} 可收获` };
-  if (stage) return { cls: tile.watered ? 'wet' : 'dry', glyph: stage.label[0], sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}` };
-  return { cls: 'dry', glyph: '土', sub: '已开垦' };
+  const weedCls = tile.weeds ? ' weedy' : '';
+  const weedSub = tile.weeds ? ' · 有杂草' : '';
+  if (tile.crop?.wilted && stage) return { cls: `wilted${weedCls}`, glyph: '枯', sub: `${stage.label} 已枯萎` };
+  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: stage.label[0], sub: `${stage.label} 可收获${weedSub}` };
+  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: stage.label[0], sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${weedSub}` };
+  return { cls: `dry${weedCls}`, glyph: '土', sub: tile.weeds ? '已开垦 · 有杂草' : '已开垦' };
 }
 
 /* ---------- 1. 场景整页 (Scene Page) ---------- */
@@ -385,12 +397,24 @@ function tilePopover(): string {
   } else if (tile.ground === 'grass') {
     desc = '平整的空地，用锄头翻松后就能播种。';
     btns = op('till', '开垦土地');
+  } else if (tile.crop?.wilted && stage) {
+    desc = `${stage.label}已枯萎，没有产出，铲除后才能重新播种。${tile.weeds ? '这格还长着杂草，铲除时会一并清掉。' : ''}`;
+    btns = op('uproot', '铲除枯萎株');
   } else if (stage?.ready) {
-    desc = `${stage.label}已经成熟！`;
-    btns = op('harvest', `收获${stage.label}`);
+    desc = `${stage.label}已经成熟！${tile.weeds ? '但这格有杂草，现在收获产量会减半，先除草再收更好。' : ''}`;
+    btns =
+      op('harvest', `收获${stage.label}`) +
+      (tile.weeds ? op('deweed', '除草') : '') +
+      op('uproot', '铲除这株');
   } else if (stage) {
-    desc = `${stage.label}生长中（${stage.pct}%）${tile.watered ? ' · 今日已浇水' : ' · 今日待浇水'}`;
-    btns = tile.watered ? '<span class="dim">今天已浇过水，明天继续生长。</span>' : op('water', '给作物浇水');
+    desc = `${stage.label}生长中（${stage.pct}%）${tile.watered ? ' · 今日已浇水' : ' · 今日待浇水'}${tile.weeds ? ' · 有杂草，正在抢养分，不除草今晚不会生长' : ''}`;
+    btns =
+      (tile.watered ? '<span class="dim">今天已浇过水，明天继续生长。</span>' : op('water', '给作物浇水')) +
+      (tile.weeds ? op('deweed', '除草') : '') +
+      op('uproot', '铲除这株');
+  } else if (tile.weeds) {
+    desc = '土地已开垦，但长了杂草，先除草才能播种。';
+    btns = op('deweed', '除草');
   } else {
     desc = '土地已开垦，选择一种当季种子播下：';
     btns = seeds.length
@@ -415,17 +439,21 @@ function tilePopover(): string {
   </div>`;
 }
 
-function farmCounts(rows: number[]): { needWater: number; readyCount: number } {
+function farmCounts(rows: number[]): { needWater: number; readyCount: number; weedCount: number; wiltedCount: number } {
   let needWater = 0;
   let readyCount = 0;
+  let weedCount = 0;
+  let wiltedCount = 0;
   for (const r of rows) {
     for (const tile of state.farm[r]) {
       const st = cropStage(tile);
-      if (st?.ready) readyCount++;
+      if (tile.weeds) weedCount++;
+      if (tile.crop?.wilted) wiltedCount++;
+      else if (st?.ready) readyCount++;
       else if (st && !tile.watered) needWater++;
     }
   }
-  return { needWater, readyCount };
+  return { needWater, readyCount, weedCount, wiltedCount };
 }
 
 function farmScene(): string {
@@ -434,15 +462,30 @@ function farmScene(): string {
   const ghUnlocked = state.unlocks.includes('greenhouse');
   const activeRows = farmSubTab === 'greenhouse' ? [6, 7] : [0, 1, 2, 3, 4, 5];
 
+  const careBadge = (st: ReturnType<typeof farmCounts>) =>
+    [st.weedCount ? `草 ${st.weedCount}` : '', st.wiltedCount ? `枯 ${st.wiltedCount}` : ''].filter(Boolean).join(' · ');
   const fieldBadge =
-    fieldStat.readyCount || fieldStat.needWater
-      ? `可收 ${fieldStat.readyCount} · 待浇 ${fieldStat.needWater}`
+    fieldStat.readyCount || fieldStat.needWater || fieldStat.weedCount || fieldStat.wiltedCount
+      ? [`可收 ${fieldStat.readyCount}`, `待浇 ${fieldStat.needWater}`, careBadge(fieldStat)].filter(Boolean).join(' · ')
       : '6×8 格';
   const ghBadge = ghUnlocked
-    ? ghStat.readyCount
-      ? `可收 ${ghStat.readyCount}`
+    ? ghStat.readyCount || ghStat.weedCount
+      ? [`可收 ${ghStat.readyCount}`, careBadge(ghStat)].filter(Boolean).join(' · ')
       : '四季恒温'
     : '未解锁';
+
+  // 一键播种：背包种子芯片选择，默认第一种
+  const seedIds = Object.keys(state.inventory).filter((id) => ITEMS[id]?.category === 'seed' && (state.inventory[id] ?? 0) > 0);
+  if (!bulkSeedCropId || !seedIds.some((id) => ITEMS[id].cropId === bulkSeedCropId)) {
+    bulkSeedCropId = seedIds.length ? (ITEMS[seedIds[0]].cropId ?? null) : null;
+  }
+  const bulkSeedName = bulkSeedCropId ? CROPS[bulkSeedCropId]?.name : null;
+  const seedChips = seedIds
+    .map((id) => {
+      const cropId = ITEMS[id].cropId!;
+      return `<button class="chip ${bulkSeedCropId === cropId ? 'on' : ''}" data-act="bulk-seed" data-crop="${cropId}">${ITEMS[id].name} ×${state.inventory[id]}</button>`;
+    })
+    .join('');
 
   const gridHtml = `<div class="farm-grid${farmEntered ? '' : ' enter'}">${activeRows
     .flatMap((r) =>
@@ -456,7 +499,7 @@ function farmScene(): string {
           data-act="tile" data-row="${r}" data-col="${c}" aria-label="${key} ${f.sub}" aria-pressed="${selected}">
           ${fx?.floatText ? `<span class="tile-float">${esc(fx.floatText)}</span>` : ''}
           <b>${f.glyph}</b><small>${f.sub}</small>
-          ${tile.crop ? `<i class="grow"><em style="width:${cropStage(tile)!.pct}%"></em></i>` : ''}
+          ${tile.crop && !tile.crop.wilted ? `<i class="grow"><em style="width:${cropStage(tile)!.pct}%"></em></i>` : ''}
         </button>`;
       }),
     )
@@ -475,6 +518,13 @@ function farmScene(): string {
       <button class="pix-btn gold" data-act="bulk-harvest">全部收获</button>
       <button class="pix-btn" data-act="ship-all">出货全部</button>
     </div>
+  </div>
+  <div class="farm-bulk-bar">
+    <span class="dim">一键播种种子：</span>
+    ${seedChips || '<span class="dim">背包里没有种子</span>'}
+    <button class="pix-btn gold" data-act="bulk-plant" ${bulkSeedCropId ? '' : 'disabled'}>一键播种${bulkSeedName ? `（${bulkSeedName}）` : ''}</button>
+    <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
+    <button class="pix-btn danger" data-act="bulk-uproot-wilted">一键铲除枯萎株</button>
   </div>
   ${tilePopover()}
   <div class="farm-stage">${gridHtml}</div>`;
@@ -1669,7 +1719,7 @@ document.addEventListener('click', (e) => {
     case 'tile-op': {
       if (!selectedCell) break;
       const { row, col } = selectedCell;
-      const op = el.dataset.op as 'clear' | 'till' | 'water' | 'harvest';
+      const op = el.dataset.op as 'clear' | 'till' | 'water' | 'harvest' | 'deweed' | 'uproot';
       doAction({ type: op, target: [{ row, col }] }, [`${row}-${col}`]);
       break;
     }
@@ -1684,6 +1734,19 @@ document.addEventListener('click', (e) => {
       break;
     case 'bulk-harvest':
       doAction({ type: 'harvest', target: 'all' });
+      break;
+    case 'bulk-seed':
+      bulkSeedCropId = el.dataset.crop!;
+      render();
+      break;
+    case 'bulk-plant':
+      if (bulkSeedCropId) doAction({ type: 'plant', cropId: bulkSeedCropId, target: 'all' });
+      break;
+    case 'bulk-deweed':
+      doAction({ type: 'deweed', target: 'all' });
+      break;
+    case 'bulk-uproot-wilted':
+      doAction({ type: 'uproot', target: 'all', onlyWilted: true });
       break;
     case 'ship-all':
       doAction({ type: 'ship', itemId: 'all', qty: 'all' });

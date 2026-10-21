@@ -7,7 +7,7 @@ import { endDay } from './day.js';
 import { maxHp } from './skills.js';
 import { donate } from './systems/bundles.js';
 import { buy, sell, ship } from './systems/economy.js';
-import { clear, harvest, plant, till, water } from './systems/farming.js';
+import { clear, deweed, harvest, plant, till, uproot, water } from './systems/farming.js';
 import { joinFestival } from './systems/festivals.js';
 import { startFishing } from './systems/fishing.js';
 import { forage } from './systems/foraging.js';
@@ -52,6 +52,10 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
       return harvest(s, events, action.target);
     case 'plant':
       return plant(s, events, action.cropId, action.target);
+    case 'deweed':
+      return deweed(s, events, action.target);
+    case 'uproot':
+      return uproot(s, events, action.target, action.onlyWilted ?? false);
     case 'move':
       return move(s, events, action.to);
     case 'buy':

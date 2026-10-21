@@ -233,10 +233,12 @@ export function renderTile(s: GameState, cell: Cell): string {
   ];
   const parts = [`${cellName(cell)}：${groundText}`];
   if (tile.ground === 'tilled') parts.push(tile.watered ? '今天浇过水' : '今天还没浇水');
+  if (tile.weeds) parts.push('长了杂草，需要除草');
   if (tile.crop) {
     const def = CROPS[tile.crop.cropId];
     const left = def.growDays - tile.crop.age;
-    parts.push(left > 0 ? `种着${def.name}，还要 ${left} 天成熟` : `${def.name}可以收获了！`);
+    if (tile.crop.wilted) parts.push(`${def.name}已枯萎，没有产出`);
+    else parts.push(left > 0 ? `种着${def.name}，还要 ${left} 天成熟` : `${def.name}可以收获了！`);
   }
   return ' ' + parts.join('，') + '。';
 }
@@ -303,6 +305,7 @@ export function renderHelp(): string {
     color.bold(' 📖 命令帮助') + color.dim('（数字选菜单，或直接输入命令；中英文都行）'),
     color.cyan('   农场'),
     '   开垦 till <格子> · 清理 clear <格子> · 播种 plant <种子> [格子] · 浇水 water · 收获 harvest',
+    '   除草 deweed [格子] · 铲除 uproot [格子]（不带格子为全部；铲除不返种子）',
     '   出货 ship [物品] [数量] · 查看 look <格子> · 睡觉 sleep',
     color.cyan('   外出'),
     '   去 go 农场|小镇|海滩|森林|山区 · 等待 wait [分钟] · 吃 eat <物品>',

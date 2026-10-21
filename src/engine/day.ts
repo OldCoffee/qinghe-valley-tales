@@ -1,4 +1,5 @@
 import {
+  CROP_CARE,
   DAY_START_MINUTES,
   DAYS_PER_SEASON,
   EVALUATION_YEAR,
@@ -35,12 +36,54 @@ export function shippingValue(s: GameState): number {
   return Object.entries(s.shippingBin).reduce((sum, [id, qty]) => sum + sellPrice(s, id) * qty, 0);
 }
 
-function growCrops(s: GameState): void {
+function growCrops(s: GameState, events: GameEvent[]): void {
+  let newlyWilted = 0;
   for (const tile of allTiles(s)) {
-    if (tile.crop && tile.watered && tile.crop.age < CROPS[tile.crop.cropId].growDays) {
-      tile.crop.age += 1;
+    const crop = tile.crop;
+    if (crop && !crop.wilted) {
+      if (tile.watered) {
+        crop.dryDays = 0;
+        // 有杂草时作物暂停生长（抢水抢肥），除草后才恢复
+        if (!tile.weeds && crop.age < CROPS[crop.cropId].growDays) {
+          crop.age += 1;
+        }
+      } else {
+        crop.dryDays = (crop.dryDays ?? 0) + 1;
+        if (crop.dryDays >= CROP_CARE.dryDaysToWilt) {
+          crop.wilted = true;
+          newlyWilted += 1;
+        }
+      }
     }
     tile.watered = false;
+  }
+  if (newlyWilted > 0) {
+    events.push(warn(`长期没浇水，${newlyWilted} 株作物枯萎了（没有产出，铲除后才能重种）。`));
+  }
+  spreadWeeds(s);
+}
+
+/** 杂草滋生与蔓延：已开垦地块每天有概率新长草，已有杂草会向四邻蔓延（按当日快照，同日不连锁） */
+function spreadWeeds(s: GameState): void {
+  const FARM_COLS_LOCAL = s.farm[0]?.length ?? 0;
+  const snapshot = s.farm.map((row) => row.map((t) => !!t.weeds));
+  for (let r = 0; r < s.farm.length; r++) {
+    for (let c = 0; c < s.farm[r].length; c++) {
+      const tile = s.farm[r][c];
+      if (tile.ground !== 'tilled' || tile.weeds) continue;
+      if (random(s) < CROP_CARE.weedChancePerDay) {
+        tile.weeds = true;
+        continue;
+      }
+      const neighbourWeedy =
+        (r > 0 && snapshot[r - 1][c]) ||
+        (r < s.farm.length - 1 && snapshot[r + 1][c]) ||
+        (c > 0 && snapshot[r][c - 1]) ||
+        (c < FARM_COLS_LOCAL - 1 && snapshot[r][c + 1]);
+      if (neighbourWeedy && random(s) < CROP_CARE.weedSpreadChance) {
+        tile.weeds = true;
+      }
+    }
   }
 }
 
@@ -76,7 +119,7 @@ export function endDay(s: GameState, events: GameEvent[], passedOut: boolean): v
   s.gold += income;
   s.stats.totalEarned += income;
 
-  growCrops(s);
+  growCrops(s, events);
   lightning(s, events);
   nightlySocial(s);
 

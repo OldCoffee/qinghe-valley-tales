@@ -22,6 +22,10 @@ export interface CropInstance {
   cropId: string;
   /** 已生长天数；达到作物的 growDays 即可收获 */
   age: number;
+  /** 连续未浇水天数（老存档可缺失，按 0 处理） */
+  dryDays?: number;
+  /** 是否已因长期缺水枯萎：不再生长、收获无产出，需铲除 */
+  wilted?: boolean;
 }
 
 export interface Tile {
@@ -29,6 +33,8 @@ export interface Tile {
   watered: boolean;
   crop: CropInstance | null;
   greenhouse?: boolean;
+  /** 已开垦地块上滋生的杂草（与地面 ground:'weed' 区分）；有杂草时作物暂停生长、成熟收获减半 */
+  weeds?: boolean;
 }
 
 export type RelationStatus = 'friend' | 'dating' | 'engaged' | 'married';
@@ -166,6 +172,8 @@ export type Action =
   | { type: 'clear'; target: Target }
   | { type: 'harvest'; target: Target }
   | { type: 'plant'; cropId: string; target: Target }
+  | { type: 'deweed'; target: Target }
+  | { type: 'uproot'; target: Target; onlyWilted?: boolean }
   | { type: 'move'; to: LocationId }
   | { type: 'buy'; itemId: string; qty: number }
   | { type: 'sell'; itemId: string; qty: Quantity }
