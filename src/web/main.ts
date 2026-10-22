@@ -2,9 +2,10 @@ import { BUNDLES, ROOMS } from '../data/bundles.js';
 import { BAG_SELL_RATE, CLINIC, DURABILITY, FISH_MAX_ROUNDS, POINTS_PER_HEART, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
 import { FISH, FISHING_SPOT_DEFS } from '../data/fish.js';
-import { BAITS, BAIT_BY_ID, ensureFishingGear, equippedRod, RODS, ROD_BY_ID } from '../data/fishingGear.js';
+import { BAITS, BAIT_BY_ID, ensureFishingGear, equippedRod, RODS, ROD_BY_ID, ROD_BY_ITEM } from '../data/fishingGear.js';
 import { ITEMS, itemName, rarityOf } from '../data/items.js';
 import { GROVES } from '../data/forest.js';
+import { FORAGE } from '../data/forage.js';
 import { MONSTERS, WEAPONS, ORES, GEMS, MINE_CHESTS } from '../data/mine.js';
 import { NPC_BY_ID, NPCS } from '../data/npcs.js';
 import { SKILL_NAMES, SKILL_ORDER, TOOL_LEVEL_NAMES, TOOL_NAMES } from '../data/skills.js';
@@ -49,6 +50,7 @@ type UiModalState =
   | { kind: 'settings' }
   | { kind: 'saves' }
   | { kind: 'profile' }
+  | { kind: 'codex'; itemId: string }
   | { kind: 'create' }
   | null;
 
@@ -1408,12 +1410,12 @@ function codexSection(): string {
       .map((id) => {
         const owned = codexCollected(id);
         const qty = state.inventory[id] ?? 0;
-        return `<div class="codex-card ${owned ? '' : 'uncollected'}">
+        return `<button class="codex-card ${owned ? '' : 'uncollected'}" data-act="view-codex" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
           <span class="bag-item-icon">${itemIconSvg(id)}</span>
           <b>${ITEMS[id].name}</b>
           ${rarityBadgeHtml(id, true)}
           <small>${owned ? (qty > 0 ? `持有 ×${qty}` : '已收集') : '尚未获得'}</small>
-        </div>`;
+        </button>`;
       })
       .join('');
     return `<h3>${cat.label} <small class="dim">${got}/${ids.length}</small></h3><div class="codex-grid">${cards}</div>`;
@@ -1421,6 +1423,113 @@ function codexSection(): string {
   return `<h3>物品图鉴 <small class="dim">已收集 ${totalGot}/${allIds.length}（${pct}%）</small></h3>
     <div class="codex-progress">${bar(totalGot, allIds.length, 'xp')}</div>
     ${cats}`;
+}
+
+const FISH_TAG_NAMES: Record<string, string> = { river: '河流', lake: '湖泊', ocean: '海域', deep: '深水', small: '小型鱼', large: '大型鱼', predator: '掠食鱼', carp: '鲤科', coral: '珊瑚鱼', night: '夜行鱼', rain: '雨天鱼', legendary: '传奇鱼' };
+const fmtFishHour = (h: number) => (h >= 24 ? `次日 ${h - 24}:00` : `${h}:00`);
+
+function codexModalHtml(id: string): string {
+  const item = ITEMS[id];
+  if (!item) return `<div class="modal-head"><h2>图鉴详情</h2><button class="pix-btn" data-act="close-ui-modal">关闭</button></div><p>未找到该物品。</p>`;
+  const owned = codexCollected(id);
+  const qty = state.inventory[id] ?? 0;
+  const catLabel = CODEX_CATEGORIES.find((c) => c.match(id))?.label ?? BAG_FILTERS.find(([f]) => f === bagCategory(id))?.[1] ?? '其他';
+  const rows: [string, string][] = [
+    ['分类', catLabel],
+    ['收集状态', owned ? (qty > 0 ? `已收集 · 当前持有 ×${qty}` : '已收集 · 当前未持有') : '尚未获得'],
+    ['稀有度', rarityOf(id).name],
+  ];
+  const price = sellPrice(state, id);
+  rows.push(['出售价', price > 0 ? `${price} 金/件` : '不可出售']);
+  if (item.energy) rows.push(['食用恢复', `+${item.energy} 体力`]);
+
+  const fish = FISH.find((f) => f.id === id);
+  const crop = item.cropId ? CROPS[item.cropId] : null;
+  const weapon = WEAPONS.find((w) => w.id === id);
+  const rod = ROD_BY_ITEM[id];
+  const bait = BAIT_BY_ID[id];
+  const forage = FORAGE.find((f) => f.id === id);
+  const ore = [...ORES, ...GEMS].find((o) => o.id === id);
+  const monster = MONSTERS.find((m) => m.drop.id === id);
+  let source = '';
+
+  if (fish) {
+    const waters = fish.waters.map((w) => FISHING_SPOT_DEFS.find((x) => x.id === w)?.name ?? LOCATIONS[w].name).join('、');
+    rows.push(['出没水域', waters]);
+    rows.push(['出现季节', fish.seasons.map((x) => SEASON_NAMES[x]).join('、') + '季']);
+    rows.push(['出现天气', fish.weather === 'any' ? '任意天气' : WEATHER_NAMES[fish.weather]]);
+    rows.push(['活跃时段', `${fmtFishHour(fish.hours[0])} - ${fmtFishHour(fish.hours[1])}`]);
+    rows.push(['捕获难度', `${starRow(fish.difficulty)}（${fish.difficulty}/6）`]);
+    if (fish.minLevel) rows.push(['钓鱼等级', `Lv.${fish.minLevel}`]);
+    if (fish.tags.length) rows.push(['特性', fish.tags.map((t) => FISH_TAG_NAMES[t] ?? t).join('、')]);
+    if (fish.unique) rows.push(['特殊', '传奇鱼 · 每档仅可捕获一次']);
+    source = `前往${waters}钓鱼`;
+  } else if (rod) {
+    rows.push(['鱼竿阶位', `${rod.tier} 阶`]);
+    rows.push(['购买价格', rod.price > 0 ? `${rod.price} 金` : '非卖品']);
+    if (rod.minLevel) rows.push(['钓鱼等级', `Lv.${rod.minLevel}`]);
+    if (rod.affinity.length) rows.push(['专长', rod.affinity.map((t) => FISH_TAG_NAMES[t] ?? t).join('、')]);
+    rows.push(['鱼饵', rod.allowsBait ? (rod.allowsAdvancedBait ? '可装普通与高级鱼饵' : '可装普通鱼饵') : '不可装鱼饵']);
+    source = rod.id === 'deep_sea' ? '完成社区中心鱼缸后，在海滩渔具店购买' : rod.id === 'iridium' ? '海滩渔具店购买，或完成社区中心鱼缸获赠' : '海滩渔具店购买';
+  } else if (bait) {
+    if (bait.price) rows.push(['购买价格', `${bait.price} 金`]);
+    if (bait.minLevel) rows.push(['钓鱼等级', `Lv.${bait.minLevel}`]);
+    rows.push(['目标鱼群', bait.tags.map((t) => FISH_TAG_NAMES[t] ?? t).join('、')]);
+    rows.push(['效果', `目标权重 +${Math.round(bait.weightBonus * 100)}%${bait.advanced ? ' · 高级鱼饵' : ''}${bait.legendaryOnly ? ' · 仅传奇鱼' : ''}`]);
+    source = bait.legendaryOnly ? '完成社区中心鱼缸获赠' : '海滩渔具店购买';
+  } else if (crop) {
+    if (item.category === 'seed') {
+      rows.push(['种子价格', `${crop.seedPrice} 金`]);
+      source = '白鹭杂货铺购买种子后在农场播种';
+    } else {
+      source = '在农场种植收获';
+    }
+    rows.push(['种植季节', crop.seasons.map((x) => SEASON_NAMES[x]).join('、') + '季']);
+    rows.push(['生长周期', `${crop.growDays} 天成熟${crop.regrowDays ? `，之后每 ${crop.regrowDays} 天可再收获` : ''}`]);
+  } else if (weapon) {
+    rows.push(['攻击伤害', `${weapon.damage[0]}-${weapon.damage[1]}`]);
+    rows.push(['装备状态', state.weapon === id ? '已装备' : qty > 0 ? '背包中' : '未装备']);
+    if (qty > 0 || state.weapon === id) rows.push(['武器耐久', `${state.weaponDurability[id] ?? weaponMaxDurability(id)}/${weaponMaxDurability(id)}`]);
+    source = id === 'fists' ? '初始自带' : id === 'rusty_sword' ? '初始武器' : id === 'galaxy_sword' ? '矿洞 60 层宝箱' : weapon.requiresFloor ? `矿洞到达 ${weapon.requiresFloor} 层后在铁匠铺购买` : '铁匠铺购买';
+  } else if (forage) {
+    rows.push(['出现季节', forage.seasons.map((x) => SEASON_NAMES[x]).join('、') + '季']);
+    rows.push(['出现地点', forage.locations.map((w) => LOCATIONS[w].name).join('、')]);
+    source = `在${forage.locations.map((w) => LOCATIONS[w].name).join('、')}采集`;
+  } else if (ore) {
+    rows.push(['矿洞层数', `第 ${ore.floors[0]}-${ore.floors[1]} 层`]);
+    source = '矿洞敲石获得';
+  } else if (monster) {
+    rows.push(['掉落怪物', `${monster.name}（第 ${monster.floors[0]}-${monster.floors[1]} 层）`]);
+    rows.push(['掉落概率', `${Math.round(monster.drop.chance * 100)}%`]);
+    source = `矿洞击败${monster.name}`;
+  } else if (item.category === 'tool') {
+    source = '初始自带，报废后在对应商店重新购买';
+  } else if (id === 'wood') source = '森林砍树获得';
+  else if (id === 'scrap') source = '工具或武器报废后留下';
+  else if (id === 'bouquet') source = '白鹭杂货铺购买';
+  else if (id === 'pendant') source = '海滩渔具店购买';
+  else if (['bread', 'salad', 'pizza'].includes(id)) source = '星火酒馆购买';
+  else if (item.category === 'food') source = '购买、获赠或奖励获得';
+  else if (item.category === 'trash') source = '钓鱼时可能钓到';
+  if (source) rows.push(['获取方式', source]);
+
+  return `
+    <div class="modal-head">
+      <h2>${uiIconSvg('bag')} 图鉴详情</h2>
+      <button class="pix-btn" data-act="close-ui-modal">返回图鉴</button>
+    </div>
+    <div class="detail-title">
+      <span class="bag-item-icon">${itemIconSvg(id)}</span>
+      <div><b>${item.name}</b><span>${owned ? '已收集' : '尚未获得'} · ${catLabel}</span></div>
+      ${rarityBadgeHtml(id, true)}
+    </div>
+    <dl class="detail-list">
+      ${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}
+    </dl>
+    <div class="detail-actions">
+      ${qty > 0 && item.category !== 'tool' ? `<button class="pix-btn gold" data-act="codex-open-bag" data-item="${id}">在背包中查看</button>` : ''}
+      <button class="pix-btn ghost" data-act="close-ui-modal">返回图鉴</button>
+    </div>`;
 }
 
 /* ---------- 4. 手册与状态整页 (Journal & Status Page) ---------- */
@@ -1950,6 +2059,8 @@ function uiModalContent(): string {
       return toolModalHtml(uiModal.tool);
     case 'item':
       return itemModalHtml(uiModal.itemId);
+    case 'codex':
+      return codexModalHtml(uiModal.itemId);
     case 'npc':
       return npcModalHtml(uiModal.npcId);
     case 'bundle':
@@ -2330,6 +2441,17 @@ document.addEventListener('click', (e) => {
       selectedEquipment = { kind: 'tool', tool: el.dataset.tool as ToolId };
       selectedItem = null;
       uiModal = { kind: 'tool', tool: el.dataset.tool as ToolId };
+      render();
+      break;
+    case 'view-codex':
+      selectedItem = el.dataset.item!;
+      uiModal = { kind: 'codex', itemId: el.dataset.item! };
+      render();
+      break;
+    case 'codex-open-bag':
+      selectedItem = el.dataset.item!;
+      page = 'bag';
+      uiModal = { kind: 'item', itemId: el.dataset.item! };
       render();
       break;
     case 'view-weapon':
