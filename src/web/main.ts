@@ -2607,29 +2607,24 @@ function craftModalHtml(focusBench?: WorkbenchId): string {
     </div>`;
 }
 
-/** 一键播种的背包弹窗：背包全部物品，种子可点选（选完关弹窗并整场播种），非种子置灰 */
+/** 一键播种的背包弹窗：只列背包里的种子，点选后关弹窗并整场播种 */
 function seedBagModalHtml(): string {
-  const bagIds = Object.keys(state.inventory).filter((id) => (state.inventory[id] ?? 0) > 0);
-  const seedCount = bagIds.filter((id) => ITEMS[id]?.category === 'seed').length;
-  const grid = bagIds.length
-    ? `<div class="bag-grid">${bagIds
+  const seedIds = Object.keys(state.inventory).filter((id) => (state.inventory[id] ?? 0) > 0 && ITEMS[id]?.category === 'seed' && !!ITEMS[id].cropId);
+  const grid = seedIds.length
+    ? `<div class="bag-grid">${seedIds
         .map((id) => {
-          const isSeed = ITEMS[id]?.category === 'seed' && !!ITEMS[id].cropId;
-          if (isSeed) {
-            const crop = CROPS[ITEMS[id].cropId!];
-            return `<button class="item" data-act="bulk-plant-seed" data-crop="${ITEMS[id].cropId}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}${crop ? ` · ${crop.name}` : ''} · 点选播满全场</small></button>`;
-          }
-          return `<div class="item off"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]} · 不是种子</small></div>`;
+          const crop = CROPS[ITEMS[id].cropId!];
+          return `<button class="item" data-act="bulk-plant-seed" data-crop="${ITEMS[id].cropId}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}${crop ? ` · ${crop.name}` : ''} · 点选播满全场</small></button>`;
         })
         .join('')}</div>`
-    : '<p class="dim">背包是空的，先去商店买点种子吧。</p>';
+    : '<p class="dim">背包里没有种子，先去商店买点种子吧。</p>';
   return `
     <div class="modal-head">
       <h2>${uiIconSvg('bag')} 背包 · 选择种子</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <p class="dim">点选一种种子，就会把开垦好的空地全部播上（已选种子会同步为每日自动播种）。</p>
-    ${seedCount ? grid : '<p class="dim">背包里没有种子，先去商店买点种子吧。</p>'}
+    ${grid}
     <div class="detail-actions">
       <button class="pix-btn ghost" data-act="close-ui-modal">取消</button>
     </div>`;
