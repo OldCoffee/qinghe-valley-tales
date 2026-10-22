@@ -3,6 +3,7 @@ import { CROPS } from '../../data/crops.js';
 import { itemName, seedIdOf } from '../../data/items.js';
 import { TOOL_NAMES } from '../../data/skills.js';
 import { SEASON_NAMES } from '../../data/world.js';
+import { isRaining } from '../calendar.js';
 import { allCells, cellName, tileAt } from '../farm.js';
 import { addXp, hasProf, scaledCost } from '../skills.js';
 import { random } from '../rng.js';
@@ -291,6 +292,8 @@ export function plant(s: GameState, events: GameEvent[], cropId: string, target:
     apply: (tile) => {
       removeItem(s, seedId, 1);
       tile.crop = { cropId, age: 0, dryDays: 0, wilted: false };
+      // 雨天（或温室）种下即被雨水浇透，不需要再浇水
+      if (isRaining(s) || tile.greenhouse) tile.watered = true;
     },
     blocker: () => (s.inventory[seedId] ? null : `${seedName}用完了。`),
   });

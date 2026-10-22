@@ -42,7 +42,8 @@ function growCrops(s: GameState, events: GameEvent[]): void {
   for (const tile of allTiles(s)) {
     const crop = tile.crop;
     if (crop && !crop.wilted) {
-      if (tile.watered) {
+      // 雨天/温室的作物即使没手动浇过，晚上也按已浇水生长（兜底白天新种或旧存档）
+      if (tile.watered || tile.greenhouse || isRaining(s)) {
         crop.dryDays = 0;
         // 有杂草时作物暂停生长（抢水抢肥），除草后才恢复
         if (!tile.weeds && crop.age < CROPS[crop.cropId].growDays) {
