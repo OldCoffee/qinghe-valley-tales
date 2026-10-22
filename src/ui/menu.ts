@@ -1,11 +1,12 @@
 import { ITEMS, itemName } from '../data/items.js';
+import { BAIT_BY_ID, ROD_BY_ID } from '../data/fishingGear.js';
 import { TOOL_LEVEL_NAMES, TOOL_NAMES } from '../data/skills.js';
 import { LOCATIONS, TRAVEL_DESTINATIONS } from '../data/world.js';
 import { travelTime } from '../engine/actions.js';
 import { todayFestival } from '../engine/calendar.js';
 import { sellPrice } from '../engine/skills.js';
 import { shopsAt } from '../engine/systems/economy.js';
-import { FISHING_SPOTS } from '../engine/systems/fishing.js';
+import { fishingSpotAccessReason, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
 import { npcsHere } from '../engine/systems/social.js';
 import type { GameState, ToolId } from '../engine/types.js';
@@ -124,6 +125,26 @@ const ENTRIES: MenuEntry[] = [
     build: fixed('festival'),
   },
   { label: '钓鱼', when: (s) => FISHING_SPOTS.includes(s.location), build: fixed('fish') },
+  {
+    label: '选择鱼竿',
+    when: (s) => FISHING_SPOTS.includes(s.location),
+    build: async (io, s) => {
+      const id = await chooseFrom(io, '选择鱼竿', s.ownedRods.map((rodId) => ({ label: ROD_BY_ID[rodId]?.name ?? rodId, value: rodId })));
+      return id && `equiprod ${id}`;
+    },
+  },
+  {
+    label: '选择鱼饵',
+    when: (s) => FISHING_SPOTS.includes(s.location),
+    build: async (io, s) => {
+      const choices = Object.keys(s.inventory)
+        .filter((id) => !!BAIT_BY_ID[id])
+        .map((id) => ({ label: `${BAIT_BY_ID[id].name} ×${s.inventory[id]}`, value: id }));
+      choices.unshift({ label: '卸下鱼饵', value: 'none' });
+      const id = await chooseFrom(io, '选择鱼饵', choices);
+      return id && `equipbait ${id}`;
+    },
+  },
   { label: '砍树', when: (s) => s.location === 'forest', build: fixed('chop') },
   { label: '探索林子', when: (s) => s.location === 'forest', build: fixed('explore') },
   { label: '采集', when: (s) => (s.forage[s.location]?.length ?? 0) > 0, build: fixed('forage') },
@@ -231,7 +252,7 @@ const ENTRIES: MenuEntry[] = [
     when: () => true,
     build: async (io, s) => {
       const choices = TRAVEL_DESTINATIONS.filter((loc) => loc !== s.location).map((loc) => ({
-        label: `${LOCATIONS[loc].name} ${color.dim(`${travelTime(s, loc)} 分钟`)}`,
+        label: `${LOCATIONS[loc].name} ${color.dim(fishingSpotAccessReason(s, loc) ?? `${travelTime(s, loc)} 分钟`)}`,
         value: loc,
       }));
       const loc = await chooseFrom(io, '去哪里', choices);

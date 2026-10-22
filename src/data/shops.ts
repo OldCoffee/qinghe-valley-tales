@@ -1,5 +1,6 @@
 import type { GameState, ItemCategory, LocationId, ToolId } from '../engine/types.js';
 import { CROPS } from './crops.js';
+import { BAITS, RODS } from './fishingGear.js';
 import { seedIdOf } from './items.js';
 import { WEAPONS } from './mine.js';
 
@@ -85,9 +86,8 @@ export const SHOPS: ShopDef[] = [
     keeperName: '陆远',
     buys: ['fish'],
     stock: (s) => [
-      ...(s.tools.rod < 0 ? [{ itemId: 'rod_bamboo', price: 300 }] : []),
-      { itemId: 'rod_fiberglass', price: 1800 },
-      { itemId: 'rod_iridium', price: 7500 },
+      ...RODS.filter((r) => (r.id !== 'deep_sea' || s.unlocks.includes('deep_sea_rod_available')) && !s.ownedRods?.includes(r.id)).map((r) => ({ itemId: r.itemId, price: r.price })),
+      ...BAITS.filter((b) => b.price > 0).map((b) => ({ itemId: b.id, price: b.price })),
       { itemId: 'pendant', price: 5000 },
     ],
   },

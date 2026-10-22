@@ -1,6 +1,21 @@
 export type Season = 'spring' | 'summer' | 'fall' | 'winter';
 export type Weather = 'sunny' | 'rain' | 'storm' | 'snow';
-export type LocationId = 'farm' | 'town' | 'beach' | 'forest' | 'mountain' | 'mine';
+export type LocationId =
+  | 'farm'
+  | 'town'
+  | 'beach'
+  | 'forest'
+  | 'mountain'
+  | 'mine'
+  | 'egret_river'
+  | 'emerald_rapids'
+  | 'ancient_river'
+  | 'mirror_lake'
+  | 'mist_lake'
+  | 'starfall_lake'
+  | 'crescent_bay'
+  | 'coral_reef'
+  | 'abyssal_sea';
 export type Ground = 'grass' | 'weed' | 'stone' | 'tilled' | 'locked';
 export type SkillId = 'farming' | 'foraging' | 'fishing' | 'mining' | 'combat';
 export type ToolId = 'hoe' | 'can' | 'pickaxe' | 'rod' | 'axe';
@@ -16,7 +31,8 @@ export type ItemCategory =
   | 'trash'
   | 'special'
   | 'weapon'
-  | 'tool';
+  | 'tool'
+  | 'bait';
 
 export interface CropInstance {
   cropId: string;
@@ -80,6 +96,13 @@ export type Activity =
       round: number;
       hint: FishMove | 'unclear';
       actual: FishMove;
+      /** 抛竿时的装备快照，避免拉锯中换装改变结果；旧存档可缺失 */
+      rodId?: string;
+      baitId?: string | null;
+      tensionCap?: number;
+      tensionMult?: number;
+      progressMult?: number;
+      lineBreakWearMult?: number;
     }
   | { kind: 'event'; eventId: string }
   | { kind: 'profession'; skill: SkillId; level: number }
@@ -157,6 +180,10 @@ export interface GameState {
   weaponDurability: Record<string, number>;
   /** 工具是否装备着；没装备的工具不能用 */
   equippedTools: Record<ToolId, boolean>;
+  /** 大型钓鱼系统：已拥有鱼竿、当前装备鱼竿与鱼饵；旧存档加载时迁移 */
+  ownedRods: string[];
+  equippedRodId: string;
+  equippedBaitId: string | null;
   npcs: Record<string, NpcState>;
   forage: Partial<Record<LocationId, string[]>>;
   forest: ForestState;
@@ -198,6 +225,8 @@ export type Action =
   | { type: 'wait'; minutes: number }
   | { type: 'sleep' }
   | { type: 'fish' }
+  | { type: 'equipRod'; rodId: string }
+  | { type: 'equipBait'; baitId: string | null }
   | { type: 'forage'; index?: number }
   | { type: 'chop' }
   | { type: 'grove'; grove: GroveId }

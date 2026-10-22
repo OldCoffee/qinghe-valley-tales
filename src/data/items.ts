@@ -1,6 +1,7 @@
 import type { ItemCategory, ToolId } from '../engine/types.js';
 import { CROPS, type CropDef } from './crops.js';
 import { FISH, TRASH } from './fish.js';
+import { BAITS, RODS } from './fishingGear.js';
 import { FORAGE } from './forage.js';
 import { GEMS, MONSTERS, ORES, WEAPONS } from './mine.js';
 
@@ -12,6 +13,7 @@ export interface ItemDef {
   energy?: number;
   cropId?: string;
   toolGrant?: { tool: ToolId; level: number; minFishing?: number };
+  rodGrant?: { rodId: string; minFishing: number };
 }
 
 export function seedIdOf(cropId: string): string {
@@ -32,11 +34,19 @@ const SPECIALS: ItemDef[] = [
   { id: 'tool_can', name: '水壶', category: 'tool', sellPrice: 0, toolGrant: { tool: 'can', level: 0 } },
   { id: 'tool_pickaxe', name: '镐子', category: 'tool', sellPrice: 0, toolGrant: { tool: 'pickaxe', level: 0 } },
   { id: 'tool_axe', name: '斧头', category: 'tool', sellPrice: 0, toolGrant: { tool: 'axe', level: 0 } },
-  { id: 'rod_bamboo', name: '竹制鱼竿', category: 'tool', sellPrice: 0, toolGrant: { tool: 'rod', level: 0 } },
+  { id: 'rod_bamboo', name: '竹制鱼竿', category: 'tool', sellPrice: 0, toolGrant: { tool: 'rod', level: 0 }, rodGrant: { rodId: 'bamboo', minFishing: 0 } },
   { id: 'bouquet', name: '花束', category: 'special', sellPrice: 100 },
   { id: 'pendant', name: '美人鱼吊坠', category: 'special', sellPrice: 2500 },
-  { id: 'rod_fiberglass', name: '玻璃纤维鱼竿', category: 'tool', sellPrice: 0, toolGrant: { tool: 'rod', level: 1, minFishing: 2 } },
-  { id: 'rod_iridium', name: '铱金鱼竿', category: 'tool', sellPrice: 0, toolGrant: { tool: 'rod', level: 2, minFishing: 6 } },
+  { id: 'rod_fiberglass', name: '玻璃纤维鱼竿', category: 'tool', sellPrice: 0, toolGrant: { tool: 'rod', level: 1, minFishing: 2 }, rodGrant: { rodId: 'fiberglass', minFishing: 2 } },
+  { id: 'rod_iridium', name: '铱金鱼竿', category: 'tool', sellPrice: 0, toolGrant: { tool: 'rod', level: 2, minFishing: 6 }, rodGrant: { rodId: 'iridium', minFishing: 6 } },
+  ...RODS.filter((r) => !['bamboo', 'fiberglass', 'iridium'].includes(r.id)).map((r) => ({
+    id: r.itemId,
+    name: r.name,
+    category: 'tool' as const,
+    sellPrice: 0,
+    rodGrant: { rodId: r.id, minFishing: r.minLevel },
+  })),
+  ...BAITS.map((b) => ({ id: b.id, name: b.name, category: 'bait' as const, sellPrice: Math.floor(b.price / 2) })),
 ];
 
 function buildItems(): Record<string, ItemDef> {

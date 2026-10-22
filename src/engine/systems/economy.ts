@@ -1,5 +1,6 @@
 import { BAG_SELL_RATE } from '../../data/config.js';
 import { ITEMS, itemName } from '../../data/items.js';
+import { BAIT_BY_ID, ROD_BY_ITEM, equippedRod } from '../../data/fishingGear.js';
 import { WEAPONS } from '../../data/mine.js';
 import { SHOPS, type ShopDef } from '../../data/shops.js';
 import { shopClosedReason } from '../calendar.js';
@@ -42,7 +43,17 @@ export function buy(s: GameState, events: GameEvent[], itemId: string, qty: numb
   const count = single ? 1 : qty;
   const total = price * count;
 
-  if (item.toolGrant) {
+  if (item.rodGrant) {
+    const rod = ROD_BY_ITEM[itemId];
+    if (s.ownedRods.includes(rod.id)) {
+      events.push(warn('你已经拥有这支鱼竿了。'));
+      return false;
+    }
+    if (skillLevel(s, 'fishing') < rod.minLevel) {
+      events.push(warn(`老渔夫摇摇头："钓鱼技能到 ${rod.minLevel} 级再来吧。"`));
+      return false;
+    }
+  } else if (item.toolGrant) {
     const { tool, level, minFishing = 0 } = item.toolGrant;
     if (s.tools[tool] >= level) {
       events.push(warn('你已经有同样好或更好的鱼竿了。'));
@@ -53,13 +64,33 @@ export function buy(s: GameState, events: GameEvent[], itemId: string, qty: numb
       return false;
     }
   }
+  const bait = BAIT_BY_ID[itemId];
+  if (bait) {
+    if (skillLevel(s, 'fishing') < bait.minLevel) {
+      events.push(warn(`这种鱼饵需要钓鱼技能 ${bait.minLevel} 级。`));
+      return false;
+    }
+    if (bait.advanced && !equippedRod(s).allowsAdvancedBait) {
+      events.push(warn('高级鱼饵需要礁岩竿、铱金鱼竿或深海竿。'));
+      return false;
+    }
+  }
   if (s.gold < total) {
     events.push(warn(`金币不够：需要 ${total}，你只有 ${s.gold}。`));
     return false;
   }
 
   s.gold -= total;
-  if (item.toolGrant) {
+  if (item.rodGrant) {
+    const rod = ROD_BY_ITEM[item.id];
+    recordCollected(s, item.id);
+    s.ownedRods.push(rod.id);
+    s.equippedRodId = rod.id;
+    s.tools.rod = Math.max(s.tools.rod, rod.tier);
+    s.durability.rod = toolMaxDurability(Math.min(4, rod.tier));
+    s.equippedTools.rod = true;
+    events.push(good(`买下并装备了${item.name}，花费 ${total} 金。`));
+  } else if (item.toolGrant) {
     const tool = item.toolGrant.tool;
     recordCollected(s, item.id);
     s.tools[tool] = item.toolGrant.level;

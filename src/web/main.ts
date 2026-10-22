@@ -1,7 +1,8 @@
 import { BUNDLES, ROOMS } from '../data/bundles.js';
-import { BAG_SELL_RATE, CLINIC, DURABILITY, POINTS_PER_HEART, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
+import { BAG_SELL_RATE, CLINIC, DURABILITY, FISH_MAX_ROUNDS, POINTS_PER_HEART, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
-import { FISH, ROD_NAMES } from '../data/fish.js';
+import { FISH, FISHING_SPOT_DEFS } from '../data/fish.js';
+import { BAITS, BAIT_BY_ID, ensureFishingGear, equippedRod, RODS, ROD_BY_ID } from '../data/fishingGear.js';
 import { ITEMS, itemName, rarityOf } from '../data/items.js';
 import { GROVES } from '../data/forest.js';
 import { MONSTERS, WEAPONS, ORES, GEMS, MINE_CHESTS } from '../data/mine.js';
@@ -18,7 +19,7 @@ import { ensureEquipment, repairCost, toolMaxDurability, weaponMaxDurability } f
 import { maxHp, sellPrice, skillLevel, skillProgressOf, type SkillProgress } from '../engine/skills.js';
 import { bundleDone, donatedCount, neededItems } from '../engine/systems/bundles.js';
 import { shopsAt } from '../engine/systems/economy.js';
-import { availableFish, FISHING_SPOTS } from '../engine/systems/fishing.js';
+import { availableFish, fishingSpotAccessReason, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
 import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
@@ -196,6 +197,7 @@ function syncForestUiState(): void {
 function normalizeLoadedState(data: GameState): GameState | null {
   if (!data || data.version !== SAVE_VERSION) return null;
   ensureEquipment(data);
+  ensureFishingGear(data);
   if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
   if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
   if (typeof data.autoPlantCropId !== 'string') data.autoPlantCropId = null;
@@ -842,8 +844,9 @@ function fishingDockSection(): string {
   const rodLvl = state.tools.rod;
   const rodBroken = rodLvl < 0;
   const rodEquipped = state.equippedTools.rod;
-  const rodName = rodBroken ? '鱼竿已报废（去海滩老渔夫处购买）' : (ROD_NAMES[rodLvl] ?? '竹制鱼竿');
-  const rodMax = rodBroken ? 0 : toolMaxDurability(rodLvl);
+  const rodDef = equippedRod(state);
+  const rodName = rodBroken ? '鱼竿已报废（去海滩老渔夫处购买）' : rodDef.name;
+  const rodMax = rodBroken ? 0 : toolMaxDurability(rodDef.tier);
   const rodCur = rodBroken ? 0 : state.durability.rod;
   const fishList = availableFish(state);
   const canCast = !rodBroken && rodEquipped;
@@ -853,12 +856,27 @@ function fishingDockSection(): string {
         .map((f) => {
           const caught = state.stats.fishSpecies.includes(f.id);
           const stars = starRow(f.difficulty);
-          return `<span class="chip ${caught ? 'ok' : ''}">${caught ? f.name : `未知鱼影（${f.name}）`} <small>${stars}</small></span>`;
+          return `<span class="chip ${caught ? 'ok' : ''}">${caught ? f.name : '未知鱼影'} <small>${stars}</small></span>`;
         })
         .join('')
     : '<span class="dim">当前时段或天气下水面很安静，换个时段或雨天来看看吧。</span>';
 
-  return `<h3>水域钓鱼台（点击水面浮漂或按钮抛竿）</h3>
+  const spot = FISHING_SPOT_DEFS.find((x) => x.id === state.location);
+  const tagNames: Record<string, string> = { river: '河流', lake: '湖泊', ocean: '海域', deep: '深水', small: '小型鱼', large: '大型鱼', predator: '掠食鱼', carp: '鲤科', coral: '珊瑚鱼', night: '夜行鱼', rain: '雨天鱼', legendary: '传奇鱼' };
+  const tagName = (tag: string) => tagNames[tag] ?? tag;
+  const rodChoices = RODS.filter((r) => state.ownedRods.includes(r.id))
+    .map((r) => `<button class="chip ${r.id === state.equippedRodId ? 'on' : ''}" data-act="equip-fishing-rod" data-rod="${r.id}">${r.name}${r.affinity.length ? ` · ${r.affinity.slice(0, 2).map(tagName).join('/')}` : ''}</button>`)
+    .join('');
+  const baitChoices = BAITS.filter((b) => (state.inventory[b.id] ?? 0) > 0)
+    .map((b) => `<button class="chip ${b.id === state.equippedBaitId ? 'on' : ''}" data-act="equip-fishing-bait" data-bait="${b.id}">${b.name} ×${state.inventory[b.id]}</button>`)
+    .join('');
+  const bait = state.equippedBaitId ? BAIT_BY_ID[state.equippedBaitId] : null;
+  const effectBits = [
+    rodDef.affinity.length ? `鱼竿专长：${rodDef.affinity.map(tagName).join('、')}` : '',
+    bait ? `鱼饵目标：${bait.tags.map(tagName).join('、')}` : '未装鱼饵',
+  ].filter(Boolean).join(' · ');
+
+  return `<h3>${spot?.name ?? '水域'}钓鱼台（${spot?.waterType === 'river' ? '河流' : spot?.waterType === 'lake' ? '湖泊' : '海域'} ${spot?.tier ?? 1} 阶）</h3>
     <div class="fishing-dock">
       <button class="water-pond" data-act="fish" ${canCast ? '' : 'disabled'}>
         <div class="water-waves">〰 〰 〰 〰 〰 〰</div>
@@ -879,6 +897,9 @@ function fishingDockSection(): string {
           <span class="dim" style="display:block;margin-bottom:4px;">当前水域 · 本时段可出没鱼类（${fishList.length} 种）：</span>
           <div class="chips">${fishChips}</div>
         </div>
+        <div><span class="dim">选择鱼竿：</span><div class="chips">${rodChoices}</div></div>
+        <div><span class="dim">选择鱼饵（有效咬钩后消耗 1 个）：</span><div class="chips">${baitChoices || '<span class="dim">背包里没有鱼饵</span>'}${bait ? '<button class="chip" data-act="equip-fishing-bait" data-bait="">卸下鱼饵</button>' : ''}</div></div>
+        <small class="dim">${spot?.description ?? ''}${effectBits ? ` · ${effectBits}` : ''}</small>
         <div style="display:flex;gap:8px;align-items:center;margin-top:auto;">
           <button class="pix-btn gold" data-act="fish" ${canCast ? '' : 'disabled'}>${uiIconSvg('skill_fishing')} 抛竿钓鱼</button>
           <button class="pix-btn ghost" data-act="view-tool" data-tool="rod">查看鱼竿详情</button>
@@ -1117,7 +1138,7 @@ function bagCategory(id: string): string {
 function toolLabel(t: ToolId): string {
   const level = state.tools[t];
   if (level < 0) return '已报废';
-  return t === 'rod' ? ['竹制', '玻璃纤维', '铱金'][level] : TOOL_LEVEL_NAMES[level];
+  return t === 'rod' ? equippedRod(state).name : TOOL_LEVEL_NAMES[level];
 }
 
 function durBar(cur: number, max: number): string {
@@ -1357,10 +1378,13 @@ const CODEX_CATEGORIES: { key: string; label: string; match: (id: string) => boo
   { key: 'tools', label: '工具', match: (id) => ITEMS[id].category === 'tool' },
   { key: 'crops', label: '作物', match: (id) => ITEMS[id].category === 'crop' || ITEMS[id].category === 'seed' },
   { key: 'forage', label: '采集物', match: (id) => ITEMS[id].category === 'forage' },
-  { key: 'fish', label: '鱼类', match: (id) => ITEMS[id].category === 'fish' },
+  { key: 'river-fish', label: '河流鱼', match: (id) => FISHING_SPOT_DEFS.find((s) => s.id === FISH.find((f) => f.id === id)?.waters[0])?.waterType === 'river' },
+  { key: 'lake-fish', label: '湖泊鱼', match: (id) => FISHING_SPOT_DEFS.find((s) => s.id === FISH.find((f) => f.id === id)?.waters[0])?.waterType === 'lake' },
+  { key: 'ocean-fish', label: '海域鱼', match: (id) => FISHING_SPOT_DEFS.find((s) => s.id === FISH.find((f) => f.id === id)?.waters[0])?.waterType === 'ocean' },
+  { key: 'bait', label: '鱼饵', match: (id) => ITEMS[id].category === 'bait' },
   { key: 'oregem', label: '矿石宝石', match: (id) => ITEMS[id].category === 'ore' || ITEMS[id].category === 'gem' },
   { key: 'food', label: '食物', match: (id) => ITEMS[id].category === 'food' },
-  { key: 'other', label: '其他', match: (id) => !['weapon', 'tool', 'crop', 'seed', 'forage', 'fish', 'ore', 'gem', 'food'].includes(ITEMS[id].category) },
+  { key: 'other', label: '其他', match: (id) => !['weapon', 'tool', 'crop', 'seed', 'forage', 'fish', 'bait', 'ore', 'gem', 'food'].includes(ITEMS[id].category) },
 ];
 
 /** 是否已入图鉴: 获得记录 / 当前持有 / 工具武器按拥有状态推导 (老存档兼容) */
@@ -1514,14 +1538,17 @@ function mapModalHtml(): string {
     const here = state.location === id || (id === 'mountain' && state.location === 'mine');
     const npcsAtLoc = NPCS.filter((n) => npcLocation(state, n) === id);
     const mins = here ? 0 : travelTime(state, id);
-    return `<button class="card place ${here ? 'on' : ''}" data-act="move" data-to="${id}" ${here ? 'disabled' : ''}>
+    const spot = FISHING_SPOT_DEFS.find((x) => x.id === id);
+    const isDedicatedSpot = !!spot && !['forest', 'mountain', 'beach'].includes(id);
+    const lockReason = isDedicatedSpot ? fishingSpotAccessReason(state, id) : null;
+    return `<button class="card place ${here ? 'on' : ''} ${lockReason ? 'uncollected' : ''}" data-act="move" data-to="${id}" ${here || lockReason ? 'disabled' : ''}>
       <div>
         <b>${LOCATIONS[id].name}</b>
         <div class="dim" style="font-size:17px;">
-          ${npcsAtLoc.length ? `在场居民：${npcsAtLoc.map((n) => n.name).join('、')}` : '当前无居民在场'}
+          ${spot ? `${spot.waterType === 'river' ? '河流' : spot.waterType === 'lake' ? '湖泊' : '海域'} ${spot.tier} 阶 · 钓鱼 Lv.${spot.minLevel}` : npcsAtLoc.length ? `在场居民：${npcsAtLoc.map((n) => n.name).join('、')}` : '当前无居民在场'}
         </div>
       </div>
-      <span>${here ? uiIconSvg('pin') + ' 当前所在' : `前往 · 耗时 ${mins} 分钟${state.unlocks.includes('minecart') ? '（矿车加速）' : ''}`}</span>
+      <span>${here ? uiIconSvg('pin') + ' 当前所在' : lockReason ? `未开放 · ${lockReason}` : `前往 · 耗时 ${mins} 分钟${state.unlocks.includes('minecart') ? '（矿车加速）' : ''}`}</span>
     </button>`;
   }).join('');
 
@@ -2068,16 +2095,18 @@ function renderFishingDuelModal(): string {
     stateBadge = uiIconSvg('question') + ' 涟漪阵阵 · 动向不明';
     stateDesc = '水面泛起一圈圈涟漪，看不清鱼在蓄力还是休息，根据当前张力谨慎试探。';
   }
+  const duelRod = act.rodId ? ROD_BY_ID[act.rodId] : equippedRod(state);
+  const duelBait = act.baitId ? BAIT_BY_ID[act.baitId] : null;
 
   return `
     <div class="modal-head">
-      <h2>${uiIconSvg('skill_fishing')} 水域拉锯战 · 第 ${act.round + 1}/12 回合</h2>
+      <h2>${uiIconSvg('skill_fishing')} 水域拉锯战 · 第 ${act.round + 1}/${FISH_MAX_ROUNDS} 回合</h2>
       <span class="badge ${danger ? 'bad' : 'ok'}">${danger ? uiIconSvg('warning') + ' 张力过高预警' : `难度 ${starRow(fish?.difficulty ?? 1)}`}</span>
     </div>
     <div class="fish-duel-pond ${act.hint}">
       <div class="duel-state-banner">
         <b>${stateBadge}</b>
-        <small>鱼竿耐久 ${state.durability.rod}/${toolMaxDurability(state.tools.rod)}</small>
+        <small>${duelRod.name}${duelBait ? ` · ${duelBait.name}` : ''} · 鱼竿耐久 ${state.durability.rod}/${toolMaxDurability(duelRod.tier)}</small>
       </div>
       <p style="margin:0 0 10px;font-size:18px;">${stateDesc}</p>
       <div class="duel-water-track">
@@ -2409,6 +2438,12 @@ document.addEventListener('click', (e) => {
       break;
     case 'fish':
       doAction({ type: 'fish' });
+      break;
+    case 'equip-fishing-rod':
+      doAction({ type: 'equipRod', rodId: el.dataset.rod! });
+      break;
+    case 'equip-fishing-bait':
+      doAction({ type: 'equipBait', baitId: el.dataset.bait || null });
       break;
     case 'festival':
       doAction({ type: 'festival' });

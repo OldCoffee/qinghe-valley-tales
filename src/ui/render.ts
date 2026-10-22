@@ -1,11 +1,12 @@
 import { FARM_COLS, FARM_ROWS, MIDNIGHT_MINUTES, POINTS_PER_HEART } from '../data/config.js';
 import { BUNDLES, ROOMS } from '../data/bundles.js';
 import { CROPS } from '../data/crops.js';
+import { FISHING_SPOT_DEFS } from '../data/fish.js';
 import { ITEMS, itemName } from '../data/items.js';
 import { WEAPONS } from '../data/mine.js';
 import { NPCS } from '../data/npcs.js';
 import { PROFESSIONS, SKILL_NAMES, SKILL_ORDER, TOOL_LEVEL_NAMES, TOOL_NAMES } from '../data/skills.js';
-import { ROD_NAMES } from '../data/fish.js';
+import { BAIT_BY_ID, equippedRod } from '../data/fishingGear.js';
 import { GAME_TITLE, LOCATIONS, WEATHER_NAMES, WEEKDAY_NAMES } from '../data/world.js';
 import type { ActivityView } from '../engine/activity.js';
 import { formatDate, formatTime, shopClosedReason, todayFestival } from '../engine/calendar.js';
@@ -111,7 +112,12 @@ export function renderLocation(s: GameState): string {
   }
   const found = s.forage[s.location] ?? [];
   if (found.length > 0) lines.push(` 🌿 可以采集：${found.map(itemName).join('、')}`);
-  if (FISHING_SPOTS.includes(s.location)) lines.push(color.dim(' 🎣 这里可以钓鱼'));
+  if (FISHING_SPOTS.includes(s.location)) {
+    const spot = FISHING_SPOT_DEFS.find((x) => x.id === s.location);
+    const rod = equippedRod(s);
+    const bait = s.equippedBaitId ? BAIT_BY_ID[s.equippedBaitId] : null;
+    lines.push(color.dim(` 🎣 ${spot?.name ?? '这里可以钓鱼'} · ${rod.name}${bait ? ` · ${bait.name}×${s.inventory[bait.id] ?? 0}` : ''}`));
+  }
   for (const shop of shopsAt(s)) {
     const closed = shopClosedReason(s, shop);
     lines.push(` 🏪 ${shop.name}` + (closed ? color.dim(`（${closed}）`) : color.green('（营业中）')));
@@ -156,6 +162,7 @@ const CATEGORY_NAMES: Partial<Record<ItemCategory, string>> = {
   monster: '怪物掉落',
   food: '食物',
   trash: '杂物',
+  bait: '鱼饵',
   special: '特殊',
 };
 
@@ -256,7 +263,9 @@ export function renderStatus(s: GameState): string {
   const tools = (['hoe', 'can', 'pickaxe', 'axe'] as ToolId[]).map(
     (t) => `${s.tools[t] < 0 ? '已报废的' : TOOL_LEVEL_NAMES[s.tools[t]]}${TOOL_NAMES[t]}${s.toolUpgrade?.tool === t ? '(升级中)' : ''}`,
   );
-  lines.push(`   工具：${tools.join('、')}、${s.tools.rod < 0 ? '已报废的鱼竿' : ROD_NAMES[s.tools.rod]}`);
+  const rod = equippedRod(s);
+  const bait = s.equippedBaitId ? BAIT_BY_ID[s.equippedBaitId] : null;
+  lines.push(`   工具：${tools.join('、')}、${s.tools.rod < 0 ? '已报废的鱼竿' : rod.name}${bait ? `（鱼饵：${bait.name} ×${s.inventory[bait.id] ?? 0}）` : ''}`);
   const weapon = WEAPONS.find((w) => w.id === s.weapon)!;
   const [lo, hi] = weaponDamage(s);
   lines.push(`   武器：${weapon.name}（伤害 ${lo}-${hi}）  生命上限 ${maxHp(s)}`);
@@ -309,7 +318,7 @@ export function renderHelp(): string {
     '   出货 ship [物品] [数量] · 查看 look <格子> · 睡觉 sleep',
     color.cyan('   外出'),
     '   去 go 农场|小镇|海滩|森林|山区 · 等待 wait [分钟] · 吃 eat <物品>',
-    '   钓鱼 fish · 采集 forage · 聊天 talk <人> · 送礼 gift <人> <物品>',
+    '   钓鱼 fish · 装备鱼竿 equiprod <鱼竿> · 装备鱼饵 equipbait <鱼饵|none> · 采集 forage',
     '   买 buy <物品> [数量] · 卖 sell <物品> [数量] · 货架 shop · 参加节日 festival',
     '   升级 upgrade 锄头|水壶|镐子 · 捐献 donate [物品]（社区中心）',
     color.cyan('   矿洞'),

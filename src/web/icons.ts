@@ -1,4 +1,5 @@
 import type { ToolId } from '../engine/types.js';
+import { FISH } from '../data/fish.js';
 
 /* ============================================================
  * 星露谷像素风渲染引擎
@@ -42,6 +43,10 @@ function shade(hex: string, f: number): string {
   return `#${((r << 16) | (gg << 8) | b).toString(16).padStart(6, '0')}`;
 }
 function hash(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+function hashColor(s: string): string {
+  const h = hash(s);
+  return `#${[80 + (h % 150), 80 + ((h >> 8) % 150), 80 + ((h >> 16) % 150)].map((n) => n.toString(16).padStart(2, '0')).join('')}`;
+}
 
 /* ---------------- 24x24 居民像素肖像 ---------------- */
 interface NpcStyle { bg: string; bg2: string; hair: string; skin: string; cloth: string; style: string }
@@ -192,6 +197,9 @@ function defItem(id: string, main: string, kind: 'fruit' | 'fish' | 'gem' | 'swo
 }
 Object.entries(CROP_PALETTE).forEach(([id, p]) => defItem(id, p.main, 'fruit'));
 [['carp', '#E67E22'], ['largemouth_bass', '#558B2F'], ['sturgeon', '#607D8B'], ['legend', '#26A69A'], ['sunfish', '#FFD54F'], ['chub', '#B0BEC5'], ['rainbow_trout', '#81C784'], ['catfish', '#5D4037'], ['salmon', '#FF8A65'], ['pike', '#9CCC65'], ['anchovy', '#64B5F6'], ['sardine', '#4FC3F7'], ['herring', '#90CAF9'], ['halibut', '#A1887F'], ['tuna', '#1E88E5'], ['red_snapper', '#EF5350'], ['eel', '#795548'], ['pufferfish', '#FFD54F']].forEach(([id, c]) => defItem(id, c, 'fish'));
+FISH.forEach((fish) => {
+  if (!ITEM_PAINT[fish.id]) defItem(fish.id, hashColor(fish.id), 'fish');
+});
 [['amethyst', '#AB47BC'], ['topaz', '#FFCA28'], ['aquamarine', '#26C6DA'], ['jade', '#66BB6A'], ['ruby', '#E53935'], ['emerald', '#2ECC71'], ['diamond', '#80DEEA'], ['crystal_fruit', '#4FC3F7']].forEach(([id, c]) => defItem(id, c, 'gem'));
 [['wild_horseradish', '#D7CCC8'], ['leek', '#A5D6A7'], ['spice_berry', '#FF7043'], ['grape', '#8E24AA'], ['wild_plum', '#7B1FA2'], ['hazelnut', '#A1662F'], ['blackberry', '#37474F'], ['winter_root', '#D7B889'], ['snow_yam', '#E1F5FE']].forEach(([id, c]) => defItem(id, c, 'fruit'));
 [['rusty_sword', '#A1887F'], ['steel_sword', '#B0BEC5'], ['silver_blade', '#E1F5FE'], ['obsidian_sword', '#7E57C2'], ['galaxy_sword', '#CE93D8']].forEach(([id, c]) => defItem(id, c, 'sword'));
@@ -226,6 +234,14 @@ function paintSpecial(g: Grid, id: string): boolean {
     case 'breakfast': blob(g, 8, 8, 6, 5, '#FFFFFF'); blob(g, 7, 8, 3, 3, '#FFB300'); rect(g, 11, 6, 2, 5, '#C62828'); return true;
     case 'bouquet': rect(g, 5, 8, 6, 6, '#F8BBD0'); blob(g, 5, 5, 3, 3, '#EC407A'); blob(g, 11, 5, 3, 3, '#AB47BC'); blob(g, 8, 3, 3, 3, '#FFD54F'); return true;
     case 'pendant': px(g, 5, 2, '#FFD54F'); px(g, 11, 2, '#FFD54F'); rect(g, 6, 3, 4, 1, '#B8860B'); blob(g, 8, 9, 4, 5, '#00BCD4'); px(g, 7, 7, '#E0F7FA'); return true;
+    case 'bait_worm': case 'bait_grub': case 'bait_shrimp': case 'bait_minnow': case 'bait_squid': case 'bait_krill': {
+      const c = id === 'bait_shrimp' ? '#FF8A80' : id === 'bait_krill' ? '#CE93D8' : '#A1887F';
+      for (let i = 0; i < 9; i++) { px(g, 3 + i, 5 + (i % 3), c); if (i % 2 === 0) px(g, 3 + i, 8 + (i % 2), shade(c, 0.7)); }
+      return true;
+    }
+    case 'bait_dough': case 'bait_universal': case 'bait_corn': case 'bait_shellfish': case 'bait_glow': case 'bait_legend':
+      blob(g, 8, 8, 5, 5, id === 'bait_legend' ? '#FFD54F' : id === 'bait_glow' ? '#80DEEA' : id === 'bait_corn' ? '#FFCA28' : '#D7CCC8');
+      px(g, 6, 6, '#FFFFFF'); px(g, 10, 9, '#6D4C41'); return true;
     case 'fists': rect(g, 4, 5, 8, 8, '#FFCC80'); rect(g, 5, 3, 2, 3, '#FFCC80'); rect(g, 8, 3, 2, 3, '#FFCC80'); rect(g, 11, 4, 1, 2, '#FFCC80'); return true;
     case 'driftwood': for (let i = 0; i < 10; i++) px(g, 3 + i, 10 - Math.floor(i / 2), '#8D6E63'); return true;
     case 'old_boot': rect(g, 5, 3, 5, 8, '#6D4C41'); rect(g, 5, 10, 9, 4, '#6D4C41'); rect(g, 5, 13, 9, 1, '#3E2723'); return true;
@@ -243,6 +259,7 @@ export function itemIconSvg(itemId: string): string {
   if (itemId === 'rod_bamboo') return toolIconSvg('rod', 0);
   if (itemId === 'rod_fiberglass') return toolIconSvg('rod', 1);
   if (itemId === 'rod_iridium') return toolIconSvg('rod', 2);
+  if (itemId.startsWith('rod_')) return toolIconSvg('rod', 2 + (hash(itemId) % 3));
   if (!paintSpecial(g, itemId)) {
     if (ITEM_PAINT[itemId]) ITEM_PAINT[itemId](g);
     else { // 未知物品: 像素木箱问号纹样 (与任何真实物品都不同), 保证不回退到汉字/圆滑占位

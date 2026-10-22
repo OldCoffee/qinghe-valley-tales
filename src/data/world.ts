@@ -47,6 +47,15 @@ export const LOCATIONS: Record<LocationId, LocationDef> = {
     arrival: '你走进了阴凉的矿洞。',
     aliases: ['mine', '矿洞'],
   },
+  egret_river: { id: 'egret_river', name: '白鹭河', arrival: '你沿着林间小路来到白鹭河，宽阔河面上水鸟掠过。', aliases: ['白鹭河', 'river', '河流'] },
+  emerald_rapids: { id: 'emerald_rapids', name: '翠谷急流', arrival: '急流撞击青石，水声几乎盖过了风声。', aliases: ['翠谷急流', '急流', 'rapids'] },
+  ancient_river: { id: 'ancient_river', name: '古木秘河', arrival: '参天古木遮住天空，暗河从盘根之间缓缓流过。', aliases: ['古木秘河', '秘河'] },
+  mirror_lake: { id: 'mirror_lake', name: '镜月湖', arrival: '镜月湖面平滑如镜，倒映着山间云影。', aliases: ['镜月湖'] },
+  mist_lake: { id: 'mist_lake', name: '寒雾深湖', arrival: '寒雾贴着深湖水面流动，远处不时传来沉闷水声。', aliases: ['寒雾深湖', '深湖'] },
+  starfall_lake: { id: 'starfall_lake', name: '星陨湖', arrival: '高山陨湖闪着细碎星光，水下似乎有巨大影子游过。', aliases: ['星陨湖'] },
+  crescent_bay: { id: 'crescent_bay', name: '月牙海湾', arrival: '弯月形海湾风浪温和，远处鱼群跃出水面。', aliases: ['月牙海湾', '海湾'] },
+  coral_reef: { id: 'coral_reef', name: '珊瑚外礁', arrival: '小船停在外礁边，清澈水下遍布色彩斑斓的珊瑚。', aliases: ['珊瑚外礁', '外礁', '礁区'] },
+  abyssal_sea: { id: 'abyssal_sea', name: '无光深海', arrival: '船驶入无光海域，深黑水面下偶尔亮起幽蓝微光。', aliases: ['无光深海', '深海'] },
 };
 
 /** 地点之间的步行时间（分钟），矿洞只能从山区进入 */
@@ -56,6 +65,15 @@ const EDGES: [LocationId, LocationId, number][] = [
   ['forest', 'town', 25],
   ['town', 'beach', 20],
   ['town', 'mountain', 20],
+  ['forest', 'egret_river', 10],
+  ['egret_river', 'emerald_rapids', 15],
+  ['emerald_rapids', 'ancient_river', 20],
+  ['mountain', 'mirror_lake', 10],
+  ['mirror_lake', 'mist_lake', 15],
+  ['mist_lake', 'starfall_lake', 20],
+  ['beach', 'crescent_bay', 10],
+  ['crescent_bay', 'coral_reef', 20],
+  ['coral_reef', 'abyssal_sea', 25],
 ];
 
 function buildDistances(): Record<string, number> {
@@ -84,7 +102,12 @@ export function travelMinutes(from: LocationId, to: LocationId): number {
   return DISTANCES[`${from}>${to}`];
 }
 
-export const TRAVEL_DESTINATIONS: LocationId[] = ['farm', 'town', 'beach', 'forest', 'mountain'];
+export const TRAVEL_DESTINATIONS: LocationId[] = [
+  'farm', 'town', 'beach', 'forest', 'mountain',
+  'egret_river', 'emerald_rapids', 'ancient_river',
+  'mirror_lake', 'mist_lake', 'starfall_lake',
+  'crescent_bay', 'coral_reef', 'abyssal_sea',
+];
 
 export function findLocation(query: string): LocationDef | undefined {
   const q = query.trim().toLowerCase();

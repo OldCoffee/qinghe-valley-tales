@@ -11,7 +11,7 @@ import { buy, sell, sellFromBag, ship } from './systems/economy.js';
 import { healAtClinic } from './systems/clinic.js';
 import { clear, deweed, harvest, plant, till, uproot, water } from './systems/farming.js';
 import { joinFestival } from './systems/festivals.js';
-import { startFishing } from './systems/fishing.js';
+import { equipFishingBait, equipFishingRod, fishingSpotAccessReason, FISHING_SPOTS, startFishing } from './systems/fishing.js';
 import { forage } from './systems/foraging.js';
 import { chopTree, ensureForest, exploreForest, harvestGrove } from './systems/forest.js';
 import { attack, descend, enterMine, leaveMine, mineRock } from './systems/mine.js';
@@ -78,6 +78,10 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
       return sleep(s, events);
     case 'fish':
       return startFishing(s, events);
+    case 'equipRod':
+      return equipFishingRod(s, events, action.rodId);
+    case 'equipBait':
+      return equipFishingBait(s, events, action.baitId);
     case 'forage':
       return forage(s, events, action.index);
     case 'chop':
@@ -140,6 +144,13 @@ function move(s: GameState, events: GameEvent[], to: LocationId): boolean {
   if (s.location === to) {
     events.push(info(`你已经在${LOCATIONS[to].name}了。`));
     return false;
+  }
+  if (FISHING_SPOTS.includes(to) && !['forest', 'mountain', 'beach'].includes(to)) {
+    const reason = fishingSpotAccessReason(s, to);
+    if (reason) {
+      events.push(warn(`${LOCATIONS[to].name}尚未开放：${reason}。`));
+      return false;
+    }
   }
   const minutes = travelTime(s, to);
   s.mine.floor = 0;

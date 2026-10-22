@@ -1,4 +1,5 @@
 import { SAVE_VERSION } from '../data/config.js';
+import { ensureFishingGear } from '../data/fishingGear.js';
 import { applyAction } from '../engine/actions.js';
 import { activityView } from '../engine/activity.js';
 import { absoluteDay } from '../engine/calendar.js';
@@ -49,6 +50,7 @@ export function loadState(store: SaveStore): GameState | null {
     const data = JSON.parse(raw) as GameState;
     if (data.version !== SAVE_VERSION) return null;
     ensureEquipment(data);
+    ensureFishingGear(data);
     if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
     if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
     if (typeof data.autoPlantCropId !== 'string') data.autoPlantCropId = null;

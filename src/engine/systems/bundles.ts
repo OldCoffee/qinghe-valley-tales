@@ -3,7 +3,8 @@ import { BUNDLES, ROOMS, type BundleDef, type RoomDef } from '../../data/bundles
 import { itemName } from '../../data/items.js';
 import { NPCS } from '../../data/npcs.js';
 import type { GameEvent, GameState } from '../types.js';
-import { addItem, good, info, love, warn } from '../util.js';
+import { addItem, good, info, love, recordCollected, warn } from '../util.js';
+import { toolMaxDurability } from './equipment.js';
 import { addFriendship } from './social.js';
 
 const CC_LOCATION = 'town';
@@ -44,7 +45,17 @@ function applyUnlock(s: GameState, unlock: string): void {
       }
     }
   }
-  if (unlock === 'free_rod') s.tools.rod = Math.max(s.tools.rod, 2);
+  if (unlock === 'free_rod') {
+    s.tools.rod = Math.max(s.tools.rod, 3);
+    if (!s.ownedRods.includes('iridium')) s.ownedRods.push('iridium');
+    s.equippedRodId = 'iridium';
+    s.equippedTools.rod = true;
+    s.durability.rod = toolMaxDurability(3);
+    recordCollected(s, 'rod_iridium');
+    addItem(s, 'bait_legend', 5);
+    recordCollected(s, 'bait_legend');
+    if (!s.unlocks.includes('deep_sea_rod_available')) s.unlocks.push('deep_sea_rod_available');
+  }
 }
 
 function donateItem(s: GameState, itemId: string): number {

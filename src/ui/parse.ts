@@ -1,4 +1,5 @@
 import { FARM_COLS, TOTAL_ROWS } from '../data/config.js';
+import { BAITS, RODS } from '../data/fishingGear.js';
 import { findCrop, findItem, seedIdOf } from '../data/items.js';
 import { findNpc } from '../data/npcs.js';
 import { findLocation } from '../data/world.js';
@@ -51,6 +52,8 @@ const ALIASES: Record<string, string[]> = {
   leave: ['leave', '离开', '出矿'],
   upgrade: ['upgrade', '升级'],
   equip: ['equip', '装备'],
+  equiprod: ['equiprod', '装备鱼竿', '换鱼竿'],
+  equipbait: ['equipbait', '装备鱼饵', '换鱼饵'],
   unequip: ['unequip', '卸下'],
   repair: ['repair', '修理', '修复'],
   donate: ['donate', '捐', '捐献'],
@@ -293,6 +296,19 @@ export function parseCommand(line: string): Parsed {
       const item = findItem(args.join(' '));
       if (!item || item.category !== 'weapon') return error('要装备什么？例如：equip 镐子 或 equip 铁剑');
       return action({ type: 'equipWeapon', itemId: item.id });
+    }
+    case 'equiprod': {
+      const name = args.join(' ').toLowerCase();
+      const rod = RODS.find((r) => [r.id, r.itemId, r.name].some((x) => x.toLowerCase() === name));
+      if (!rod) return error('要装备哪支鱼竿？');
+      return action({ type: 'equipRod', rodId: rod.id });
+    }
+    case 'equipbait': {
+      const name = args.join(' ').toLowerCase();
+      if (['', 'none', '卸下', '无'].includes(name)) return action({ type: 'equipBait', baitId: null });
+      const bait = BAITS.find((b) => [b.id, b.name].some((x) => x.toLowerCase() === name));
+      if (!bait) return error('要装备哪种鱼饵？');
+      return action({ type: 'equipBait', baitId: bait.id });
     }
     case 'unequip': {
       const word = args[0]?.toLowerCase() ?? '';
