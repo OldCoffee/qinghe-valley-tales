@@ -116,7 +116,7 @@ export function renderLocation(s: GameState): string {
     const spot = FISHING_SPOT_DEFS.find((x) => x.id === s.location);
     const rod = equippedRod(s);
     const bait = s.equippedBaitId ? BAIT_BY_ID[s.equippedBaitId] : null;
-    lines.push(color.dim(` 🎣 ${spot?.name ?? '这里可以钓鱼'} · ${rod.name}${bait ? ` · ${bait.name}×${s.inventory[bait.id] ?? 0}` : ''}`));
+    lines.push(color.dim(` 🎣 ${spot?.name ?? '这里可以钓鱼'} · ${rod.name}${bait ? ` · ${bait.name}×${s.inventory[bait.id] ?? 0}` : ' · 未装鱼饵（必备）'}`));
   }
   for (const shop of shopsAt(s)) {
     const closed = shopClosedReason(s, shop);

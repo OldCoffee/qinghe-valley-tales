@@ -50,7 +50,7 @@ export function createNewGame(seed: number, playerGender: Gender = 'male', playe
     equippedTools: { hoe: true, can: true, pickaxe: true, rod: true, axe: true },
     ownedRods: ['bamboo'],
     equippedRodId: 'bamboo',
-    equippedBaitId: null,
+    equippedBaitId: 'bait_basic',
     npcs: Object.fromEntries(
       NPCS.map((npc): [string, NpcState] => [
         npc.id,

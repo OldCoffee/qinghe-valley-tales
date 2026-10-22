@@ -22,7 +22,7 @@ export const MAX_ENERGY = 270;
 export const BASE_HP = 100;
 export const HP_PER_COMBAT_LEVEL = 10;
 export const START_GOLD = 500;
-export const START_INVENTORY: Record<string, number> = { parsnip_seed: 15 };
+export const START_INVENTORY: Record<string, number> = { parsnip_seed: 15, bait_basic: 10 };
 export const START_WEAPON = 'rusty_sword';
 
 export const PASS_OUT_PENALTY = { ratio: 0.2, min: 50, max: 100 };

@@ -239,7 +239,7 @@ function paintSpecial(g: Grid, id: string): boolean {
       for (let i = 0; i < 9; i++) { px(g, 3 + i, 5 + (i % 3), c); if (i % 2 === 0) px(g, 3 + i, 8 + (i % 2), shade(c, 0.7)); }
       return true;
     }
-    case 'bait_dough': case 'bait_universal': case 'bait_corn': case 'bait_shellfish': case 'bait_glow': case 'bait_legend':
+    case 'bait_basic': case 'bait_dough': case 'bait_universal': case 'bait_corn': case 'bait_shellfish': case 'bait_glow': case 'bait_legend':
     case 'bait_amber': case 'bait_jade': case 'bait_frost': case 'bait_void': case 'bait_dragon':
       blob(
         g,
@@ -259,7 +259,9 @@ function paintSpecial(g: Grid, id: string): boolean {
                   ? '#FFB300'
                   : id === 'bait_corn'
                     ? '#FFCA28'
-                    : '#D7CCC8',
+                    : id === 'bait_basic'
+                      ? '#FFAB91'
+                      : '#D7CCC8',
       );
       px(g, 6, 6, '#FFFFFF'); px(g, 10, 9, '#6D4C41'); return true;
     case 'fists': rect(g, 4, 5, 8, 8, '#FFCC80'); rect(g, 5, 3, 2, 3, '#FFCC80'); rect(g, 8, 3, 2, 3, '#FFCC80'); rect(g, 11, 4, 1, 2, '#FFCC80'); return true;

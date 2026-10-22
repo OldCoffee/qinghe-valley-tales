@@ -82,7 +82,7 @@ export function equipFishingBait(s: GameState, events: GameEvent[], baitId: stri
     return false;
   }
   if (!rod.allowsBait || (bait.advanced && !rod.allowsAdvancedBait)) {
-    events.push(warn(bait.advanced ? '这支鱼竿不能使用史诗/传说鱼饵。' : '竹制鱼竿不能安装鱼饵。'));
+    events.push(warn(bait.advanced ? '这支鱼竿不能使用史诗/传说鱼饵。' : '这支鱼竿不能安装鱼饵。'));
     return false;
   }
   s.equippedBaitId = baitId;
@@ -212,14 +212,18 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
     events.push(warn(`${rodProblem}。`));
     return false;
   }
+  const rod = equippedRod(s);
+  const bait = s.equippedBaitId ? BAIT_BY_ID[s.equippedBaitId] : null;
+  if (!bait || !(s.inventory[bait.id] > 0)) {
+    events.push(warn('先装上鱼饵才能钓鱼。'));
+    return false;
+  }
   const level = skillLevel(s, 'fishing');
   const energy = Math.max(FISH_CAST.minEnergy, FISH_CAST.energy - level * 0.5);
   if (s.energy < energy) {
     events.push(warn('体力不足，甩不动鱼竿了。'));
     return false;
   }
-  const rod = equippedRod(s);
-  const bait = s.equippedBaitId ? BAIT_BY_ID[s.equippedBaitId] : null;
   const castReduction = (rod.castMinutesReduction ?? 0) + (bait?.castMinutesReduction ?? 0);
   s.energy = round1(s.energy - energy);
   s.minutes += Math.max(5, FISH_CAST.minutes - castReduction);

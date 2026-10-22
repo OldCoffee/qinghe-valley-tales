@@ -967,7 +967,9 @@ function fishingDockSection(): string {
   const rodMax = rodBroken ? 0 : toolMaxDurability(rodDef.tier);
   const rodCur = rodBroken ? 0 : state.durability.rod;
   const fishList = availableFish(state);
-  const canCast = !rodBroken && rodEquipped;
+  const equippedBaitDef = state.equippedBaitId ? BAIT_BY_ID[state.equippedBaitId] : null;
+  const hasBait = !!equippedBaitDef && (state.inventory[equippedBaitDef.id] ?? 0) > 0;
+  const canCast = !rodBroken && rodEquipped && hasBait;
 
   const fishChips = fishList.length
     ? fishList
@@ -1002,7 +1004,7 @@ function fishingDockSection(): string {
         <div class="water-waves">〰 〰 〰 〰 〰 〰</div>
         <div class="pond-bobber">
           <span>${uiIconSvg('skill_fishing')}</span>
-          <span>${canCast ? '点击水面抛竿下钩' : rodBroken ? '鱼竿已报废' : '请先在背包装备鱼竿'}</span>
+          <span>${canCast ? '点击水面抛竿下钩' : rodBroken ? '鱼竿已报废' : !rodEquipped ? '请先在背包装备鱼竿' : '先装上鱼饵才能抛竿'}</span>
         </div>
       </button>
       <div class="dock-info">
@@ -1018,7 +1020,7 @@ function fishingDockSection(): string {
           <div class="chips">${fishChips}</div>
         </div>
         <div><span class="dim">选择鱼竿：</span><div class="chips">${rodChoices}</div></div>
-        <div><span class="dim">选择鱼饵（有效咬钩后消耗 1 个）：</span><div class="chips">${baitChoices || '<span class="dim">背包里没有鱼饵</span>'}${bait ? '<button class="chip" data-act="equip-fishing-bait" data-bait="">卸下鱼饵</button>' : ''}</div></div>
+        <div><span class="dim">选择鱼饵（必备，有效咬钩后消耗 1 个）：</span><div class="chips">${baitChoices || '<span class="dim">背包里没有鱼饵，去海滩渔具店买普通鱼饵（10 金）</span>'}</div></div>
         <small class="dim">${spot?.description ?? ''}${effectBits ? ` · ${effectBits}` : ''}</small>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:auto;">
           <button class="pix-btn gold" data-act="fish" ${canCast ? '' : 'disabled'}>${uiIconSvg('skill_fishing')} 抛竿钓鱼</button>
