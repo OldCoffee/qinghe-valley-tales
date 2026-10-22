@@ -1458,7 +1458,7 @@ function journalPage(): string {
     content = `
       <h3>农场主生涯统计</h3>
       <dl class="detail-list">
-        <div><dt>主角性别</dt><dd>${playerGenderOf(state) === 'female' ? '女' : '男'}（点顶栏「主角」按钮可切换，交往/订婚/婚后不可切换）</dd></div>
+        <div><dt>主角性别</dt><dd>${playerGenderOf(state) === 'female' ? '女' : '男'}</dd></div>
         <div><dt>累计总收入</dt><dd>${state.stats.totalEarned} 金</dd></div>
         <div><dt>累计收获作物</dt><dd>${state.stats.cropsHarvested} 株</dd></div>
         <div><dt>累计钓获鱼类</dt><dd>${state.stats.fishCaught} 条（解锁 ${state.stats.fishSpecies.length} 种图鉴）</dd></div>
