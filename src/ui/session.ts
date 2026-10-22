@@ -52,6 +52,12 @@ export function loadState(store: SaveStore): GameState | null {
     if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
     if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
     if (typeof data.autoPlantCropId !== 'string') data.autoPlantCropId = null;
+    // 旧版自动工坊总开关迁移: 已解锁 auto_daily 的存档补齐三台机器的每日自动
+    if (Array.isArray(data.unlocks) && data.unlocks.includes('auto_daily')) {
+      for (const u of ['auto_clear_daily', 'auto_plant_daily', 'auto_harvest_daily']) {
+        if (!data.unlocks.includes(u)) data.unlocks.push(u);
+      }
+    }
     ensureCollection(data);
     return data;
   } catch {

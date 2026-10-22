@@ -199,6 +199,12 @@ function normalizeLoadedState(data: GameState): GameState | null {
   if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
   if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
   if (typeof data.autoPlantCropId !== 'string') data.autoPlantCropId = null;
+  // 旧版自动工坊总开关迁移: 已解锁 auto_daily 的存档补齐三台机器的每日自动
+  if (Array.isArray(data.unlocks) && data.unlocks.includes('auto_daily')) {
+    for (const u of ['auto_clear_daily', 'auto_plant_daily', 'auto_harvest_daily']) {
+      if (!data.unlocks.includes(u)) data.unlocks.push(u);
+    }
+  }
   ensureCollection(data);
   return data;
 }
@@ -709,10 +715,9 @@ function farmScene(): string {
   </div>
   <div class="farm-bulk-bar">
     <span class="dim">${uiIconSvg('wrench')} 自动农具：</span>
-    <button class="pix-btn" data-act="auto-farm" data-job="clear" ${state.unlocks.includes('auto_clear') ? '' : 'disabled'}>${uiIconSvg('auto-clear')} 自动清理整地${state.unlocks.includes('auto_clear') ? '' : '（社区中心自动工坊解锁）'}</button>
-    <button class="pix-btn" data-act="auto-farm" data-job="plant" ${state.unlocks.includes('auto_plant') && bulkSeedCropId ? '' : 'disabled'}>${uiIconSvg('auto-plant')} 自动播种灌溉${state.unlocks.includes('auto_plant') ? (bulkSeedCropId ? `（${bulkSeedName}）` : '（先选种子）') : '（社区中心自动工坊解锁）'}</button>
-    <button class="pix-btn" data-act="auto-farm" data-job="harvest" ${state.unlocks.includes('auto_harvest') ? '' : 'disabled'}>${uiIconSvg('auto-harvest')} 自动除草收获${state.unlocks.includes('auto_harvest') ? '' : '（社区中心自动工坊解锁）'}</button>
-    ${state.unlocks.includes('auto_daily') ? '<span class="badge ok">每日自动已开启</span>' : ''}
+    <button class="pix-btn" data-act="auto-farm" data-job="clear" ${state.unlocks.includes('auto_clear') ? '' : 'disabled'}>${uiIconSvg('auto-clear')} 自动整地机${state.unlocks.includes('auto_clear') ? (state.unlocks.includes('auto_clear_daily') ? ' · 每日自动' : '') : '（整地工坊解锁）'}</button>
+    <button class="pix-btn" data-act="auto-farm" data-job="plant" ${state.unlocks.includes('auto_plant') && bulkSeedCropId ? '' : 'disabled'}>${uiIconSvg('auto-plant')} 自动播种机${state.unlocks.includes('auto_plant') ? (bulkSeedCropId ? `（${bulkSeedName}）` : '（先选种子）') : '（播种工坊解锁）'}${state.unlocks.includes('auto_plant_daily') ? ' · 每日自动' : ''}</button>
+    <button class="pix-btn" data-act="auto-farm" data-job="harvest" ${state.unlocks.includes('auto_harvest') ? '' : 'disabled'}>${uiIconSvg('auto-harvest')} 自动收获机${state.unlocks.includes('auto_harvest') ? (state.unlocks.includes('auto_harvest_daily') ? ' · 每日自动' : '') : '（收获工坊解锁）'}</button>
   </div>
   ${tilePopover()}
   <div class="farm-stage">${gridHtml}</div>`;
@@ -1436,7 +1441,7 @@ function journalPage(): string {
     content = `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
         <div>
-          <h3 style="margin:0;">社区中心四大房间收集包</h3>
+          <h3 style="margin:0;">社区中心各房间收集包</h3>
         </div>
         ${
           state.location === 'town'
@@ -1864,16 +1869,18 @@ function profileModalHtml(): string {
         })
         .join('')}
     </div>
-    <h3>自动农具（社区中心自动工坊）</h3>
+    <h3>自动农具（社区中心工坊）</h3>
     <div class="chips">
       ${([
-        ['auto_clear', 'auto-clear', '自动清理整地'],
-        ['auto_plant', 'auto-plant', '自动播种灌溉'],
-        ['auto_harvest', 'auto-harvest', '自动除草收获'],
+        ['auto_clear', 'auto_clear_daily', 'auto-clear', '自动整地机'],
+        ['auto_plant', 'auto_plant_daily', 'auto-plant', '自动播种机'],
+        ['auto_harvest', 'auto_harvest_daily', 'auto-harvest', '自动收获机'],
       ] as const)
-        .map(([unlock, icon, name]) => `<span class="chip ${state.unlocks.includes(unlock) ? 'ok' : ''}">${uiIconSvg(icon)} ${name}${state.unlocks.includes(unlock) ? '' : ' · 未解锁'}</span>`)
+        .map(([unlock, daily, icon, name]) => {
+          const stage = state.unlocks.includes(daily) ? '每日自动' : state.unlocks.includes(unlock) ? '一键可用' : '未解锁';
+          return `<span class="chip ${stage !== '未解锁' ? 'ok' : ''}">${uiIconSvg(icon)} ${name} · ${stage}</span>`;
+        })
         .join('')}
-      <span class="chip ${state.unlocks.includes('auto_daily') ? 'ok' : ''}">${state.unlocks.includes('auto_daily') ? '每日自动已开启' : '每日自动未开启（集齐自动工坊）'}</span>
       ${state.autoPlantCropId && CROPS[state.autoPlantCropId] ? `<span class="chip">每日自动播种：${CROPS[state.autoPlantCropId].name}</span>` : ''}
     </div>
     <h3>技能</h3>

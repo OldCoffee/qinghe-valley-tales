@@ -14,17 +14,27 @@ export const AUTO_JOB_UNLOCK: Record<AutoFarmJob, string> = {
 };
 
 export const AUTO_JOB_NAME: Record<AutoFarmJob, string> = {
-  clear: '自动清理整地',
-  plant: '自动播种灌溉',
-  harvest: '自动除草收获',
+  clear: '自动整地机',
+  plant: '自动播种机',
+  harvest: '自动收获机',
 };
 
-export const AUTO_DAILY_UNLOCK = 'auto_daily';
+export const AUTO_JOB_ROOM: Record<AutoFarmJob, string> = {
+  clear: '整地工坊',
+  plant: '播种工坊',
+  harvest: '收获工坊',
+};
+
+export const AUTO_JOB_DAILY_UNLOCK: Record<AutoFarmJob, string> = {
+  clear: 'auto_clear_daily',
+  plant: 'auto_plant_daily',
+  harvest: 'auto_harvest_daily',
+};
 
 /** 一键自动农具: 复用现有地块操作 (按格扣体力/时间), 需要先在社区中心自动工坊解锁 */
 export function runAutoFarm(s: GameState, events: GameEvent[], job: AutoFarmJob, cropId?: string): boolean {
   if (!s.unlocks.includes(AUTO_JOB_UNLOCK[job])) {
-    events.push(warn(`还没有${AUTO_JOB_NAME[job]}农具。去社区中心自动工坊完成收集包来解锁。`));
+    events.push(warn(`还没有${AUTO_JOB_NAME[job]}。去社区中心${AUTO_JOB_ROOM[job]}完成收集包来解锁。`));
     return false;
   }
   if (s.location !== 'farm') {
@@ -53,12 +63,12 @@ export function runAutoFarm(s: GameState, events: GameEvent[], job: AutoFarmJob,
 }
 
 /**
- * 每日自动 (早晨执行): 按已解锁工种依次铲枯萎→清理→除草→收获→开垦→补种→浇水。
- * 不消耗体力与时间, 只推一条汇总事件。仅在自动工坊房间完成后 (auto_daily) 生效。
+ * 每日自动 (早晨执行): 每台机器集齐自己房间的进阶包后单独生效, 依次铲枯萎→清理→除草→收获→开垦→补种→浇水。
+ * 不消耗体力与时间, 只推一条汇总事件。
  */
 export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
-  if (!s.unlocks.includes(AUTO_DAILY_UNLOCK)) return;
-  const has = (u: string) => s.unlocks.includes(u);
+  const has = (job: AutoFarmJob) => s.unlocks.includes(AUTO_JOB_DAILY_UNLOCK[job]);
+  if (!has('clear') && !has('plant') && !has('harvest')) return;
   let uprooted = 0;
   let cleared = 0;
   let deweeded = 0;
@@ -69,7 +79,7 @@ export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
   const harvestedNames: string[] = [];
 
   const cells = allCells();
-  if (has('auto_harvest')) {
+  if (has('harvest')) {
     for (const c of cells) {
       const t = tileAt(s, c);
       if (t.crop?.wilted) {
@@ -79,7 +89,7 @@ export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
       }
     }
   }
-  if (has('auto_clear')) {
+  if (has('clear')) {
     for (const c of cells) {
       const t = tileAt(s, c);
       if (t.ground === 'weed' || t.ground === 'stone') {
@@ -88,7 +98,7 @@ export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
       }
     }
   }
-  if (has('auto_harvest')) {
+  if (has('harvest')) {
     for (const c of cells) {
       const t = tileAt(s, c);
       if (t.ground === 'tilled' && t.weeds) {
@@ -109,7 +119,7 @@ export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
       else t.crop = null;
     }
   }
-  if (has('auto_clear')) {
+  if (has('clear')) {
     for (const c of cells) {
       const t = tileAt(s, c);
       if (t.ground === 'grass') {
@@ -119,7 +129,7 @@ export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
     }
   }
   const plantCropId = s.autoPlantCropId;
-  if (has('auto_plant') && plantCropId && CROPS[plantCropId]) {
+  if (has('plant') && plantCropId && CROPS[plantCropId]) {
     const def = CROPS[plantCropId];
     const seedId = seedIdOf(plantCropId);
     for (const c of cells) {
@@ -132,7 +142,7 @@ export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
       planted += 1;
     }
   }
-  if (has('auto_plant')) {
+  if (has('plant')) {
     for (const c of cells) {
       const t = tileAt(s, c);
       if (t.ground === 'tilled' && t.crop && !t.watered) {
@@ -151,9 +161,9 @@ export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
   if (planted && plantCropId) parts.push(`播种${CROPS[plantCropId].name} ${planted} 格`);
   if (watered) parts.push(`浇水 ${watered} 格`);
   if (parts.length) events.push(good(`自动农具完成了：${parts.join('、')}。`));
-  if (has('auto_plant') && !plantCropId) {
+  if (has('plant') && !plantCropId) {
     events.push(info('自动农具：还没有设定每日自动播种的种子（在农场页选择一键播种种子即可），今天跳过播种。'));
-  } else if (has('auto_plant') && plantCropId && CROPS[plantCropId] && planted === 0 && (s.inventory[seedIdOf(plantCropId)] ?? 0) === 0) {
+  } else if (has('plant') && plantCropId && CROPS[plantCropId] && planted === 0 && (s.inventory[seedIdOf(plantCropId)] ?? 0) === 0) {
     // 有空地待种但种子用完时才提示, 避免无事时刷屏: 以是否还有已开垦空地粗略判断
     const hasEmpty = cells.some((c) => {
       const t = tileAt(s, c);
