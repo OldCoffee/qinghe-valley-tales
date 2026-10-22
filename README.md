@@ -39,7 +39,7 @@
 
 ```bash
 git clone <仓库地址>
-cd StardewValley
+cd qinghe-valley-tales
 npm install
 ```
 

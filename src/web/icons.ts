@@ -2,7 +2,7 @@ import type { ToolId } from '../engine/types.js';
 import { FISH } from '../data/fish.js';
 
 /* ============================================================
- * 星露谷像素风渲染引擎
+ * 像素风渲染引擎
  * 全部图标由整数像素网格 (16x16 / 24x24) 的 <rect> 行程压缩(RLE)构成,
  * shape-rendering="crispEdges", 无 circle/ellipse/圆角/贝塞尔曲线。
  * ============================================================ */

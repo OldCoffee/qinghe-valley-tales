@@ -495,7 +495,7 @@ function playSleepFx(s: GameState, passedOut = false): void {
 }
 
 /**
- * VectorCraft 设计的星露谷像素风「爷爷的午后向日葵田梦境」插画：
+ * VectorCraft 设计的像素风「爷爷的午后向日葵田梦境」插画：
  * 草帽白胡子爷爷坐在田埂木凳上，4 株向日葵按前两年成绩逐株绽放（未开的保持青绿花苞/嫩芽）。
  */
 function grandpaDreamFieldSvg(tier: number): string {

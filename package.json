@@ -19,7 +19,7 @@
     "terminal",
     "farming",
     "text-game",
-    "stardew-like"
+    "farming-sim"
   ],
   "bin": {
     "qinghe-valley-tales": "dist/cli.js"
