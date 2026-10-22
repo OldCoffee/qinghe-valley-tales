@@ -331,6 +331,81 @@ function playCraftRevealFx(itemId: string, qty: number, subtitle: string): void 
   }, 1520);
 }
 
+/** VectorCraft 设计的《青禾谷物语》圆形山谷徽章 SVG */
+function brandCrestSvg(): string {
+  return `<svg class="brand-logo-crest" viewBox="0 0 116 116" aria-hidden="true">
+    <circle cx="58" cy="58" r="55" fill="#3d2410" stroke="#ffd23f" stroke-width="5"/>
+    <circle cx="58" cy="58" r="49" fill="#87ceeb"/>
+    <circle cx="58" cy="34" r="18" fill="#ffd23f" stroke="#fff3c4" stroke-width="3"/>
+    <path d="M10 74 L38 34 L66 68 L86 40 L106 74 Z" fill="#2e6f40" stroke="#1e3a24" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M8 72 L34 60 L68 64 L108 72 L100 98 L58 106 L18 98 Z" fill="#6abe30" stroke="#2e6f40" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M50 64 L64 64 L80 104 L42 104 Z" fill="#3a86ff" stroke="#fff3c4" stroke-width="1.5" stroke-linejoin="round"/>
+    <rect x="22" y="56" width="22" height="18" fill="#f3e5be" stroke="#3d2410" stroke-width="2"/>
+    <path d="M18 58 L33 43 L48 58 Z" fill="#e0483e" stroke="#3d2410" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="29" y="61" width="7" height="7" fill="#ffd23f" stroke="#3d2410" stroke-width="1.5"/>
+    <path d="M81 92 L81 50 M81 74 L67 62 L73 52 L81 64 Z M81 68 L95 56 L89 46 L81 58 Z" fill="#6abe30" stroke="#ffd23f" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="81,27 83.8,33 90.2,33.8 85.4,38.2 86.7,44.6 81,41.3 75.3,44.6 76.6,38.2 71.8,33.8 78.2,33" fill="#ffd23f" stroke="#3d2410" stroke-width="1.3"/>
+  </svg>`;
+}
+
+/** VectorCraft 设计的 480×160 横版木牌徽章全幅 SVG（用于开幕/刷新中心展示） */
+function brandPlaqueSvg(): string {
+  return `<svg class="refresh-plaque" viewBox="0 0 480 160" role="img" aria-label="青禾谷物语 QINGHE VALLEY TALES">
+    <rect x="14" y="14" width="456" height="136" rx="18" fill="#3d2410"/>
+    <rect x="10" y="10" width="456" height="136" rx="18" fill="#7a4a21" stroke="#3d2410" stroke-width="4"/>
+    <rect x="18" y="18" width="440" height="120" rx="12" fill="#f3e5be" stroke="#ffd23f" stroke-width="3"/>
+    <circle cx="82" cy="78" r="56" fill="#3d2410" stroke="#ffd23f" stroke-width="4"/>
+    <circle cx="82" cy="78" r="50" fill="#87ceeb"/>
+    <circle cx="82" cy="54" r="19" fill="#ffd23f" stroke="#fff3c4" stroke-width="3"/>
+    <path d="M34 94 L62 54 L90 88 L110 60 L130 94 Z" fill="#2e6f40" stroke="#1e3a24" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M32 92 L58 80 L92 84 L132 92 L124 118 L82 128 L42 118 Z" fill="#6abe30" stroke="#2e6f40" stroke-width="2" stroke-linejoin="round"/>
+    <path d="M74 84 L88 84 L104 124 L66 126 Z" fill="#3a86ff" stroke="#fff3c4" stroke-width="1.5" stroke-linejoin="round"/>
+    <rect x="46" y="76" width="22" height="18" fill="#f3e5be" stroke="#3d2410" stroke-width="2"/>
+    <path d="M42 78 L57 63 L72 78 Z" fill="#e0483e" stroke="#3d2410" stroke-width="2" stroke-linejoin="round"/>
+    <rect x="53" y="81" width="7" height="7" fill="#ffd23f" stroke="#3d2410" stroke-width="1.5"/>
+    <path d="M105 112 L105 70 M105 94 L91 82 L97 72 L105 84 Z M105 88 L119 76 L113 66 L105 78 Z" fill="#6abe30" stroke="#ffd23f" stroke-width="2" stroke-linejoin="round"/>
+    <polygon points="105,49 107.6,54.6 113.8,55.4 109.2,59.6 110.4,65.7 105,62.6 99.6,65.7 100.8,59.6 96.2,55.4 102.4,54.6" fill="#ffd23f" stroke="#3d2410" stroke-width="1.4"/>
+    <rect x="158" y="96" width="276" height="28" rx="6" fill="#2b1b0e" stroke="#ffd23f" stroke-width="2"/>
+    <text x="298" y="76" text-anchor="middle" font-size="38" font-weight="bold" fill="#3d2410">青禾谷物语</text>
+    <text x="295" y="73" text-anchor="middle" font-size="38" font-weight="bold" fill="#7a4a21">青禾谷物语</text>
+    <text x="296" y="115" text-anchor="middle" font-size="14" font-weight="bold" fill="#ffd23f">★ QINGHE VALLEY TALES ★</text>
+  </svg>`;
+}
+
+let refreshFxTimer: number | null = null;
+/** EffectCraft 设计的页面刷新开幕动效：上下木质帷幕开启 + 太阳光晕绽放 + 中央徽章飞入左上角 HUD */
+function playPageRefreshFx(): void {
+  const layer = document.getElementById('page-refresh-layer');
+  const hudLogo = document.getElementById('hud-logo');
+  if (!layer) return;
+  if (refreshFxTimer) clearTimeout(refreshFxTimer);
+  const rect = hudLogo?.getBoundingClientRect();
+  const dx = rect ? Math.round(rect.left + rect.width / 2 - window.innerWidth / 2) : -320;
+  const dy = rect ? Math.round(rect.top + rect.height / 2 - window.innerHeight / 2) : -220;
+  layer.classList.remove('glide-to-hud');
+  layer.style.setProperty('--logo-dx', `${dx}px`);
+  layer.style.setProperty('--logo-dy', `${dy}px`);
+  layer.innerHTML = `
+    <div class="refresh-curtain top"></div>
+    <div class="refresh-curtain bottom"></div>
+    <div class="refresh-halo"></div>
+    <div class="refresh-plaque-wrap">${brandPlaqueSvg()}</div>`;
+  layer.classList.add('active');
+  document.body.classList.remove('page-refresh-enter');
+  void document.body.offsetWidth;
+  document.body.classList.add('page-refresh-enter');
+  setTimeout(() => {
+    layer.classList.add('glide-to-hud');
+    hudLogo?.classList.add('logo-land-pulse');
+    setTimeout(() => hudLogo?.classList.remove('logo-land-pulse'), 540);
+  }, 620);
+  refreshFxTimer = window.setTimeout(() => {
+    layer.classList.remove('active', 'glide-to-hud');
+    layer.innerHTML = '';
+    document.body.classList.remove('page-refresh-enter');
+  }, 1320);
+}
+
 function recordActionFx(action: Action, prev: GameState, next: GameState, events: GameEvent[], cells: string[]): void {
   tileFxMap.clear();
   mineFxState = { rockHit: false, slash: false };
@@ -2424,6 +2499,10 @@ function renderFishingDuelModal(): string {
 
 function render(): void {
   const hpMax = maxHp(state);
+  const hudLogo = document.getElementById('hud-logo');
+  if (hudLogo && !hudLogo.querySelector('.brand-logo-crest')) {
+    hudLogo.innerHTML = `${brandCrestSvg()}<span class="brand-logo-text"><span class="brand-logo-title">青禾谷物语</span><small class="brand-logo-sub">★ QINGHE VALLEY ★</small></span>`;
+  }
   $('hud-loc').innerHTML = `${uiIconSvg('pin')} <b>${LOCATIONS[state.location].name}</b> <small>[切换地点]</small>`;
   $('hud-date').textContent = `${formatDate(state)} ${formatTime(state.minutes)} · ${WEATHER_NAMES[state.weather]}（明日 ${WEATHER_NAMES[state.tomorrowWeather]}）`;
   $('hud-gold').textContent = `${state.gold} 金`;
@@ -2977,6 +3056,9 @@ document.addEventListener('click', (e) => {
       pushToast(`欢迎来到青禾谷，${name}！（姓名与性别已设定，不可修改）`, 'good');
       break;
     }
+    case 'replay-refresh-fx':
+      playPageRefreshFx();
+      break;
   }
 });
 
@@ -3028,4 +3110,5 @@ document.addEventListener('keydown', (e) => {
 
 if (needsCharacterSetup) uiModal = { kind: 'create' };
 render();
+playPageRefreshFx();
 if (needsCharacterSetup) setTimeout(() => document.getElementById('create-name')?.focus(), 0);

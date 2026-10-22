@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>青禾谷物语</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 116 116'%3E%3Ccircle cx='58' cy='58' r='55' fill='%233d2410' stroke='%23ffd23f' stroke-width='5'/%3E%3Ccircle cx='58' cy='58' r='49' fill='%2387ceeb'/%3E%3Ccircle cx='58' cy='35' r='18' fill='%23ffd23f' stroke='%23fff3c4' stroke-width='3'/%3E%3Cpath d='M10 74 L38 34 L66 68 L86 40 L106 74 Z' fill='%232e6f40' stroke='%231e3a24' stroke-width='2'/%3E%3Cpath d='M8 72 L34 60 L68 64 L108 72 L100 98 L58 106 L18 98 Z' fill='%236abe30' stroke='%232e6f40' stroke-width='2'/%3E%3Cpath d='M50 64 L64 64 L80 104 L42 104 Z' fill='%233a86ff' stroke='%23fff3c4' stroke-width='1.5'/%3E%3Crect x='22' y='56' width='22' height='18' fill='%23f3e5be' stroke='%233d2410' stroke-width='2'/%3E%3Cpath d='M18 58 L33 43 L48 58 Z' fill='%23e0483e' stroke='%233d2410' stroke-width='2'/%3E%3Crect x='29' y='61' width='7' height='7' fill='%23ffd23f' stroke='%233d2410' stroke-width='1.5'/%3E%3Cpath d='M81 92 L81 50 M81 74 L67 62 L73 52 L81 64 Z M81 68 L95 56 L89 46 L81 58 Z' fill='%236abe30' stroke='%23ffd23f' stroke-width='2'/%3E%3C/svg%3E" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
     <style>
@@ -1023,11 +1024,114 @@
         0%, 100% { transform: scale(1); }
         45% { transform: scale(1.09); background: #ffe082; box-shadow: 0 0 18px #ffd54f; }
       }
+
+      /* VectorCraft 设计的徽章 Logo 与 EffectCraft 页面刷新开幕动效 */
+      .brand-logo {
+        display: inline-flex; align-items: center; gap: 10px;
+        background: linear-gradient(180deg, #fff6d6 0%, #f3e5be 100%);
+        color: var(--ink); border: 3px solid var(--wood-dark);
+        outline: 2px solid var(--gold); outline-offset: -5px;
+        box-shadow: 0 3px 0 rgba(0,0,0,0.45);
+        padding: 3px 12px 3px 6px; cursor: pointer;
+        transition: transform 0.15s ease, filter 0.15s ease;
+      }
+      .brand-logo:hover { filter: brightness(1.05); transform: translateY(-1px); }
+      .brand-logo:active { transform: translateY(2px); }
+      .brand-logo-crest { width: 38px; height: 38px; display: block; flex: none; }
+      .brand-logo-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+      .brand-logo-title {
+        font-family: 'Press Start 2P', 'PingFang SC', monospace;
+        font-size: 14px; font-weight: bold; color: #5b3312;
+        text-shadow: 1px 1px 0 #ffd23f;
+      }
+      .brand-logo-sub {
+        margin-top: 2px; padding: 1px 6px;
+        background: #2b1b0e; color: var(--gold); border: 1px solid var(--gold);
+        font-size: 11px; letter-spacing: 0.5px;
+      }
+      .brand-logo.logo-land-pulse {
+        animation: brand-logo-pulse 0.52s ease;
+      }
+      @keyframes brand-logo-pulse {
+        0%, 100% { transform: scale(1); }
+        45% { transform: scale(1.08); box-shadow: 0 0 22px #ffd23f, 0 3px 0 rgba(0,0,0,0.45); }
+      }
+
+      #page-refresh-layer {
+        position: fixed; inset: 0; z-index: 80; pointer-events: none;
+        display: none; overflow: hidden;
+      }
+      #page-refresh-layer.active { display: block; }
+      .refresh-curtain {
+        position: absolute; left: 0; right: 0; height: 50vh;
+        background: linear-gradient(180deg, #3d2410 0%, #2b1b0e 100%);
+        box-shadow: 0 0 36px rgba(0,0,0,0.7);
+      }
+      .refresh-curtain.top {
+        top: 0; border-bottom: 4px solid var(--gold);
+        animation: refresh-curtain-top 1.28s cubic-bezier(0.65, 0, 0.25, 1) forwards;
+      }
+      .refresh-curtain.bottom {
+        bottom: 0; border-top: 4px solid var(--gold);
+        animation: refresh-curtain-bottom 1.28s cubic-bezier(0.65, 0, 0.25, 1) forwards;
+      }
+      .refresh-halo {
+        position: absolute; left: 50%; top: 50%; width: 320px; height: 320px;
+        margin-left: -160px; margin-top: -160px;
+        background: radial-gradient(circle, rgba(255, 210, 63, 0.92) 0%, rgba(106, 190, 48, 0.48) 48%, rgba(255, 210, 63, 0) 72%);
+        filter: blur(2px);
+        animation: refresh-halo-bloom 1.28s ease-out forwards;
+      }
+      .refresh-plaque-wrap {
+        position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      }
+      .refresh-plaque {
+        width: min(460px, 88vw);
+        filter: drop-shadow(0 12px 26px rgba(0,0,0,0.65));
+        animation: refresh-plaque-pop 0.62s cubic-bezier(0.18, 1.25, 0.35, 1) forwards;
+      }
+      #page-refresh-layer.glide-to-hud .refresh-plaque {
+        animation: refresh-plaque-glide 0.62s cubic-bezier(0.5, 0, 0.2, 1) forwards;
+      }
+      body.page-refresh-enter header.hud,
+      body.page-refresh-enter nav.page-nav,
+      body.page-refresh-enter main.stage-wrap {
+        animation: page-stage-rise 0.65s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+      }
+      body.page-refresh-enter nav.page-nav { animation-delay: 0.08s; }
+      body.page-refresh-enter main.stage-wrap { animation-delay: 0.14s; }
+      @keyframes refresh-curtain-top {
+        0%, 44% { transform: translateY(0); }
+        100% { transform: translateY(-106%); }
+      }
+      @keyframes refresh-curtain-bottom {
+        0%, 44% { transform: translateY(0); }
+        100% { transform: translateY(106%); }
+      }
+      @keyframes refresh-halo-bloom {
+        0% { transform: scale(0.2); opacity: 0; }
+        32% { transform: scale(1.08); opacity: 0.92; }
+        65% { transform: scale(1.35); opacity: 0.72; }
+        100% { transform: scale(1.85); opacity: 0; }
+      }
+      @keyframes refresh-plaque-pop {
+        0% { transform: translateY(18px) scale(0.45); opacity: 0; }
+        68% { transform: translateY(-3px) scale(1.06); opacity: 1; }
+        100% { transform: translateY(0) scale(1); opacity: 1; }
+      }
+      @keyframes refresh-plaque-glide {
+        0% { transform: translate(0, 0) scale(1); opacity: 1; }
+        100% { transform: translate(var(--logo-dx, -320px), var(--logo-dy, -220px)) scale(0.36); opacity: 0; }
+      }
+      @keyframes page-stage-rise {
+        0% { opacity: 0.35; transform: translateY(10px) scale(0.992); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
     </style>
   </head>
   <body>
     <header class="hud">
-      <h1>青禾谷物语</h1>
+      <h1 id="hud-logo" class="brand-logo" data-act="replay-refresh-fx" title="青禾谷物语 · 点击重播开幕动效">青禾谷物语</h1>
       <button class="loc-pill" id="hud-loc" data-act="open-map" title="打开世界地图快速移动"></button>
       <span id="hud-date"></span>
       <span id="hud-gold"></span>
@@ -1046,6 +1150,7 @@
     <footer class="log-panel"><div id="log" aria-live="polite"></div></footer>
 
     <div id="fx-toast-layer" aria-live="polite"></div>
+    <div id="page-refresh-layer" aria-hidden="true"></div>
     <div id="craft-reveal-layer" aria-live="polite"></div>
     <div id="ui-modal" role="dialog" aria-modal="true"><div id="ui-modal-card" class="modal-surface"></div></div>
     <div id="shop-modal" role="dialog" aria-modal="true"><div id="shop-modal-card" class="modal-surface"></div></div>
