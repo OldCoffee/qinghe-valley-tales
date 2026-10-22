@@ -5,6 +5,7 @@ import { activityView } from '../engine/activity.js';
 import { absoluteDay } from '../engine/calendar.js';
 import { createNewGame } from '../engine/state.js';
 import { ensureEquipment } from '../engine/systems/equipment.js';
+import { settlePendingUpgrade } from '../engine/systems/tools.js';
 import { ensureCollection } from '../engine/util.js';
 import type { GameState } from '../engine/types.js';
 import { color } from './color.js';
@@ -50,6 +51,7 @@ export function loadState(store: SaveStore): GameState | null {
     const data = JSON.parse(raw) as GameState;
     if (data.version !== SAVE_VERSION) return null;
     ensureEquipment(data);
+    settlePendingUpgrade(data); // 旧存档等待中的升级加载时直接完成
     ensureFishingGear(data);
     if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
     if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';

@@ -136,8 +136,6 @@ export const TOOL_UPGRADES = [
   { level: 2, name: '钢', gold: 5000, ore: 'iron_ore', oreQty: 10 },
   { level: 3, name: '金', gold: 10000, ore: 'gold_ore', oreQty: 10 },
 ];
-export const TOOL_UPGRADE_DAYS = 2;
-
 /** 耐久：每次使用扣 1 点；钓鱼断线会额外磨损鱼竿；归零报废变成金属碎片；修复按缺失点数收费 */
 export const DURABILITY = {
   toolBase: 100,

@@ -1,8 +1,8 @@
-import { TOOL_UPGRADE_DAYS, TOOL_UPGRADES } from '../../data/config.js';
+import { TOOL_UPGRADES } from '../../data/config.js';
 import { itemName } from '../../data/items.js';
 import { SHOPS } from '../../data/shops.js';
 import { TOOL_LEVEL_NAMES, TOOL_NAMES } from '../../data/skills.js';
-import { absoluteDay, shopClosedReason } from '../calendar.js';
+import { shopClosedReason } from '../calendar.js';
 import type { GameEvent, GameState, ToolId } from '../types.js';
 import { good, removeItem, warn } from '../util.js';
 import { shopUnavailableReason } from './social.js';
@@ -13,11 +13,17 @@ const BLACKSMITH = SHOPS.find((shop) => shop.id === 'blacksmith')!;
 export function upgradeCost(s: GameState, tool: ToolId) {
   const next = TOOL_UPGRADES[s.tools[tool]];
   if (!next) return null;
-  return {
-    ...next,
-    gold: next.gold,
-    days: TOOL_UPGRADE_DAYS,
-  };
+  return { ...next, gold: next.gold };
+}
+
+/** 旧存档里还在等待中的升级：直接完成（等级 +1、耐久回满），不再等工期 */
+export function settlePendingUpgrade(s: GameState): boolean {
+  if (!s.toolUpgrade) return false;
+  const tool = s.toolUpgrade.tool;
+  s.tools[tool] += 1;
+  s.durability[tool] = toolMaxDurability(s.tools[tool]);
+  s.toolUpgrade = null;
+  return true;
 }
 
 export function upgrade(s: GameState, events: GameEvent[], tool: ToolId): boolean {
@@ -38,10 +44,8 @@ export function upgrade(s: GameState, events: GameEvent[], tool: ToolId): boolea
     events.push(warn(closed));
     return false;
   }
-  if (s.toolUpgrade) {
-    events.push(warn(`${TOOL_NAMES[s.toolUpgrade.tool]}还在升级中，一次只能升级一件工具。`));
-    return false;
-  }
+  // 旧存档若还有等待中的升级，先当场完成，避免重复收费或卡住
+  settlePendingUpgrade(s);
   const cost = upgradeCost(s, tool);
   if (!cost) {
     events.push(warn(`你的${TOOL_NAMES[tool]}已经是最好的了。`));
@@ -53,18 +57,15 @@ export function upgrade(s: GameState, events: GameEvent[], tool: ToolId): boolea
   }
   s.gold -= cost.gold;
   removeItem(s, cost.ore, cost.oreQty);
-  s.toolUpgrade = { tool, readyDay: absoluteDay(s) + cost.days };
-  events.push(
-    good(`把${TOOL_NAMES[tool]}交给了铁匠，${cost.days} 天后会升级成${cost.name}${TOOL_NAMES[tool]}。这期间不能使用它。`),
-  );
+  // 点击升级立刻成功：等级当场 +1、耐久回满，马上就能用
+  s.tools[tool] += 1;
+  s.durability[tool] = toolMaxDurability(s.tools[tool]);
+  events.push(good(`🔨 铁匠当场把${TOOL_NAMES[tool]}升级成了${cost.name}${TOOL_NAMES[tool]}，耐久也回满了，立刻就能用。`));
   return true;
 }
 
 export function finishUpgrades(s: GameState, events: GameEvent[]): void {
-  if (!s.toolUpgrade || absoluteDay(s) < s.toolUpgrade.readyDay) return;
-  const tool = s.toolUpgrade.tool;
-  s.tools[tool] += 1;
-  s.durability[tool] = toolMaxDurability(s.tools[tool]);
-  s.toolUpgrade = null;
+  const tool = s.toolUpgrade?.tool;
+  if (!tool || !settlePendingUpgrade(s)) return;
   events.push(good(`🔨 铁匠把升级好的${TOOL_LEVEL_NAMES[s.tools[tool]]}${TOOL_NAMES[tool]}送到了你家门口，耐久也回满了。`));
 }

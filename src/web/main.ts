@@ -25,7 +25,7 @@ import { availableFish, fishingSpotAccessReason, FISHING_SPOTS } from '../engine
 import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
 import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, relationTier, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
-import { upgradeCost } from '../engine/systems/tools.js';
+import { settlePendingUpgrade, upgradeCost } from '../engine/systems/tools.js';
 import type { Action, Evaluation, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
 import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
@@ -200,6 +200,7 @@ function syncForestUiState(): void {
 function normalizeLoadedState(data: GameState): GameState | null {
   if (!data || data.version !== SAVE_VERSION) return null;
   ensureEquipment(data);
+  settlePendingUpgrade(data); // 旧存档等待中的升级加载时直接完成
   ensureFishingGear(data);
   if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
   if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
@@ -1642,20 +1643,19 @@ function equipmentSection(warnings: string[]): string {
   const toolCards = (['hoe', 'can', 'pickaxe', 'rod', 'axe'] as ToolId[])
     .map((t) => {
       const broken = state.tools[t] < 0;
-      const upgrading = state.toolUpgrade?.tool === t;
       const equipped = state.equippedTools[t] && !broken;
       const cur = state.durability[t] ?? 0;
       const max = toolMaxDurability(state.tools[t]);
       const low = !broken && max > 0 && cur / max <= 0.3;
       return `<article class="equip-card ${equipped ? 'on' : ''} ${broken ? 'broken' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-tool" data-tool="${t}" title="点击查看${TOOL_NAMES[t]}详情">
-        <div class="equip-head"><span class="equip-title-row"><span class="equip-icon">${toolIconSvg(t, Math.max(0, state.tools[t]))}</span><b>${TOOL_NAMES[t]}</b></span>${broken ? '<span class="badge bad">已报废</span>' : upgrading ? '<span class="badge">升级中</span>' : equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
+        <div class="equip-head"><span class="equip-title-row"><span class="equip-icon">${toolIconSvg(t, Math.max(0, state.tools[t]))}</span><b>${TOOL_NAMES[t]}</b></span>${broken ? '<span class="badge bad">已报废</span>' : equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">${broken ? '需要买新的' : toolLabel(t)}</span>
         ${broken ? `<p class="equip-note">去${t === 'rod' ? '海滩渔具店' : '小镇铁匠铺'}买新的（300 金）。</p>` : durBar(cur, max)}
         ${low ? `<p class="equip-note warn-text">耐久偏低，及时修理。</p>` : ''}
         ${broken ? '' : `<p class="equip-note">效果：${toolPowerText(t)}</p>`}
         <div class="equip-actions">
           <button class="chip" data-act="view-tool" data-tool="${t}">查看</button>
-          ${!broken && !upgrading ? (equipped ? `<button class="chip" data-act="unequip-tool" data-tool="${t}">卸下</button>` : `<button class="chip" data-act="equip-tool" data-tool="${t}">装备</button>`) : ''}
+          ${!broken ? (equipped ? `<button class="chip" data-act="unequip-tool" data-tool="${t}">卸下</button>` : `<button class="chip" data-act="equip-tool" data-tool="${t}">装备</button>`) : ''}
         </div>
       </article>`;
     })
@@ -2156,14 +2156,13 @@ function clinicModalHtml(): string {
 
 function toolModalHtml(tool: ToolId): string {
   const broken = state.tools[tool] < 0;
-  const upgrading = state.toolUpgrade?.tool === tool;
   const equipped = state.equippedTools[tool] && !broken;
   const cur = broken ? 0 : (state.durability[tool] ?? 0);
   const max = toolMaxDurability(state.tools[tool]);
   const cost = broken ? null : repairCost(state, tool);
   const nextUpgrade = !broken && tool !== 'rod' ? upgradeCost(state, tool) : null;
   const repairShop = tool === 'rod' ? '海滩 · 老渔夫的小屋' : '小镇 · 阿铁铁匠铺';
-  const status = broken ? '已报废' : upgrading ? '正在铁匠铺升级' : equipped ? '已装备，可以使用' : '未装备，暂时不能使用';
+  const status = broken ? '已报废' : equipped ? '已装备，可以使用' : '未装备，暂时不能使用';
 
   return `
     <div class="modal-head">
@@ -2186,7 +2185,7 @@ function toolModalHtml(tool: ToolId): string {
     </dl>
     ${broken ? '' : durBar(cur, max)}
     <div class="detail-actions">
-      ${!broken && !upgrading ? (equipped ? `<button class="pix-btn" data-act="unequip-tool" data-tool="${tool}">卸下工具</button>` : `<button class="pix-btn gold" data-act="equip-tool" data-tool="${tool}">装备工具</button>`) : ''}
+      ${!broken ? (equipped ? `<button class="pix-btn" data-act="unequip-tool" data-tool="${tool}">卸下工具</button>` : `<button class="pix-btn gold" data-act="equip-tool" data-tool="${tool}">装备工具</button>`) : ''}
       <button class="pix-btn ghost" data-act="close-ui-modal">返回</button>
     </div>`;
 }

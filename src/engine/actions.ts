@@ -16,7 +16,7 @@ import { forage } from './systems/foraging.js';
 import { chopTree, ensureForest, exploreForest, harvestGrove } from './systems/forest.js';
 import { attack, descend, enterMine, leaveMine, mineRock } from './systems/mine.js';
 import { gift, talk } from './systems/social.js';
-import { upgrade } from './systems/tools.js';
+import { settlePendingUpgrade, upgrade } from './systems/tools.js';
 import type { Action, ActionResult, GameEvent, GameState, LocationId } from './types.js';
 import { good, info, removeItem, round1, warn } from './util.js';
 
@@ -28,6 +28,7 @@ export function applyAction(prev: GameState, action: Action): ActionResult {
 
   const s = structuredClone(prev);
   ensureEquipment(s);
+  settlePendingUpgrade(s); // 旧存档等待中的升级直接完成，工具不再被卡住
   ensureForest(s);
   const ok = dispatch(s, action, events);
   if (!ok) return { state: prev, events, ok: false };

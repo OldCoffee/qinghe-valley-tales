@@ -261,7 +261,7 @@ export function renderStatus(s: GameState): string {
   const profs = PROFESSIONS.filter((p) => s.professions.includes(p.id)).map((p) => `${p.name}(${p.desc})`);
   if (profs.length > 0) lines.push(`   职业：${profs.join('；')}`);
   const tools = (['hoe', 'can', 'pickaxe', 'axe'] as ToolId[]).map(
-    (t) => `${s.tools[t] < 0 ? '已报废的' : TOOL_LEVEL_NAMES[s.tools[t]]}${TOOL_NAMES[t]}${s.toolUpgrade?.tool === t ? '(升级中)' : ''}`,
+    (t) => `${s.tools[t] < 0 ? '已报废的' : TOOL_LEVEL_NAMES[s.tools[t]]}${TOOL_NAMES[t]}`,
   );
   const rod = equippedRod(s);
   const bait = s.equippedBaitId ? BAIT_BY_ID[s.equippedBaitId] : null;

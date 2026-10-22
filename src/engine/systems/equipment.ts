@@ -50,7 +50,6 @@ export function toolUsable(s: GameState, tool: ToolId): string | null {
     return tool === 'rod' ? '鱼竿已经报废了，去海滩渔具店买新的' : `${TOOL_NAMES[tool]}已经报废了，去铁匠铺买新的`;
   }
   if (!s.equippedTools[tool]) return `先在背包装备区把${TOOL_NAMES[tool]}装备上`;
-  if (s.toolUpgrade?.tool === tool) return `${TOOL_NAMES[tool]}还在铁匠铺升级`;
   return null;
 }
 
