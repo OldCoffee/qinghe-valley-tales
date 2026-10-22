@@ -296,7 +296,7 @@ export function renderBundles(s: GameState): string {
       lines.push(`      ${bundleDone(s, bundle) ? color.green('✔') : '·'} ${bundle.name}：${parts.join('、')}`);
     }
   }
-  lines.push(color.dim('   在小镇输入 donate 可以一次捐出身上所有需要的物品。'));
+  lines.push(color.dim('   输入 donate 会自动前往小镇，一次捐出身上所有需要的物品。'));
   return lines.join('\n');
 }
 

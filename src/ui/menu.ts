@@ -179,7 +179,7 @@ const ENTRIES: MenuEntry[] = [
       return id && `upgrade ${id}`;
     },
   },
-  { label: '捐献给社区中心', when: at('town'), build: fixed('donate all') },
+  { label: '捐献给社区中心（自动前往小镇）', when: () => true, build: fixed('donate all') },
   { label: '收集包进度', when: at('town'), build: fixed('bundles') },
   {
     label: '进入矿洞',

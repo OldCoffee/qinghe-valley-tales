@@ -1433,7 +1433,7 @@ function journalPage(): string {
         ${
           state.location === 'town'
             ? `<button class="pix-btn gold" data-act="donate" ${need.length ? '' : 'disabled'}>在小镇一键捐献（${need.length} 种可捐）</button>`
-            : ''
+            : `<button class="pix-btn gold" data-act="donate" ${need.length ? '' : 'disabled'}>去白鹭镇广场捐献（${need.length} 种可捐）</button>`
         }
       </div>
       <div class="room-grid">
@@ -1737,7 +1737,7 @@ function bundleModalHtml(roomId: string): string {
       ${
         state.location === 'town'
           ? `<button class="pix-btn gold" data-act="donate" ${need.length ? '' : 'disabled'}>一键捐献背包中所有可捐物品（${need.length} 种）</button>`
-          : ''
+          : `<button class="pix-btn gold" data-act="donate" ${need.length ? '' : 'disabled'}>去白鹭镇广场捐献（${need.length} 种可捐）</button>`
       }
       <button class="pix-btn ghost" data-act="close-ui-modal">关闭</button>
     </div>`;

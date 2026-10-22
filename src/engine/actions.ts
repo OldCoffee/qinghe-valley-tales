@@ -111,8 +111,11 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
       return setToolEquipped(s, events, action.tool, false);
     case 'repair':
       return repair(s, events, action.target);
-    case 'donate':
+    case 'donate': {
+      // 不在小镇时先自动前往白鹭镇广场 (社区中心) 再捐献, 路上耗时与正常移动一致
+      if (s.location !== 'town' && !move(s, events, 'town')) return false;
       return donate(s, events, action.itemId);
+    }
     case 'festival':
       return joinFestival(s, events);
     case 'choose':
