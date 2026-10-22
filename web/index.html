@@ -935,6 +935,15 @@
       .codex-card.uncollected .bag-item-icon { filter: grayscale(1) brightness(0.62) contrast(0.9); opacity: 0.75; }
       .codex-card b { font-size: 14px; line-height: 1.15; }
       .codex-card small { font-size: 12px; }
+      /* --- 主角顶栏、设置与存档弹窗 --- */
+      .hud-player { display: inline-flex; align-items: center; gap: 6px; background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark); padding: 2px 10px 2px 3px; font-weight: bold; color: var(--ink); white-space: nowrap; }
+      .hud-player svg { width: 30px; height: 30px; display: block; }
+      .modal-surface .bag-item-icon svg.qh-player-avatar { width: 72px; height: 72px; }
+      .modal-surface .bag-item-icon:has(> svg.qh-player-avatar) { width: 78px; height: 78px; flex: none; }
+      .detail-title .bag-item-icon svg.qh-player-avatar { width: 64px; height: 64px; }
+      .detail-title .bag-item-icon:has(> svg.qh-player-avatar) { width: 70px; height: 70px; }
+      #create-name { border: 3px solid var(--wood-dark); background: #fffdf4; color: var(--ink); font-family: inherit; outline: none; }
+      #create-name:focus { box-shadow: 0 0 0 3px #FFD54F; }
     </style>
   </head>
   <body>
@@ -945,8 +954,8 @@
       <span id="hud-gold"></span>
       <div id="hud-bars"></div>
       <button class="pix-btn sleep" data-act="sleep">睡觉</button>
-      <button class="pix-btn ghost" data-act="cycle-gender" id="hud-gender" title="切换主角性别（恋爱仅限异性）">主角：男</button>
-      <button class="pix-btn ghost" data-act="new-game">新游戏</button>
+      <span class="hud-player" id="hud-player" title="当前主角"></span>
+      <button class="pix-btn ghost" data-act="open-settings">设置</button>
     </header>
 
     <nav class="page-nav" id="page-nav" aria-label="主页面切换"></nav>

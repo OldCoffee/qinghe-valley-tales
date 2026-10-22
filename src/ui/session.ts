@@ -50,6 +50,7 @@ export function loadState(store: SaveStore): GameState | null {
     if (data.version !== SAVE_VERSION) return null;
     ensureEquipment(data);
     if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
+    if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
     ensureCollection(data);
     return data;
   } catch {
@@ -65,7 +66,14 @@ async function startGame(io: GameIO, store: SaveStore, seed: number): Promise<Ga
     if (answer.trim() !== '2') return saved;
   }
   io.print(INTRO);
-  return createNewGame(seed);
+  // 角色创建: 姓名与性别设定后不可修改 (与网页版一致)
+  const nameAnswer = await io.ask(' 主角姓名（回车默认：农场主）> ');
+  if (nameAnswer === null) return null;
+  const playerName = nameAnswer.trim().slice(0, 12) || '农场主';
+  const genderAnswer = await io.ask(' 主角性别 [1] 男  [2] 女 > ');
+  if (genderAnswer === null) return null;
+  const playerGender = genderAnswer.trim() === '2' ? 'female' : 'male';
+  return createNewGame(seed, playerGender, playerName);
 }
 
 /** 返回 true 表示要退出游戏 */

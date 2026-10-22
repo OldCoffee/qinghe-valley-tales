@@ -18,10 +18,11 @@ import { spawnForage } from './systems/foraging.js';
 import { freshForest } from './systems/forest.js';
 import type { GameState, Gender, Ground, NpcState, Tile } from './types.js';
 
-export function createNewGame(seed: number, playerGender: Gender = 'male'): GameState {
+export function createNewGame(seed: number, playerGender: Gender = 'male', playerName = '农场主'): GameState {
   const s: GameState = {
     version: SAVE_VERSION,
     playerGender,
+    playerName: playerName.trim() || '农场主',
     collection: [...Object.keys(START_INVENTORY), START_WEAPON],
     year: 1,
     season: 'spring',

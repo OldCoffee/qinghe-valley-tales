@@ -121,8 +121,10 @@ export interface Evaluation {
 
 export interface GameState {
   version: number;
-  /** 主角性别（老存档缺失时按 'male' 兜底）；恋爱/求婚仅限与 NPC 异性之间 */
+  /** 主角性别（老存档缺失时按 'male' 兜底）；恋爱/求婚仅限与 NPC 异性之间；创建后不可修改 */
   playerGender: Gender;
+  /** 主角姓名（创建存档时设定，之后不可修改；老存档缺失时按 '农场主' 兜底） */
+  playerName: string;
   /** 图鉴已收集物品 id（获得过即记录，卖掉/用掉不移除） */
   collection: string[];
   year: number;

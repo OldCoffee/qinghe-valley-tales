@@ -103,6 +103,39 @@ function paintPortrait(g: Grid, s: NpcStyle): void {
   }
 }
 
+/** 主角像素形象 (24x24): 男=短发+蓝色背带装, 女=长发麻花辫+粉色上衣+黄花发饰, 创建后不可修改 */
+export function playerAvatarSvg(gender: 'male' | 'female'): string {
+  const g = grid(24, 24);
+  const female = gender === 'female';
+  const bg = female ? '#F7C6D4' : '#A8D5E5'; const bg2 = female ? '#EF9FB8' : '#7FB8D4';
+  for (let y = 0; y < 24; y++) for (let x = 0; x < 24; x++) px(g, x, y, (x + y) % 2 ? bg : bg2);
+  rect(g, 0, 0, 24, 1, '#3A2010'); rect(g, 0, 23, 24, 1, '#3A2010'); rect(g, 0, 0, 1, 24, '#3A2010'); rect(g, 23, 0, 1, 24, '#3A2010');
+  px(g, 1, 1, '#D9A441'); px(g, 22, 1, '#D9A441'); px(g, 1, 22, '#D9A441'); px(g, 22, 22, '#D9A441');
+  const skin = '#FFE2C4'; const hair = female ? '#8A4B23' : '#2A2018'; const hairL = shade(hair, 1.45);
+  // 衣着: 男=白衫+蓝背带裤装, 女=粉上衣+白领口
+  if (female) {
+    rect(g, 6, 20, 12, 3, '#E75480'); rect(g, 7, 19, 10, 1, '#E75480'); px(g, 11, 20, '#FFFFFF'); px(g, 12, 20, '#FFFFFF'); px(g, 10, 19, '#F8BBD0'); px(g, 13, 19, '#F8BBD0');
+  } else {
+    rect(g, 6, 20, 12, 3, '#2B5B84'); rect(g, 7, 19, 10, 1, '#E8E4DA'); rect(g, 9, 20, 2, 3, '#2B5B84'); rect(g, 13, 20, 2, 3, '#2B5B84'); px(g, 10, 21, '#FFD54F'); px(g, 13, 21, '#FFD54F');
+  }
+  // 脸
+  rect(g, 8, 9, 8, 9, skin); rect(g, 9, 8, 6, 1, skin); rect(g, 9, 18, 6, 1, skin);
+  px(g, 8, 9, D); px(g, 15, 9, D);
+  px(g, 10, 13, D); px(g, 10, 12, D); px(g, 13, 13, D); px(g, 13, 12, D);
+  px(g, 9, 15, '#FF9EB0'); px(g, 14, 15, '#FF9EB0'); rect(g, 11, 16, 2, 1, '#B4552D');
+  if (female) {
+    rect(g, 7, 6, 10, 3, hair); rect(g, 7, 6, 10, 1, hairL); rect(g, 6, 8, 2, 7, hair); rect(g, 16, 8, 2, 7, hair);
+    for (let i = 0; i < 3; i++) { rect(g, 5, 15 + i * 2, 3, 1, i % 2 ? shade(hair, 0.65) : hair); rect(g, 16, 15 + i * 2, 3, 1, i % 2 ? hair : shade(hair, 0.65)); }
+    px(g, 17, 6, '#FFD54F'); px(g, 18, 7, '#FFD54F'); px(g, 17, 7, '#FB8C00'); // 黄花发饰
+    px(g, 10, 14, '#D81B60'); px(g, 13, 14, '#D81B60'); // 女: 粉唇点
+  } else {
+    rect(g, 7, 5, 10, 4, hair); rect(g, 7, 5, 10, 1, hairL); rect(g, 6, 8, 2, 3, hair); rect(g, 16, 8, 2, 3, hair);
+    px(g, 9, 11, D); px(g, 14, 11, D); // 男: 粗眉
+    rect(g, 11, 17, 2, 1, '#8D5524');
+  }
+  return render(g, 'qh-svg-avatar qh-pixel qh-player-avatar');
+}
+
 export function npcAvatarSvg(npcId: string): string {
   const s = NPC_STYLE[npcId] ?? { bg: '#EAD7B7', bg2: '#D9BE8C', hair: '#6B4423', skin: '#FFE0B2', cloth: '#8D6E63', style: 'braids' };
   const g = grid(24, 24); paintPortrait(g, s); return render(g, 'qh-svg-avatar qh-pixel');

@@ -24,8 +24,10 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
-import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
+import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
+const SAVES_KEY = 'qinghe-valley-saves-v2';
+const MAX_SAVES = 5;
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
@@ -43,6 +45,10 @@ type UiModalState =
   | { kind: 'npc'; npcId: string }
   | { kind: 'bundle'; roomId: string }
   | { kind: 'clinic' }
+  | { kind: 'settings' }
+  | { kind: 'saves' }
+  | { kind: 'profile' }
+  | { kind: 'create' }
   | null;
 
 type TileFxKind = 'till' | 'water' | 'plant' | 'harvest' | 'clear' | 'deweed' | 'uproot';
@@ -53,7 +59,24 @@ interface ToastFx {
   tone: 'good' | 'warn' | 'bad';
 }
 
-let state: GameState = load() ?? createNewGame(Date.now());
+interface SaveSlot {
+  id: string;
+  createdAt: number;
+  updatedAt: number;
+  state: GameState;
+}
+let saveSlots: SaveSlot[] = [];
+let activeSaveId: string | null = null;
+/** 尚无任何存档时为 true: 当前 state 只是未落盘的临时预览, 必须先完成角色创建 */
+let needsCharacterSetup = false;
+/** 角色创建弹窗: 目标 (首次/新档/覆盖指定槽) 与待确认的性别、姓名草稿 (姓名性别确认后不可修改) */
+let createTarget: { mode: 'first' | 'new' | 'overwrite'; slotId?: string } | null = null;
+let createGender: import('../engine/types.js').Gender = 'male';
+let createNameDraft = '';
+/** 存档弹窗的覆盖选择模式 (满 5 档开启新游戏时进入) */
+let savesOverwriteMode = false;
+
+let state: GameState = loadInitial();
 let page: PageId = 'scene';
 let farmSubTab: FarmSubTab = 'field';
 let socialSubTab: SocialSubTab = 'here';
@@ -170,23 +193,75 @@ function syncForestUiState(): void {
   }
 }
 
-function load(): GameState | null {
+function normalizeLoadedState(data: GameState): GameState | null {
+  if (!data || data.version !== SAVE_VERSION) return null;
+  ensureEquipment(data);
+  if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
+  if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
+  ensureCollection(data);
+  return data;
+}
+
+function persistSaves(): void {
   try {
-    const raw = localStorage.getItem(SAVE_KEY);
-    if (!raw) return null;
-    const data = JSON.parse(raw) as GameState;
-    if (data.version !== SAVE_VERSION) return null;
-    ensureEquipment(data);
-    if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
-    ensureCollection(data);
-    return data;
+    localStorage.setItem(SAVES_KEY, JSON.stringify({ activeId: activeSaveId, slots: saveSlots }));
   } catch {
-    return null;
+    /* localStorage 不可用时静默 */
   }
 }
 
+/** 把当前 state 落盘到活动存档槽 (无活动槽时不落盘, 等角色创建完成) */
 function save(): void {
-  localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  const slot = saveSlots.find((x) => x.id === activeSaveId);
+  if (!slot) return;
+  slot.state = state;
+  slot.updatedAt = Date.now();
+  persistSaves();
+}
+
+/** 初次加载: 多存档 -> 旧单存档迁移 -> 无存档则进入角色创建 */
+function loadInitial(): GameState {
+  try {
+    const raw = localStorage.getItem(SAVES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as { activeId?: string; slots?: SaveSlot[] };
+      const slots = (parsed.slots ?? [])
+        .map((slot) => {
+          const st = slot?.state ? normalizeLoadedState(slot.state) : null;
+          return st ? { id: String(slot.id), createdAt: slot.createdAt || Date.now(), updatedAt: slot.updatedAt || Date.now(), state: st } : null;
+        })
+        .filter((x): x is SaveSlot => !!x)
+        .slice(0, MAX_SAVES);
+      if (slots.length) {
+        saveSlots = slots;
+        const active = slots.find((x) => x.id === parsed.activeId) ?? slots[0];
+        activeSaveId = active.id;
+        return active.state;
+      }
+    }
+  } catch {
+    /* 损坏的多存档数据按无存档处理 */
+  }
+  try {
+    const legacy = localStorage.getItem(SAVE_KEY);
+    if (legacy) {
+      const st = normalizeLoadedState(JSON.parse(legacy) as GameState);
+      if (st) {
+        const now = Date.now();
+        const slot: SaveSlot = { id: `save-${now}`, createdAt: now, updatedAt: now, state: st };
+        saveSlots = [slot];
+        activeSaveId = slot.id;
+        persistSaves();
+        localStorage.removeItem(SAVE_KEY);
+        return st;
+      }
+    }
+  } catch {
+    /* 旧存档损坏时进入角色创建 */
+  }
+  needsCharacterSetup = true;
+  createTarget = { mode: 'first' };
+  return createNewGame(Date.now());
 }
 
 function pushToast(text: string, tone: 'good' | 'warn' | 'bad' = 'warn'): void {
@@ -1671,6 +1746,151 @@ function bundleModalHtml(roomId: string): string {
     </div>`;
 }
 
+function fmtSlotTime(ts: number): string {
+  const d = new Date(ts);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+function settingsModalHtml(): string {
+  return `
+    <div class="modal-head">
+      <h2>${uiIconSvg('wrench')} 设置</h2>
+      <button class="pix-btn" data-act="close-ui-modal">关闭</button>
+    </div>
+    <div class="detail-title">
+      <span class="bag-item-icon">${playerAvatarSvg(playerGenderOf(state))}</span>
+      <div><b>${esc(state.playerName || '农场主')}</b><span>${playerGenderOf(state) === 'female' ? '女' : '男'} · 姓名与性别在创建存档时设定，之后不可修改</span></div>
+    </div>
+    <div class="detail-actions" style="flex-direction:column;align-items:stretch;">
+      <button class="pix-btn gold" data-act="open-profile">我的（个人信息 · 资产 · 装备 · 工具）</button>
+      <button class="pix-btn" data-act="open-saves">切换存档（当前 ${saveSlots.length}/${MAX_SAVES} 个存档）</button>
+      <button class="pix-btn" data-act="create-start">开启新游戏（保留当前存档）</button>
+    </div>
+    <p class="dim">存档保存在本机浏览器中；开启新游戏不会覆盖当前存档，存档满 ${MAX_SAVES} 个后可选择覆盖其中一个。</p>`;
+}
+
+function savesModalHtml(): string {
+  const rows = saveSlots
+    .map((slot) => {
+      const st = slot.state;
+      const isActive = slot.id === activeSaveId;
+      return `<div class="codex-card" style="align-items:flex-start;text-align:left;">
+        <div style="display:flex;gap:10px;align-items:center;width:100%;">
+          <span class="bag-item-icon">${playerAvatarSvg(st.playerGender === 'female' ? 'female' : 'male')}</span>
+          <div><b>${esc(st.playerName || '农场主')}</b> <span class="badge ${isActive ? 'ok' : ''}">${isActive ? '当前存档' : `${st.playerGender === 'female' ? '女' : '男'}`}</span><br>
+          <small class="dim">${formatDate(st)} · ${st.gold} 金 · ${LOCATIONS[st.location].name}</small><br>
+          <small class="dim">更新 ${fmtSlotTime(slot.updatedAt)}</small></div>
+        </div>
+        ${
+          savesOverwriteMode
+            ? `<button class="pix-btn danger" data-act="saves-overwrite" data-id="${slot.id}">覆盖此存档（开启新游戏）</button>`
+            : isActive
+              ? '<span class="badge ok">正在游玩</span>'
+              : `<button class="pix-btn gold" data-act="saves-switch" data-id="${slot.id}">切换到此存档</button>`
+        }
+      </div>`;
+    })
+    .join('');
+  return `
+    <div class="modal-head">
+      <h2>${uiIconSvg('bag')} 存档（${saveSlots.length}/${MAX_SAVES}）</h2>
+      <button class="pix-btn" data-act="open-settings">返回设置</button>
+    </div>
+    ${savesOverwriteMode ? '<p class="dim">存档已满，请选择一个要覆盖的存档；覆盖后将以新角色重新开始。</p>' : ''}
+    <div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));">${rows || '<p class="dim">暂时没有存档。</p>'}</div>
+    <div class="detail-actions">
+      ${
+        saveSlots.length >= MAX_SAVES
+          ? savesOverwriteMode
+            ? '<button class="pix-btn ghost" data-act="open-saves">取消覆盖选择</button>'
+            : '<button class="pix-btn gold" data-act="create-start">开启新游戏（先选覆盖存档）</button>'
+          : '<button class="pix-btn gold" data-act="create-start">开启新游戏</button>'
+      }
+      <button class="pix-btn ghost" data-act="close-ui-modal">关闭</button>
+    </div>`;
+}
+
+function profileModalHtml(): string {
+  const gender = playerGenderOf(state);
+  const weapon = WEAPONS.find((w) => w.id === state.weapon);
+  const weaponMax = weaponMaxDurability(state.weapon);
+  const weaponCur = state.weaponDurability[state.weapon] ?? weaponMax;
+  const bagIds = Object.keys(state.inventory);
+  const bagQty = bagIds.reduce((n, id) => n + (state.inventory[id] ?? 0), 0);
+  const bagValue = bagIds.reduce((n, id) => n + sellPrice(state, id) * (state.inventory[id] ?? 0), 0);
+  const shipValue = Object.entries(state.shippingBin).reduce((n, [id, q]) => n + sellPrice(state, id) * q, 0);
+  const collected = Object.keys(ITEMS).filter(codexCollected).length;
+  return `
+    <div class="modal-head">
+      <h2>${uiIconSvg('chat')} 我的</h2>
+      <button class="pix-btn" data-act="close-ui-modal">关闭</button>
+    </div>
+    <div class="detail-title">
+      <span class="bag-item-icon">${playerAvatarSvg(gender)}</span>
+      <div><b>${esc(state.playerName || '农场主')}</b><span>${gender === 'female' ? '女' : '男'} · 设定后不可修改</span></div>
+    </div>
+    <h3>个人信息</h3>
+    <dl class="detail-list">
+      <div><dt>姓名</dt><dd>${esc(state.playerName || '农场主')}</dd></div>
+      <div><dt>性别</dt><dd>${gender === 'female' ? '女' : '男'}</dd></div>
+      <div><dt>当前日期</dt><dd>${formatDate(state)} ${formatTime(state.minutes)}</dd></div>
+      <div><dt>所在地点</dt><dd>${LOCATIONS[state.location].name}</dd></div>
+      <div><dt>生命 / 体力</dt><dd>${state.hp}/${maxHp(state)} · ${Math.ceil(state.energy)}/${state.maxEnergy}</dd></div>
+    </dl>
+    <h3>资产</h3>
+    <dl class="detail-list">
+      <div><dt>金币</dt><dd>${state.gold} 金</dd></div>
+      <div><dt>累计总收入</dt><dd>${state.stats.totalEarned} 金</dd></div>
+      <div><dt>背包物品</dt><dd>${bagIds.length} 种 · 共 ${bagQty} 件（估值 ${bagValue} 金）</dd></div>
+      <div><dt>出货箱待结算</dt><dd>${shipValue} 金</dd></div>
+      <div><dt>图鉴收集</dt><dd>${collected}/${Object.keys(ITEMS).length}</dd></div>
+      <div><dt>矿洞最深</dt><dd>第 ${state.mine.deepest} 层</dd></div>
+    </dl>
+    <h3>装备</h3>
+    <dl class="detail-list">
+      <div><dt>当前武器</dt><dd>${weapon?.name ?? state.weapon}${weapon ? `（伤害 ${weapon.damage[0]}-${weapon.damage[1]}）` : ''} · 耐久 ${weaponCur}/${weaponMax}</dd></div>
+    </dl>
+    <h3>工具</h3>
+    <div class="chips">
+      ${(['hoe', 'can', 'pickaxe', 'rod', 'axe'] as ToolId[])
+        .map((t) => {
+          const broken = state.tools[t] < 0;
+          return `<span class="chip ${state.equippedTools[t] && !broken ? 'ok' : ''}">${toolIconSvg(t, Math.max(0, state.tools[t]))} ${TOOL_NAMES[t]} · ${broken ? '已报废' : `${toolLabel(t)} · 耐久 ${state.durability[t]}/${toolMaxDurability(state.tools[t])}`} ${state.equippedTools[t] && !broken ? '· 已装备' : ''}</span>`;
+        })
+        .join('')}
+    </div>
+    <h3>技能</h3>
+    <p class="dim">${SKILL_ORDER.map((sk) => `${SKILL_NAMES[sk]} Lv.${skillProgressOf(state, sk).level}`).join(' · ')}</p>
+    <div class="detail-actions"><button class="pix-btn ghost" data-act="open-settings">返回设置</button></div>`;
+}
+
+function createModalHtml(): string {
+  const isFirst = needsCharacterSetup || createTarget?.mode === 'first';
+  const title = createTarget?.mode === 'overwrite' ? '覆盖存档 · 创建新角色' : '创建角色 · 开始游戏';
+  const genderCard = (g: 'male' | 'female', label: string) => `
+    <button class="codex-card ${createGender === g ? '' : 'uncollected'}" data-act="create-gender" data-g="${g}" style="align-items:center;">
+      <span class="bag-item-icon">${playerAvatarSvg(g)}</span><b>${label}</b><small>${createGender === g ? '已选择' : '点击选择'}</small>
+    </button>`;
+  return `
+    <div class="modal-head">
+      <h2>${uiIconSvg('sparkle')} ${title}</h2>
+      ${isFirst ? '' : '<button class="pix-btn" data-act="close-ui-modal">取消</button>'}
+    </div>
+    <p class="dim">设定主角的姓名与性别，确认后开始游戏；<b>姓名与性别设定后不可修改</b>。不同性别拥有不同的像素形象。</p>
+    <label style="display:block;margin:10px 0;"><b>人物名称</b><br>
+      <input id="create-name" type="text" maxlength="12" placeholder="请输入名称（默认：农场主）" value="${esc(createNameDraft)}" style="width:100%;box-sizing:border-box;padding:10px;font-size:18px;margin-top:6px;">
+    </label>
+    <h3>人物性别与形象</h3>
+    <div class="codex-grid" style="grid-template-columns:repeat(2,minmax(140px,1fr));max-width:420px;">
+      ${genderCard('male', '男')}
+      ${genderCard('female', '女')}
+    </div>
+    <div class="detail-actions">
+      <button class="pix-btn gold" data-act="create-confirm">${createTarget?.mode === 'overwrite' ? '确认覆盖并开始' : '确认并开始游戏'}</button>
+      ${isFirst ? '' : '<button class="pix-btn ghost" data-act="close-ui-modal">取消</button>'}
+    </div>`;
+}
+
 function uiModalContent(): string {
   if (!uiModal) return '';
   switch (uiModal.kind) {
@@ -1686,6 +1906,14 @@ function uiModalContent(): string {
       return bundleModalHtml(uiModal.roomId);
     case 'clinic':
       return clinicModalHtml();
+    case 'settings':
+      return settingsModalHtml();
+    case 'saves':
+      return savesModalHtml();
+    case 'profile':
+      return profileModalHtml();
+    case 'create':
+      return createModalHtml();
   }
 }
 
@@ -1864,8 +2092,10 @@ function render(): void {
   $('hud-loc').innerHTML = `${uiIconSvg('pin')} <b>${LOCATIONS[state.location].name}</b> <small>[切换地点]</small>`;
   $('hud-date').textContent = `${formatDate(state)} ${formatTime(state.minutes)} · ${WEATHER_NAMES[state.weather]}（明日 ${WEATHER_NAMES[state.tomorrowWeather]}）`;
   $('hud-gold').textContent = `${state.gold} 金`;
-  const genderBtn = document.getElementById('hud-gender');
-  if (genderBtn) genderBtn.textContent = `主角：${playerGenderOf(state) === 'female' ? '女' : '男'}`;
+  const playerChip = document.getElementById('hud-player');
+  if (playerChip) {
+    playerChip.innerHTML = `${playerAvatarSvg(playerGenderOf(state))}<span>${esc(state.playerName || '农场主')}</span>`;
+  }
   const hpCls = `hp${mineFxState.playerHit ? ' fx-hit' : ''}`;
   $('hud-bars').innerHTML =
     bar(state.energy, state.maxEnergy, 'energy') + (state.hp < hpMax || state.location === 'mine' ? bar(state.hp, hpMax, hpCls) : '');
@@ -1983,6 +2213,7 @@ document.addEventListener('click', (e) => {
       doAction({ type: 'heal' });
       break;
     case 'close-ui-modal':
+      if (needsCharacterSetup) break; // 角色创建完成前不可关闭
       uiModal = null;
       render();
       break;
@@ -2236,37 +2467,114 @@ document.addEventListener('click', (e) => {
     case 'choose':
       doAction({ type: 'choose', index: Number(el.dataset.i) });
       break;
-    case 'cycle-gender': {
-      const inRelation = Object.values(state.npcs).some((n) => n.status === 'dating' || n.status === 'engaged' || n.status === 'married');
-      if (inRelation) {
-        pushToast('交往、订婚或婚后不能切换性别', 'warn');
-        break;
-      }
-      state.playerGender = playerGenderOf(state) === 'female' ? 'male' : 'female';
-      selectedItem = null;
-      save();
+    case 'open-settings':
+      if (needsCharacterSetup) break;
+      savesOverwriteMode = false;
+      uiModal = { kind: 'settings' };
       render();
-      pushToast(`主角性别已切换为${state.playerGender === 'female' ? '女' : '男'}（恋爱仅限异性）`, 'good');
+      break;
+    case 'open-profile':
+      if (needsCharacterSetup) break;
+      uiModal = { kind: 'profile' };
+      render();
+      break;
+    case 'open-saves':
+      savesOverwriteMode = false;
+      uiModal = { kind: 'saves' };
+      render();
+      break;
+    case 'create-start': {
+      // 未满 5 个存档直接创建; 已满 5 个先进入覆盖选择
+      if (saveSlots.length >= MAX_SAVES) {
+        savesOverwriteMode = true;
+        uiModal = { kind: 'saves' };
+        pushToast('存档已满（5/5），请选择一个要覆盖的存档', 'warn');
+      } else {
+        createTarget = { mode: needsCharacterSetup ? 'first' : 'new' };
+        createGender = playerGenderOf(state);
+        createNameDraft = '';
+        uiModal = { kind: 'create' };
+      }
+      render();
       break;
     }
-    case 'new-game':
-      if (confirm('开始新游戏？现在的存档会被覆盖。')) {
-        localStorage.removeItem(SAVE_KEY);
-        state = createNewGame(Date.now(), playerGenderOf(state));
-        page = 'scene';
-        farmSubTab = 'field';
-        selectedCell = null;
-        openShopId = null;
-        uiModal = null;
-        giftNpc = null;
-        selectedItem = null;
-        selectedEquipment = null;
-        tileFxMap.clear();
-        log = [{ level: 'info' as const, text: '新的一天，新的农场。先清理、开垦、播种，再记得每天浇水。' }];
-        save();
-        render();
-      }
+    case 'saves-overwrite':
+      createTarget = { mode: 'overwrite', slotId: el.dataset.id };
+      createGender = 'male';
+      createNameDraft = '';
+      uiModal = { kind: 'create' };
+      render();
       break;
+    case 'saves-switch': {
+      const target = saveSlots.find((x) => x.id === el.dataset.id);
+      if (!target || target.id === activeSaveId) break;
+      save(); // 先保存当前进度, 切换不会丢当前存档
+      activeSaveId = target.id;
+      state = target.state;
+      persistSaves();
+      page = 'scene';
+      farmSubTab = 'field';
+      selectedCell = null;
+      openShopId = null;
+      giftNpc = null;
+      selectedItem = null;
+      selectedEquipment = null;
+      tileFxMap.clear();
+      savesOverwriteMode = false;
+      uiModal = null;
+      log = [{ level: 'info' as const, text: `已切换到存档「${state.playerName || '农场主'}」，继续你的田园生活。` }];
+      render();
+      pushToast(`已切换到 ${state.playerName || '农场主'} 的存档`, 'good');
+      break;
+    }
+    case 'create-gender': {
+      const input = document.getElementById('create-name') as HTMLInputElement | null;
+      if (input) createNameDraft = input.value;
+      createGender = el.dataset.g === 'female' ? 'female' : 'male';
+      uiModal = { kind: 'create' };
+      render();
+      setTimeout(() => document.getElementById('create-name')?.focus(), 0);
+      break;
+    }
+    case 'create-confirm': {
+      const input = document.getElementById('create-name') as HTMLInputElement | null;
+      const name = (input?.value ?? createNameDraft).trim().slice(0, 12) || '农场主';
+      const mode = createTarget?.mode ?? (needsCharacterSetup ? 'first' : 'new');
+      const fresh = createNewGame(Date.now(), createGender, name);
+      const now = Date.now();
+      const overwriteSlotId = createTarget?.mode === 'overwrite' ? createTarget.slotId : undefined;
+      if (mode === 'overwrite' && overwriteSlotId) {
+        const slot = saveSlots.find((x) => x.id === overwriteSlotId);
+        if (slot) {
+          slot.state = fresh;
+          slot.createdAt = now;
+          slot.updatedAt = now;
+          activeSaveId = slot.id;
+        }
+      } else {
+        const slot: SaveSlot = { id: `save-${now}-${Math.floor(Math.random() * 1e6)}`, createdAt: now, updatedAt: now, state: fresh };
+        saveSlots = [slot, ...saveSlots].slice(0, MAX_SAVES);
+        activeSaveId = slot.id;
+      }
+      state = fresh;
+      needsCharacterSetup = false;
+      createTarget = null;
+      savesOverwriteMode = false;
+      page = 'scene';
+      farmSubTab = 'field';
+      selectedCell = null;
+      openShopId = null;
+      giftNpc = null;
+      selectedItem = null;
+      selectedEquipment = null;
+      tileFxMap.clear();
+      uiModal = null;
+      log = [{ level: 'info' as const, text: `${name} 来到了青禾谷。先清理、开垦、播种，再记得每天浇水。` }];
+      persistSaves();
+      render();
+      pushToast(`欢迎来到青禾谷，${name}！（姓名与性别已设定，不可修改）`, 'good');
+      break;
+    }
   }
 });
 
@@ -2278,6 +2586,7 @@ $('shop-modal').addEventListener('click', (e) => {
 });
 $('ui-modal').addEventListener('click', (e) => {
   if (e.target === $('ui-modal')) {
+    if (needsCharacterSetup) return; // 角色创建完成前不可关闭
     uiModal = null;
     render();
   }
@@ -2301,6 +2610,7 @@ document.addEventListener('keydown', (e) => {
     }
   }
   if (e.key === 'Escape') {
+    if (needsCharacterSetup) return; // 角色创建完成前不可退出
     if (openShopId) {
       openShopId = null;
       render();
@@ -2314,4 +2624,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+if (needsCharacterSetup) uiModal = { kind: 'create' };
 render();
+if (needsCharacterSetup) setTimeout(() => document.getElementById('create-name')?.focus(), 0);
