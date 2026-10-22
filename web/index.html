@@ -1189,8 +1189,9 @@
         position: relative; width: 100%; height: 100%;
         display: flex; align-items: center; justify-content: center;
         background: rgba(24, 48, 30, 0.58);
-        animation: travel-backdrop-fade 0.92s ease forwards;
+        animation: travel-backdrop-in 0.3s ease forwards;
       }
+      .travel-fx-stage.out { animation: travel-backdrop-out 0.38s ease forwards; }
       .travel-fx-board {
         min-width: min(520px, 88vw); padding: 16px 28px;
         background: linear-gradient(180deg, #8a5a2b 0%, #7a4a21 100%);
@@ -1198,8 +1199,9 @@
         outline: 3px solid #ffd23f; outline-offset: -8px;
         box-shadow: 0 10px 0 #2b1b0e, 0 0 32px rgba(255, 210, 63, 0.55);
         display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
-        animation: travel-board-slide 0.92s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        animation: travel-board-in 0.48s cubic-bezier(0.22, 1, 0.36, 1) forwards;
       }
+      .travel-fx-stage.out .travel-fx-board { animation: travel-board-out 0.38s cubic-bezier(0.5, 0, 0.8, 0.4) forwards; }
       .travel-fx-route {
         display: inline-flex; align-items: center; gap: 12px;
         font-size: 26px; font-weight: bold; color: #ffd23f;
@@ -1210,15 +1212,21 @@
         animation: travel-arrow-hop 0.28s steps(2) infinite;
       }
       .travel-fx-sub { font-size: 18px; color: #f3e5be; }
-      @keyframes travel-backdrop-fade {
-        0% { opacity: 0; }
-        20%, 72% { opacity: 1; }
-        100% { opacity: 0; }
+      @keyframes travel-backdrop-in {
+        from { opacity: 0; }
+        to { opacity: 1; }
       }
-      @keyframes travel-board-slide {
-        0% { transform: translateX(-160px) scale(0.86); opacity: 0; }
-        28%, 72% { transform: translateX(0) scale(1); opacity: 1; }
-        100% { transform: translateX(160px) scale(0.92); opacity: 0; }
+      @keyframes travel-backdrop-out {
+        from { opacity: 1; }
+        to { opacity: 0; }
+      }
+      @keyframes travel-board-in {
+        from { transform: translateX(-160px) scale(0.86); opacity: 0; }
+        to { transform: translateX(0) scale(1); opacity: 1; }
+      }
+      @keyframes travel-board-out {
+        from { transform: translateX(0) scale(1); opacity: 1; }
+        to { transform: translateX(160px) scale(0.92); opacity: 0; }
       }
       @keyframes travel-arrow-hop {
         from { transform: translateX(-3px); }

@@ -429,13 +429,33 @@ function playSleepFx(s: GameState, passedOut = false): void {
   }, 1360);
 }
 
-/** EffectCraft 设计的切换地点独立动效：木质路牌横掠转场 */
-function playTravelFx(from: LocationId, to: LocationId, mins: number, minecart: boolean): void {
+/**
+ * 切换地点分阶段动效：先播路牌滑入并停在中央，此时尚未移动；
+ * 停稳后才执行 apply（真正切换地点并渲染新场景），最后路牌滑出收尾揭开新场景。
+ */
+let travelFxBusy = false;
+let travelFxTimer: number | null = null;
+/** 分阶段旅行在 apply 中调用 doAction 时置位，抑制 doAction 内的事后旅行动效，避免重复播放 */
+let suppressTravelFx = false;
+
+/** 步行/矿车前往某地的路牌副文案 */
+function travelSub(to: LocationId): string {
+  const minecart = state.unlocks.includes('minecart');
+  return `耗时 ${travelTime(state, to)} 分钟${minecart ? ' · 矿车加速' : ''}`;
+}
+
+function playTravelFxStaged(from: LocationId, to: LocationId, sub: string, apply: () => void): void {
   const layer = document.getElementById('scene-fx-layer');
-  if (!layer) return;
+  if (travelFxBusy) return;
+  if (!layer || from === to) {
+    apply();
+    return;
+  }
+  travelFxBusy = true;
   if (sceneFxTimer) clearTimeout(sceneFxTimer);
   const fromName = LOCATIONS[from]?.name ?? from;
   const toName = LOCATIONS[to]?.name ?? to;
+  const minecart = state.unlocks.includes('minecart');
   layer.innerHTML = `
     <div class="travel-fx-stage">
       <div class="travel-fx-board">
@@ -444,14 +464,39 @@ function playTravelFx(from: LocationId, to: LocationId, mins: number, minecart: 
           <span class="travel-fx-arrow">${minecart ? '🚋 ➔' : '➤'}</span>
           <span>${esc(toName)}</span>
         </div>
-        <span class="travel-fx-sub">${esc(LOCATIONS[to]?.arrival ?? '')}${mins > 0 ? `（耗时 ${mins} 分钟${minecart ? ' · 矿车加速' : ''}）` : ''}</span>
+        <span class="travel-fx-sub">${esc(sub)}</span>
       </div>
     </div>`;
   layer.classList.add('active');
-  sceneFxTimer = window.setTimeout(() => {
-    layer.classList.remove('active');
-    layer.innerHTML = '';
-  }, 920);
+  // 阶段一：路牌滑入停稳（约 0.55s）后才真正切换地点
+  travelFxTimer = window.setTimeout(() => {
+    suppressTravelFx = true;
+    apply();
+    if (suppressTravelFx) suppressTravelFx = false;
+    // 若移动耗时跨午夜，doAction 已用睡觉动效接管同一图层，旅行收尾不再介入
+    const stage = layer.querySelector('.travel-fx-stage');
+    if (!stage) {
+      travelFxBusy = false;
+      travelFxTimer = null;
+      return;
+    }
+    // 阶段二：新场景已渲染，路牌滑出收尾
+    stage.classList.add('out');
+    travelFxTimer = window.setTimeout(() => {
+      if (layer.querySelector('.travel-fx-stage')) {
+        layer.classList.remove('active');
+        layer.innerHTML = '';
+      }
+      travelFxBusy = false;
+      travelFxTimer = null;
+    }, 400);
+  }, 560);
+}
+
+/** 非显式旅行入口造成的地点变化（如引擎内部附带移动）：已到达目的地，仅补一段路牌揭开动效 */
+function playTravelFxReveal(from: LocationId, to: LocationId, mins: number, minecart: boolean): void {
+  const sub = mins > 0 ? `耗时 ${mins} 分钟${minecart ? ' · 矿车加速' : ''}` : (LOCATIONS[to]?.arrival ?? '');
+  playTravelFxStaged(from, to, sub, () => undefined);
 }
 
 function recordActionFx(action: Action, prev: GameState, next: GameState, events: GameEvent[], cells: string[]): void {
@@ -642,8 +687,13 @@ function doAction(action: Action, cells: string[] = []): void {
     nightFlash = true;
     playSleepFx(state, action.type !== 'sleep');
   } else if (prev.location !== state.location) {
-    const mins = Math.max(0, state.minutes - prev.minutes);
-    playTravelFx(prev.location, state.location, mins, state.unlocks.includes('minecart'));
+    if (suppressTravelFx) {
+      // 已由分阶段旅行动效在移动前播放，此处不重复
+      suppressTravelFx = false;
+    } else {
+      const mins = Math.max(0, state.minutes - prev.minutes);
+      playTravelFxReveal(prev.location, state.location, mins, state.unlocks.includes('minecart'));
+    }
   }
   save();
   render();
@@ -2797,22 +2847,30 @@ document.addEventListener('click', (e) => {
       openShopId = null;
       render();
       break;
-    case 'move':
+    case 'move': {
+      const to = el.dataset.to as LocationId;
       openShopId = null;
       uiModal = null;
       page = 'scene';
-      doAction({ type: 'move', to: el.dataset.to as LocationId });
+      render();
+      playTravelFxStaged(state.location, to, travelSub(to), () => {
+        doAction({ type: 'move', to });
+      });
       break;
+    }
     case 'go-general-store':
       selectedCell = null;
       openShopId = null;
       uiModal = null;
       page = 'scene';
-      doAction({ type: 'move', to: 'town' });
-      if (state.location === 'town') {
-        openShopId = 'general';
-        render();
-      }
+      render();
+      playTravelFxStaged(state.location, 'town', travelSub('town'), () => {
+        if (state.location !== 'town') doAction({ type: 'move', to: 'town' });
+        if (state.location === 'town') {
+          openShopId = 'general';
+          render();
+        }
+      });
       break;
     case 'go-repair-shop': {
       const to = el.dataset.to as LocationId;
@@ -2821,11 +2879,14 @@ document.addEventListener('click', (e) => {
       openShopId = null;
       uiModal = null;
       page = 'scene';
-      if (state.location !== to) doAction({ type: 'move', to });
-      if (state.location === to) {
-        openShopId = shopId;
-        render();
-      }
+      render();
+      playTravelFxStaged(state.location, to, travelSub(to), () => {
+        if (state.location !== to) doAction({ type: 'move', to });
+        if (state.location === to) {
+          openShopId = shopId;
+          render();
+        }
+      });
       break;
     }
     case 'forage':
@@ -2885,11 +2946,14 @@ document.addEventListener('click', (e) => {
       const bench = WORKBENCHES[el.dataset.bench as WorkbenchId];
       uiModal = null;
       page = 'scene';
-      if (state.location !== bench.location) doAction({ type: 'move', to: bench.location });
-      if (state.location === bench.location) {
-        uiModal = { kind: 'craft', bench: bench.id };
-        render();
-      }
+      render();
+      playTravelFxStaged(state.location, bench.location, travelSub(bench.location), () => {
+        if (state.location !== bench.location) doAction({ type: 'move', to: bench.location });
+        if (state.location === bench.location) {
+          uiModal = { kind: 'craft', bench: bench.id };
+          render();
+        }
+      });
       break;
     }
     case 'craft-gear': {
@@ -2968,12 +3032,27 @@ document.addEventListener('click', (e) => {
       bagFilter = el.dataset.f!;
       render();
       break;
-    case 'donate':
-      doAction({ type: 'donate', itemId: 'all' });
+    case 'donate': {
+      if (state.location === 'town') {
+        doAction({ type: 'donate', itemId: 'all' });
+        break;
+      }
+      uiModal = null;
+      page = 'scene';
+      render();
+      playTravelFxStaged(state.location, 'town', travelSub('town'), () => {
+        if (state.location !== 'town') doAction({ type: 'move', to: 'town' });
+        if (state.location === 'town') doAction({ type: 'donate', itemId: 'all' });
+      });
       break;
-    case 'enter-mine':
-      doAction({ type: 'enterMine', floor: Number(el.dataset.floor) });
+    }
+    case 'enter-mine': {
+      const floor = Number(el.dataset.floor);
+      playTravelFxStaged(state.location, 'mine', '乘电梯进入矿洞', () => {
+        doAction({ type: 'enterMine', floor });
+      });
       break;
+    }
     case 'mine-rock-all':
       doAction({ type: 'mineRock', count: 'all' });
       break;
@@ -2987,7 +3066,9 @@ document.addEventListener('click', (e) => {
       doAction({ type: 'descend' });
       break;
     case 'leave-mine':
-      doAction({ type: 'leaveMine' });
+      playTravelFxStaged(state.location, 'mountain', '乘电梯返回地面', () => {
+        doAction({ type: 'leaveMine' });
+      });
       break;
     case 'sleep':
       uiModal = null;
