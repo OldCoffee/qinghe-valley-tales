@@ -851,7 +851,7 @@ function forageNodesSection(label?: string): string {
   const forage = state.forage[state.location] ?? [];
   if (!forage.length) {
     return state.location === 'forest'
-      ? '<p class="dim">今天林间草丛已经探索完了，下面的林木砍伐、三大采集点位与深林奇遇每天都可互动。</p>'
+      ? '<p class="dim">今天林间草丛已经探索完了。</p>'
       : '';
   }
   if (state.location === 'forest') {
