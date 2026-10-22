@@ -406,6 +406,54 @@ function playPageRefreshFx(): void {
   }, 1320);
 }
 
+let sceneFxTimer: number | null = null;
+/** EffectCraft 设计的睡觉独立动效：星夜入眠 → 月升破晓 → 新的一天横幅 */
+function playSleepFx(s: GameState, passedOut = false): void {
+  const layer = document.getElementById('scene-fx-layer');
+  if (!layer) return;
+  if (sceneFxTimer) clearTimeout(sceneFxTimer);
+  const dateText = `${formatDate(s)} · ${WEATHER_NAMES[s.weather]}`;
+  layer.innerHTML = `
+    <div class="sleep-fx-stage">
+      <div class="sleep-fx-stars"><span>✦</span><span>★</span><span>✦</span><span>★</span><span>✦</span></div>
+      <div class="sleep-fx-orb">${passedOut ? '☾' : '☀'}</div>
+      <div class="sleep-fx-card">
+        <b>${passedOut ? '☾ 深夜昏睡 · 被送回农舍' : '☾ 晚安，青禾谷 · 新的一天开始了 ☀'}</b>
+        <span>${esc(dateText)}</span>
+      </div>
+    </div>`;
+  layer.classList.add('active');
+  sceneFxTimer = window.setTimeout(() => {
+    layer.classList.remove('active');
+    layer.innerHTML = '';
+  }, 1360);
+}
+
+/** EffectCraft 设计的切换地点独立动效：木质路牌横掠转场 */
+function playTravelFx(from: LocationId, to: LocationId, mins: number, minecart: boolean): void {
+  const layer = document.getElementById('scene-fx-layer');
+  if (!layer) return;
+  if (sceneFxTimer) clearTimeout(sceneFxTimer);
+  const fromName = LOCATIONS[from]?.name ?? from;
+  const toName = LOCATIONS[to]?.name ?? to;
+  layer.innerHTML = `
+    <div class="travel-fx-stage">
+      <div class="travel-fx-board">
+        <div class="travel-fx-route">
+          <span>${esc(fromName)}</span>
+          <span class="travel-fx-arrow">${minecart ? '🚋 ➔' : '➤'}</span>
+          <span>${esc(toName)}</span>
+        </div>
+        <span class="travel-fx-sub">${esc(LOCATIONS[to]?.arrival ?? '')}${mins > 0 ? `（耗时 ${mins} 分钟${minecart ? ' · 矿车加速' : ''}）` : ''}</span>
+      </div>
+    </div>`;
+  layer.classList.add('active');
+  sceneFxTimer = window.setTimeout(() => {
+    layer.classList.remove('active');
+    layer.innerHTML = '';
+  }, 920);
+}
+
 function recordActionFx(action: Action, prev: GameState, next: GameState, events: GameEvent[], cells: string[]): void {
   tileFxMap.clear();
   mineFxState = { rockHit: false, slash: false };
@@ -590,7 +638,13 @@ function doAction(action: Action, cells: string[] = []): void {
   state = result.state;
   recordActionFx(action, prev, state, result.events, cells);
   const afterDay = `${state.year}-${state.season}-${state.day}`;
-  if (beforeDay !== afterDay) nightFlash = true;
+  if (beforeDay !== afterDay) {
+    nightFlash = true;
+    playSleepFx(state, action.type !== 'sleep');
+  } else if (prev.location !== state.location) {
+    const mins = Math.max(0, state.minutes - prev.minutes);
+    playTravelFx(prev.location, state.location, mins, state.unlocks.includes('minecart'));
+  }
   save();
   render();
   if (breakShake) {
@@ -3058,9 +3112,6 @@ document.addEventListener('click', (e) => {
       pushToast(`欢迎来到青禾谷，${name}！（姓名与性别已设定，不可修改）`, 'good');
       break;
     }
-    case 'replay-refresh-fx':
-      playPageRefreshFx();
-      break;
   }
 });
 

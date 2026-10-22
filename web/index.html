@@ -1032,11 +1032,8 @@
         color: var(--ink); border: 3px solid var(--wood-dark);
         outline: 2px solid var(--gold); outline-offset: -5px;
         box-shadow: 0 3px 0 rgba(0,0,0,0.45);
-        padding: 3px 12px 3px 6px; cursor: pointer;
-        transition: transform 0.15s ease, filter 0.15s ease;
+        padding: 3px 12px 3px 6px;
       }
-      .brand-logo:hover { filter: brightness(1.05); transform: translateY(-1px); }
-      .brand-logo:active { transform: translateY(2px); }
       .brand-logo-crest { width: 38px; height: 38px; display: block; flex: none; }
       .brand-logo-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
       .brand-logo-title {
@@ -1127,11 +1124,111 @@
         0% { opacity: 0.35; transform: translateY(10px) scale(0.992); }
         100% { opacity: 1; transform: translateY(0) scale(1); }
       }
+
+      /* EffectCraft 睡觉星夜破晓与地点切换路牌独立转场动效 */
+      #scene-fx-layer {
+        position: fixed; inset: 0; z-index: 75; pointer-events: none;
+        display: none; align-items: center; justify-content: center; overflow: hidden;
+      }
+      #scene-fx-layer.active { display: flex; }
+      .sleep-fx-stage {
+        position: relative; width: 100%; height: 100%;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        background: radial-gradient(circle at 50% 35%, #232c5c 0%, #141932 62%, #0c0f20 100%);
+        animation: sleep-sky-dawn 1.38s ease-in-out forwards;
+      }
+      .sleep-fx-stars span {
+        position: absolute; color: #fff3c4; font-size: 22px; text-shadow: 0 0 10px #ffd23f;
+        animation: sleep-star-twinkle 0.8s ease-in-out infinite alternate;
+      }
+      .sleep-fx-stars span:nth-child(1) { top: 18%; left: 22%; }
+      .sleep-fx-stars span:nth-child(2) { top: 24%; right: 24%; animation-delay: 0.2s; }
+      .sleep-fx-stars span:nth-child(3) { top: 14%; left: 48%; animation-delay: 0.35s; }
+      .sleep-fx-stars span:nth-child(4) { top: 34%; left: 16%; animation-delay: 0.15s; }
+      .sleep-fx-stars span:nth-child(5) { top: 32%; right: 18%; animation-delay: 0.4s; }
+      .sleep-fx-orb {
+        width: 112px; height: 112px;
+        background: radial-gradient(circle, #fff9d6 0%, #ffd23f 58%, rgba(255, 179, 0, 0) 74%);
+        box-shadow: 0 0 48px #ffd23f;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 52px; color: #3d2410;
+        animation: sleep-orb-arc 1.32s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+      }
+      .sleep-fx-card {
+        margin-top: 18px; padding: 14px 28px;
+        background: rgba(27, 35, 64, 0.92); color: #fff3c4;
+        border: 4px solid #ffd23f; box-shadow: 0 8px 0 #0c0f20, 0 0 28px rgba(255, 210, 63, 0.45);
+        text-align: center;
+        animation: sleep-card-rise 1.32s ease forwards;
+      }
+      .sleep-fx-card b { display: block; font-size: 26px; color: #ffd23f; margin-bottom: 4px; }
+      .sleep-fx-card span { font-size: 19px; color: #fff3c4; }
+      @keyframes sleep-sky-dawn {
+        0% { opacity: 0; }
+        18%, 62% { opacity: 0.96; background: radial-gradient(circle at 50% 35%, #232c5c 0%, #141932 62%, #0c0f20 100%); }
+        82% { opacity: 0.92; background: radial-gradient(circle at 50% 45%, #ffd23f 0%, #ff9e44 45%, #3a86ff 100%); }
+        100% { opacity: 0; }
+      }
+      @keyframes sleep-orb-arc {
+        0% { transform: translate(-110px, 28px) scale(0.55); opacity: 0; }
+        35% { transform: translate(0, -12px) scale(1); opacity: 1; }
+        75% { transform: translate(65px, -4px) scale(1.18); opacity: 1; }
+        100% { transform: translate(120px, 16px) scale(1.35); opacity: 0; }
+      }
+      @keyframes sleep-card-rise {
+        0% { transform: translateY(18px) scale(0.9); opacity: 0; }
+        24%, 78% { transform: translateY(0) scale(1); opacity: 1; }
+        100% { transform: translateY(-10px) scale(0.96); opacity: 0; }
+      }
+      @keyframes sleep-star-twinkle {
+        from { transform: scale(0.8); opacity: 0.45; }
+        to { transform: scale(1.25); opacity: 1; }
+      }
+
+      .travel-fx-stage {
+        position: relative; width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+        background: rgba(24, 48, 30, 0.58);
+        animation: travel-backdrop-fade 0.92s ease forwards;
+      }
+      .travel-fx-board {
+        min-width: min(520px, 88vw); padding: 16px 28px;
+        background: linear-gradient(180deg, #8a5a2b 0%, #7a4a21 100%);
+        color: #fff3c4; border: 4px solid #3d2410;
+        outline: 3px solid #ffd23f; outline-offset: -8px;
+        box-shadow: 0 10px 0 #2b1b0e, 0 0 32px rgba(255, 210, 63, 0.55);
+        display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+        animation: travel-board-slide 0.92s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+      }
+      .travel-fx-route {
+        display: inline-flex; align-items: center; gap: 12px;
+        font-size: 26px; font-weight: bold; color: #ffd23f;
+        text-shadow: 2px 2px 0 #2b1b0e;
+      }
+      .travel-fx-arrow {
+        display: inline-block; color: #6abe30; font-size: 26px;
+        animation: travel-arrow-hop 0.28s steps(2) infinite;
+      }
+      .travel-fx-sub { font-size: 18px; color: #f3e5be; }
+      @keyframes travel-backdrop-fade {
+        0% { opacity: 0; }
+        20%, 72% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      @keyframes travel-board-slide {
+        0% { transform: translateX(-160px) scale(0.86); opacity: 0; }
+        28%, 72% { transform: translateX(0) scale(1); opacity: 1; }
+        100% { transform: translateX(160px) scale(0.92); opacity: 0; }
+      }
+      @keyframes travel-arrow-hop {
+        from { transform: translateX(-3px); }
+        to { transform: translateX(4px); }
+      }
     </style>
   </head>
   <body>
     <header class="hud">
-      <h1 id="hud-logo" class="brand-logo" data-act="replay-refresh-fx" title="青禾谷物语 · 点击重播开幕动效">青禾谷物语</h1>
+      <h1 id="hud-logo" class="brand-logo">青禾谷物语</h1>
       <button class="loc-pill" id="hud-loc" data-act="open-map" title="打开世界地图快速移动"></button>
       <span id="hud-date"></span>
       <span id="hud-gold"></span>
@@ -1151,6 +1248,7 @@
 
     <div id="fx-toast-layer" aria-live="polite"></div>
     <div id="page-refresh-layer" aria-hidden="true"></div>
+    <div id="scene-fx-layer" aria-live="polite"></div>
     <div id="craft-reveal-layer" aria-live="polite"></div>
     <div id="ui-modal" role="dialog" aria-modal="true"><div id="ui-modal-card" class="modal-surface"></div></div>
     <div id="shop-modal" role="dialog" aria-modal="true"><div id="shop-modal-card" class="modal-surface"></div></div>
