@@ -172,9 +172,9 @@ export function endDay(s: GameState, events: GameEvent[], passedOut: boolean): v
 
   if (s.year === EVALUATION_YEAR && s.season === 'spring' && s.day === 1 && !s.evaluation) {
     s.evaluation = evaluate(s);
-    events.push(love('🕯 爷爷的灵魂出现在神龛前，回顾你这两年的生活……'));
+    events.push(love('🌻 你做了一个很暖的梦，梦见爷爷戴着草帽坐在田埂上，翻着小本子看你这两年的收成……'));
     for (const note of s.evaluation.notes) events.push(info(`   · ${note}`));
-    events.push(love(`点亮了 ${s.evaluation.candles} 根蜡烛。${CANDLE_TEXT[s.evaluation.candles]}`));
+    events.push(love(`爷爷身边盛开了 ${s.evaluation.candles} 朵向日葵。${CANDLE_TEXT[s.evaluation.candles]}`));
   }
 
   openNextProfession(s);

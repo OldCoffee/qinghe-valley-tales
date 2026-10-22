@@ -274,7 +274,7 @@ export function renderStatus(s: GameState): string {
       `   累计收入 ${s.stats.totalEarned.toLocaleString()} 金 · 收获 ${s.stats.cropsHarvested} · 钓鱼 ${s.stats.fishCaught}（${s.stats.fishSpecies.length} 种）· 采集 ${s.stats.itemsForaged} · 击败怪物 ${s.stats.monstersKilled} · 矿洞最深 ${s.mine.deepest} 层`,
     ),
   );
-  if (s.evaluation) lines.push(color.magenta(`   爷爷的评价：${s.evaluation.candles} 根蜡烛（${s.evaluation.score} 分）`));
+  if (s.evaluation) lines.push(color.magenta(`   爷爷的评价：盛开 ${s.evaluation.candles} 朵向日葵（${s.evaluation.score} 分）`));
   return lines.join('\n');
 }
 

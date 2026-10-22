@@ -460,7 +460,7 @@ function sleepWeatherEmblemSvg(weather: GameState['weather'], passedOut: boolean
 function playSleepFx(s: GameState, passedOut = false): void {
   const layer = document.getElementById('scene-fx-layer');
   if (!layer) return;
-  if (sceneFxTimer) clearTimeout(sceneFxTimer);
+  closeGrandpaEvalFx();
   const w = s.weather;
   const dateText = `${formatDate(s)} · ${WEATHER_NAMES[w]}`;
   const headlineByWeather: Record<GameState['weather'], string> = {
@@ -495,52 +495,150 @@ function playSleepFx(s: GameState, passedOut = false): void {
   }, 1360);
 }
 
-/** VectorCraft 设计的爷爷神龛天象：灵魂光球 + 4 根蜡烛（按评价逐根点亮，未点亮只剩灰烛芯） */
-function grandpaShrineSvg(candles: number): string {
-  const flame = (cx: number, lit: boolean, i: number) =>
-    lit
-      ? `<g class="eval-flame" style="animation-delay:${0.55 + i * 0.38}s"><path d="M${cx} 62 L${cx + 7} 76 L${cx} 88 L${cx - 7} 76 Z" fill="#ffb300" stroke="#fff9c4" stroke-width="1.2"/><circle cx="${cx}" cy="76" r="3.2" fill="#ff8f00"/></g>`
-      : `<rect x="${cx - 1.2}" y="76" width="2.4" height="9" fill="#757575"/>`;
-  const candleXs = [62, 94, 126, 158];
-  return `<svg viewBox="0 0 220 150" width="300" height="205" aria-hidden="true">
-    <circle cx="110" cy="34" r="30" fill="#eceff1" fill-opacity="0.22"/>
-    <circle cx="110" cy="34" r="21" fill="#eceff1" stroke="#ffe082" stroke-width="2"/>
-    <circle cx="103" cy="29" r="3" fill="#37474f"/><circle cx="117" cy="29" r="3" fill="#37474f"/>
-    <path d="M101 42 Q110 47 119 42" stroke="#37474f" stroke-width="2" fill="none" stroke-linecap="round"/>
-    ${candleXs.map((cx, i) => flame(cx, i < candles, i)).join('')}
-    ${candleXs.map((cx) => `<rect x="${cx - 6}" y="88" width="12" height="26" rx="2" fill="#fff8e1" stroke="#bcaaa4"/>`).join('')}
-    <path d="M38 126 L182 126 L170 112 L50 112 Z" fill="#6d4c41" stroke="#ffd54f" stroke-width="1.5"/>
+/**
+ * VectorCraft 设计的星露谷像素风「爷爷的午后向日葵田梦境」插画：
+ * 草帽白胡子爷爷坐在田埂木凳上，4 株向日葵按前两年成绩逐株绽放（未开的保持青绿花苞/嫩芽）。
+ */
+function grandpaDreamFieldSvg(tier: number): string {
+  const skyBg = tier === 4 ? '#fef08a' : tier === 3 ? '#fde68a' : tier === 2 ? '#7dd3fc' : '#bae6fd';
+  const meadowBg = tier === 4 ? '#9ccc65' : tier === 3 ? '#8bc34a' : '#7cb342';
+  const rainbow =
+    tier === 4
+      ? `<path d="M 16 108 Q 140 16 264 108" fill="none" stroke="#f43f5e" stroke-width="5" stroke-opacity="0.55"/>
+         <path d="M 22 112 Q 140 24 258 112" fill="none" stroke="#fbbf24" stroke-width="4" stroke-opacity="0.55"/>
+         <path d="M 28 116 Q 140 32 252 116" fill="none" stroke="#34d399" stroke-width="4" stroke-opacity="0.5"/>`
+      : '';
+  const cabin =
+    tier >= 3
+      ? `<g class="pixel-cabin">
+          <rect x="20" y="76" width="34" height="28" fill="#d97706" stroke="#78350f" stroke-width="2"/>
+          <polygon points="15,76 37,56 59,76" fill="${tier === 4 ? '#dc2626' : '#b45309'}" stroke="#78350f" stroke-width="2"/>
+          <rect x="32" y="88" width="10" height="16" fill="#78350f"/>
+          <rect x="24" y="82" width="6" height="6" fill="#fef08a"/>
+        </g>`
+      : '';
+  const dog =
+    tier === 4
+      ? `<g class="pixel-dog">
+          <rect x="56" y="96" width="16" height="10" fill="#f59e0b" stroke="#78350f" stroke-width="1.5"/>
+          <rect x="68" y="90" width="9" height="9" fill="#fbbf24" stroke="#78350f" stroke-width="1.5"/>
+          <rect x="74" y="93" width="3" height="3" fill="#451a03"/>
+        </g>`
+      : '';
+  const flowerXs = [148, 178, 208, 238];
+  const renderPlant = (cx: number, bloomed: boolean, idx: number) => {
+    if (bloomed) {
+      return `<g class="eval-sunflower" style="animation-delay:${0.35 + idx * 0.32}s">
+        <rect x="${cx - 2}" y="70" width="4" height="36" fill="#3f6212"/>
+        <polygon points="${cx - 2},88 ${cx - 11},82 ${cx - 4},93" fill="#65a30d"/>
+        <polygon points="${cx + 2},84 ${cx + 11},78 ${cx + 4},89" fill="#65a30d"/>
+        <circle cx="${cx}" cy="66" r="13" fill="#facc15" stroke="#d97706" stroke-width="2" stroke-dasharray="5 2"/>
+        <circle cx="${cx}" cy="66" r="6.5" fill="#78350f" stroke="#451a03" stroke-width="1.5"/>
+        <rect x="${cx - 3}" y="63" width="2" height="2" fill="#fde047"/>
+        <rect x="${cx + 1}" y="66" width="2" height="2" fill="#fde047"/>
+      </g>`;
+    }
+    return `<g class="eval-sprout">
+      <rect x="${cx - 1.5}" y="86" width="3" height="20" fill="#4d7c0f"/>
+      <polygon points="${cx - 8},92 ${cx},80 ${cx + 8},92" fill="#a3e635" stroke="#3f6212" stroke-width="1.5"/>
+    </g>`;
+  };
+  return `<svg viewBox="0 0 280 144" width="350" height="180" shape-rendering="crispEdges" aria-hidden="true">
+    <rect x="4" y="4" width="272" height="136" rx="8" fill="${skyBg}" stroke="#8d5b2c" stroke-width="4"/>
+    ${rainbow}
+    <!-- 像素暖阳 -->
+    <circle cx="236" cy="34" r="${14 + tier * 2}" fill="#fde047" fill-opacity="0.45"/>
+    <circle cx="236" cy="34" r="${10 + tier}" fill="#facc15" stroke="#f59e0b" stroke-width="2"/>
+    <!-- 远山与青草田埂 -->
+    <polygon points="8,104 64,74 124,104" fill="#86efac" opacity="0.55"/>
+    <polygon points="96,104 168,68 248,104" fill="#4ade80" opacity="0.45"/>
+    <rect x="8" y="102" width="264" height="34" fill="${meadowBg}" stroke="#558b2f" stroke-width="2"/>
+    ${cabin}
+    ${dog}
+    <!-- 田埂木凳与草帽白胡子爷爷（像素风） -->
+    <rect x="76" y="96" width="44" height="6" fill="#92400e" stroke="#451a03" stroke-width="1.5"/>
+    <rect x="82" y="102" width="5" height="10" fill="#78350f"/>
+    <rect x="109" y="102" width="5" height="10" fill="#78350f"/>
+    <!-- 爷爷蓝色背带裤与红格衬衣 -->
+    <rect x="84" y="72" width="28" height="24" fill="#dc2626" stroke="#78350f" stroke-width="1.5"/>
+    <rect x="86" y="78" width="24" height="18" fill="#2563eb" stroke="#1e3a8a" stroke-width="1.5"/>
+    <rect x="89" y="72" width="4" height="8" fill="#2563eb"/>
+    <rect x="103" y="72" width="4" height="8" fill="#2563eb"/>
+    <!-- 爷爷像素笑脸与白胡子 -->
+    <rect x="86" y="52" width="24" height="20" fill="#fed7aa" stroke="#78350f" stroke-width="1.5"/>
+    <rect x="91" y="58" width="3" height="3" fill="#451a03"/>
+    <rect x="102" y="58" width="3" height="3" fill="#451a03"/>
+    <rect x="86" y="64" width="24" height="11" fill="#ffffff" stroke="#94a3b8" stroke-width="1"/>
+    <rect x="94" y="66" width="8" height="2" fill="#d97706"/>
+    <!-- 爷爷的草帽 -->
+    <rect x="78" y="48" width="40" height="6" fill="#f59e0b" stroke="#78350f" stroke-width="1.5"/>
+    <rect x="85" y="40" width="26" height="9" fill="#fbbf24" stroke="#78350f" stroke-width="1.5"/>
+    <rect x="85" y="46" width="26" height="3" fill="#dc2626"/>
+    <!-- 4 株向日葵（盛开或花苞） -->
+    ${flowerXs.map((cx, i) => renderPlant(cx, i < tier, i)).join('')}
   </svg>`;
 }
 
+let evalCountdownTimer: number | null = null;
+
+function closeGrandpaEvalFx(): void {
+  const layer = document.getElementById('scene-fx-layer');
+  if (sceneFxTimer) {
+    clearTimeout(sceneFxTimer);
+    sceneFxTimer = null;
+  }
+  if (evalCountdownTimer) {
+    clearInterval(evalCountdownTimer);
+    evalCountdownTimer = null;
+  }
+  if (layer) {
+    layer.classList.remove('active', 'interactive');
+    layer.innerHTML = '';
+  }
+}
+
 /**
- * EffectCraft/FigCraft 设计的爷爷评价专属动效（第三年春天第 1 天清晨）：
- * 按前两年行为评价点亮 1–4 根蜡烛，四档氛围、光晕与台词各不相同。
+ * EffectCraft/FigCraft 设计的「午后的梦 · 爷爷的向日葵田」评价动效（第三年春天第 1 天清晨）：
+ * 按前两年行为评价盛开 1–4 朵向日葵，支持点击「从梦中醒来」手动关闭，或 10 秒后自动关闭。
  */
 function playGrandpaEvalFx(ev: Evaluation): void {
   const layer = document.getElementById('scene-fx-layer');
   if (!layer) return;
-  if (sceneFxTimer) clearTimeout(sceneFxTimer);
+  closeGrandpaEvalFx();
   const tier = Math.min(4, Math.max(1, ev.candles));
+  const tierLabel = ['嫩芽初醒', '晴空抽苞', '午后盛放', '满田金黄'][tier - 1] ?? '晴空盛放';
   const notesHtml = ev.notes.length
     ? ev.notes.map((n) => `<span>· ${esc(n)}</span>`).join('')
-    : '<span>· 这两年还没有留下特别的成绩</span>';
+    : '<span>· 这两年在青禾谷悠闲度日，田野正蓄力生长</span>';
+  let remainSec = 10;
   layer.innerHTML = `
     <div class="sleep-fx-stage grandpa-eval-fx eval-tier-${tier}">
-      <div class="sleep-fx-stars"><span>✦</span><span>★</span><span>✦</span><span>★</span><span>✦</span></div>
-      <div class="eval-shrine">${grandpaShrineSvg(tier)}</div>
+      <div class="dream-sunbeams"><i></i><i></i><i></i></div>
+      <div class="eval-shrine">${grandpaDreamFieldSvg(tier)}</div>
       <div class="sleep-fx-card eval-card">
-        <b>🕯 爷爷的灵魂出现在神龛前 · 点亮了 ${tier} 根蜡烛</b>
-        <span class="eval-score-line">爷爷的评分：总分 ${ev.score} 分 · 回顾你这两年的生活……</span>
+        <b>🌻 午后的梦 · 爷爷身边盛开了 ${tier} 朵向日葵（${tierLabel}）</b>
+        <span class="eval-score-line">📖 爷爷翻开泛黄的小本子 · 两年总评：${ev.score} 分</span>
         <span class="eval-notes">${notesHtml}</span>
         <span class="eval-quote">${esc(CANDLE_TEXT[tier] ?? '')}</span>
+        <div class="eval-actions">
+          <button type="button" class="eval-wake-btn" id="eval-wake-btn">☀ 从梦中醒来（${remainSec}s）</button>
+        </div>
       </div>
     </div>`;
-  layer.classList.add('active');
+  layer.classList.add('active', 'interactive');
+  const btn = document.getElementById('eval-wake-btn');
+  btn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeGrandpaEvalFx();
+  });
+  evalCountdownTimer = window.setInterval(() => {
+    remainSec = Math.max(0, remainSec - 1);
+    const b = document.getElementById('eval-wake-btn');
+    if (b) b.textContent = `☀ 从梦中醒来（${remainSec}s）`;
+  }, 1000);
   sceneFxTimer = window.setTimeout(() => {
-    layer.classList.remove('active');
-    layer.innerHTML = '';
-  }, 2950);
+    closeGrandpaEvalFx();
+  }, 10000);
 }
 
 /**
@@ -1987,8 +2085,8 @@ function journalPage(): string {
       <div class="card">
         ${
           state.evaluation
-            ? `<p><b>${uiIconSvg('candle')} 爷爷的评分：点亮了 ${state.evaluation.candles} 根蜡烛（总分 ${state.evaluation.score} 分）</b></p>`
-            : '<p><b>' + uiIconSvg('candle') + ' 爷爷的约定：</b>第 3 年春天第 1 天，爷爷会回来看看你把青禾谷农场打理得怎么样。</p>'
+            ? `<p><b>${uiIconSvg('candle')} 爷爷的评分：盛开了 ${state.evaluation.candles} 朵向日葵（总分 ${state.evaluation.score} 分）</b></p>`
+            : '<p><b>' + uiIconSvg('candle') + ' 爷爷的约定：</b>第 3 年春天第 1 天，你会在梦里见到爷爷，听他聊聊这两年青禾谷农场的收成。</p>'
         }
         ${
           state.wedding

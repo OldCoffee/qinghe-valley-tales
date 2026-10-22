@@ -589,7 +589,7 @@ export function uiIconSvg(name: UiIconName): string {
     case 'bell': rect(g, 6, 4, 4, 6, '#FFD54F'); rect(g, 4, 10, 8, 2, '#FFB300'); px(g, 8, 13, '#8D6E63'); px(g, 8, 2, '#B8860B'); break;
     case 'cake': rect(g, 3, 9, 10, 5, '#F8BBD0'); rect(g, 3, 9, 10, 1, '#FFFFFF'); px(g, 8, 5, '#FF5252'); rect(g, 7, 6, 2, 3, '#FFF9C4'); break;
     case 'fire': blob(g, 8, 9, 4, 5, '#FF7043'); blob(g, 8, 11, 2, 3, '#FFD54F'); px(g, 8, 3, '#FF3D00'); break;
-    case 'candle': rect(g, 7, 7, 2, 7, '#FFF8E1'); blob(g, 8, 4, 1, 2, '#FFD54F'); px(g, 8, 2, '#FF8F00'); break;
+    case 'candle': rect(g, 7, 9, 2, 5, '#558B2F'); blob(g, 8, 6, 4, 4, '#FFD54F'); blob(g, 8, 6, 2, 2, '#6D4C41'); break;
     case 'map': rect(g, 3, 4, 10, 9, '#EFEBE9'); rect(g, 5, 6, 3, 2, '#A5D6A7'); px(g, 10, 8, '#E53935'); px(g, 11, 10, '#8D6E63'); px(g, 9, 11, '#8D6E63'); break;
     case 'wrench': rect(g, 4, 11, 7, 3, '#90A4AE'); px(g, 11, 10, '#90A4AE'); blob(g, 12, 6, 3, 3, '#B0BEC5'); px(g, 12, 4, '#37474F'); break;
     case 'bag': rect(g, 4, 6, 8, 8, '#8D5524'); rect(g, 6, 3, 4, 3, '#6D4C41'); rect(g, 4, 9, 8, 1, '#FFD54F'); break;
