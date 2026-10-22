@@ -48,6 +48,14 @@ export function canRomance(s: GameState, npc: NpcDef): boolean {
   return npc.marriageable && npc.gender !== playerGenderOf(s);
 }
 
+/** 好感关系档位（与性别无关）：2 心朋友、6 心好友、10 心知心好友 */
+export function relationTier(hearts: number): string {
+  if (hearts >= 10) return '知心好友';
+  if (hearts >= 6) return '好友';
+  if (hearts >= 2) return '朋友';
+  return '陌生人';
+}
+
 export function isBirthday(s: GameState, npc: NpcDef): boolean {
   return npc.birthday.season === s.season && npc.birthday.day === s.day;
 }

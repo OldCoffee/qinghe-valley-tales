@@ -24,7 +24,7 @@ import { shopsAt } from '../engine/systems/economy.js';
 import { availableFish, fishingSpotAccessReason, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
-import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
+import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, relationTier, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, Evaluation, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
 import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
@@ -1767,6 +1767,11 @@ function socialPage(): string {
     engaged: `<span class="badge ok">${uiIconSvg('ring')} 已订婚</span>`,
     married: `<span class="badge ok">${uiIconSvg('bell')} 已婚</span>`,
   };
+  const tierBadge = (npcId: string, status: string): string => {
+    if (status !== 'friend') return RELATION_BADGE[status] ?? '';
+    const tier = relationTier(heartsOf(state, npcId));
+    return `<span class="badge ${tier === '陌生人' ? '' : 'ok'}">${esc(tier)}</span>`;
+  };
   const cardsHtml = list.length
     ? `<div class="cards grid-2">${list
         .map((npc) => {
@@ -1782,7 +1787,7 @@ function socialPage(): string {
                 <div class="npc-name-row">
                   <b>${npc.name}</b>
                   <span class="hearts">${hearts(heartsOf(state, npc.id))}</span>
-                  ${RELATION_BADGE[st.status] ?? ''}
+                  ${tierBadge(npc.id, st.status)}
                   ${bday ? `<span class="badge ok">${uiIconSvg('cake')} 今日生日</span>` : ''}
                 </div>
                 <p class="npc-intro">${npc.intro}</p>
@@ -1795,7 +1800,7 @@ function socialPage(): string {
               <span class="chip">本周送礼 ${st.giftsThisWeek}/2</span>
               ${streak > 1 ? `<span class="chip ok">${uiIconSvg('fire')} 连聊 ${streak} 天</span>` : ''}
               <span class="chip ${bday ? 'ok' : ''}">${uiIconSvg('cake')} ${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日</span>
-              ${npc.marriageable ? (canRomance(state, npc) ? '<span class="chip ok">可恋爱</span>' : '<span class="chip">同性 · 仅好友</span>') : ''}
+              ${npc.marriageable && canRomance(state, npc) ? '<span class="chip ok">可恋爱</span>' : ''}
               <span class="chip">${npc.gender === 'female' ? '女' : '男'}</span>
             </div>
             <button class="pix-btn ${isHere ? 'gold' : 'ghost'} npc-main-btn" data-act="open-npc" data-npc="${npc.id}">
@@ -2091,7 +2096,7 @@ function journalPage(): string {
         ${
           state.wedding
             ? `<p>${uiIconSvg('bell')} <b>婚礼预告：</b>你与 ${NPC_BY_ID[state.wedding.npcId].name} 的婚礼定于第 ${state.wedding.day} 日举行。</p>`
-            : '<p class="dim">与心仪的异性单身居民好感达到 8 心可赠送花束交往，10 心可赠送美人鱼吊坠求婚；同性居民只能成为好友。</p>'
+            : '<p class="dim">好感达到 2 心成为朋友、6 心成为好友、10 心成为知心好友；与心仪的异性单身居民达到 8 心可赠花束交往，10 心可赠美人鱼吊坠求婚。</p>'
         }
       </div>`;
   }
@@ -2278,7 +2283,7 @@ function npcModalHtml(npcId: string): string {
         ${friendshipBarHtml(npc.id)}
         <p>${npc.intro}</p>
         <p class="dim">
-          性别：<b>${npc.gender === 'female' ? '女' : '男'}</b>${npc.marriageable ? (canRomance(state, npc) ? ' · 可恋爱' : ' · 与主角同性，只能成为好友') : ''} ·
+          性别：<b>${npc.gender === 'female' ? '女' : '男'}</b> · 关系：<b>${esc(relationTier(heartsOf(state, npc.id)))}</b>${npc.marriageable && canRomance(state, npc) ? ' · 可恋爱' : ''} ·
           所在位置：<b>${locId ? LOCATIONS[locId].name : '家中'}</b> ·
           生日：${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日 ·
           最爱礼物：${lovedNames || '当季好物'}
