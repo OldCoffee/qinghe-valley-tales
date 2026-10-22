@@ -3,12 +3,13 @@ import { BAITS, BAIT_BY_ID, RODS, ROD_BY_ID } from '../data/fishingGear.js';
 import { TOOL_LEVEL_NAMES, TOOL_NAMES } from '../data/skills.js';
 import { LOCATIONS, TRAVEL_DESTINATIONS } from '../data/world.js';
 import { travelTime } from '../engine/actions.js';
-import { todayFestival } from '../engine/calendar.js';
+import { shopClosedReason, todayFestival } from '../engine/calendar.js';
 import { sellPrice } from '../engine/skills.js';
 import { shopsAt } from '../engine/systems/economy.js';
 import { fishingSpotAccessReason, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
-import { npcsHere } from '../engine/systems/social.js';
+import { npcsHere, shopKeeperReason, summonKeeperChance } from '../engine/systems/social.js';
+import { NPC_BY_ID } from '../data/npcs.js';
 import type { GameState, ToolId } from '../engine/types.js';
 import { color } from './color.js';
 import type { GameIO } from './io.js';
@@ -217,6 +218,22 @@ const ENTRIES: MenuEntry[] = [
       if (!id) return null;
       const qty = await askQty(io, '卖几个？', 'all');
       return qty && `sell ${id} ${qty}`;
+    },
+  },
+  {
+    label: '催店主回店',
+    when: (s) => shopsAt(s).some((shop) => shop.keeperNpcId && !shopClosedReason(s, shop) && shopKeeperReason(s, shop)),
+    build: async (io, s) => {
+      const absent = shopsAt(s).filter((shop) => shop.keeperNpcId && !shopClosedReason(s, shop) && shopKeeperReason(s, shop));
+      const id = await chooseFrom(
+        io,
+        '催哪位店主回店',
+        absent.map((shop) => {
+          const keeper = NPC_BY_ID[shop.keeperNpcId!];
+          return { label: `${keeper.name}回${shop.name}（成功率 ${Math.round(summonKeeperChance(s, keeper.id) * 100)}%）`, value: keeper.id };
+        }),
+      );
+      return id && `summon ${id}`;
     },
   },
   {

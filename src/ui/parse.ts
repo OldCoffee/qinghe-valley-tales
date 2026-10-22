@@ -44,6 +44,7 @@ const ALIASES: Record<string, string[]> = {
   grove: ['grove', '采点'],
   explore: ['explore', '探索', '逛林子'],
   talk: ['talk', '聊天', '说话'],
+  summon: ['summon', '催', '催回店', '叫回店'],
   gift: ['gift', '送', '送礼'],
   enter: ['enter', '进入', '进矿', '下矿'],
   rock: ['rock', 'r', '敲', '挖', '敲石头'],
@@ -239,6 +240,11 @@ export function parseCommand(line: string): Parsed {
       const npc = args[0] ? findNpc(args[0]) : undefined;
       if (!npc) return error('要和谁聊天？例如：talk 苏禾');
       return action({ type: 'talk', npcId: npc.id });
+    }
+    case 'summon': {
+      const npc = args[0] ? findNpc(args[0]) : undefined;
+      if (!npc) return error('要催哪位店主回店？例如：summon 陆远');
+      return action({ type: 'summonKeeper', npcId: npc.id });
     }
     case 'gift': {
       const npc = args[0] ? findNpc(args[0]) : undefined;

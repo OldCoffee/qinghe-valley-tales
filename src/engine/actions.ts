@@ -15,7 +15,7 @@ import { craftFishingGear, equipFishingBait, equipFishingRod, fishingSpotAccessR
 import { forage } from './systems/foraging.js';
 import { chopTree, ensureForest, exploreForest, harvestGrove } from './systems/forest.js';
 import { attack, descend, enterMine, leaveMine, mineRock } from './systems/mine.js';
-import { gift, talk } from './systems/social.js';
+import { gift, summonKeeper, talk } from './systems/social.js';
 import { settlePendingUpgrade, upgrade } from './systems/tools.js';
 import type { Action, ActionResult, GameEvent, GameState, LocationId } from './types.js';
 import { good, info, removeItem, round1, warn } from './util.js';
@@ -99,6 +99,8 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
       return talk(s, events, action.npcId);
     case 'gift':
       return gift(s, events, action.npcId, action.itemId);
+    case 'summonKeeper':
+      return summonKeeper(s, events, action.npcId);
     case 'enterMine':
       return enterMine(s, events, action.floor);
     case 'mineRock':

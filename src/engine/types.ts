@@ -68,6 +68,9 @@ export interface NpcState {
   giftsThisWeek: number;
   eventsSeen: string[];
   status: RelationStatus;
+  /** 被催回店的绝对天数与店铺地点（当天有效，旧存档可缺失） */
+  summonedDay?: number;
+  summonedTo?: LocationId;
 }
 
 export interface MonsterInstance {
@@ -235,6 +238,7 @@ export type Action =
   | { type: 'forestExplore' }
   | { type: 'talk'; npcId: string }
   | { type: 'gift'; npcId: string; itemId: string }
+  | { type: 'summonKeeper'; npcId: string }
   | { type: 'enterMine'; floor?: number }
   | { type: 'mineRock'; count: Quantity }
   | { type: 'attack' }

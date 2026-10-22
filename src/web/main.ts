@@ -8,6 +8,7 @@ import { GROVES } from '../data/forest.js';
 import { FORAGE } from '../data/forage.js';
 import { MONSTERS, WEAPONS, ORES, GEMS, MINE_CHESTS } from '../data/mine.js';
 import { NPC_BY_ID, NPCS } from '../data/npcs.js';
+import { SHOPS } from '../data/shops.js';
 import { SKILL_NAMES, SKILL_ORDER, TOOL_LEVEL_NAMES, TOOL_NAMES } from '../data/skills.js';
 import { LOCATIONS, SEASON_NAMES, TRAVEL_DESTINATIONS, WEATHER_NAMES } from '../data/world.js';
 import { applyAction, travelTime } from '../engine/actions.js';
@@ -24,7 +25,7 @@ import { shopsAt } from '../engine/systems/economy.js';
 import { availableFish, fishingSpotAccessReason, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
-import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, relationTier, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
+import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, relationTier, shopKeeperReason, shopUnavailableReason, summonKeeperChance, type GiftTier } from '../engine/systems/social.js';
 import { settlePendingUpgrade, upgradeCost } from '../engine/systems/tools.js';
 import type { Action, Evaluation, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
 import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
@@ -2280,6 +2281,12 @@ function npcModalHtml(npcId: string): string {
       isHere
         ? `<div class="toolbar">
             <button class="pix-btn gold" data-act="talk" data-npc="${npc.id}">${uiIconSvg('chat')} 与${npc.name}聊天</button>
+            ${(() => {
+              const keeperShop = SHOPS.find((sh) => sh.keeperNpcId === npc.id);
+              return keeperShop && !shopClosedReason(state, keeperShop) && locId !== keeperShop.location
+                ? `<button class="pix-btn" data-act="summon-keeper" data-npc="${npc.id}">催${npc.name}回${keeperShop.name}（成功率 ${Math.round(summonKeeperChance(state, npc.id) * 100)}%）</button>`
+                : '';
+            })()}
           </div>
           <h3>${uiIconSvg('gift')} 从背包点选一件礼物送给 ${npc.name}</h3>
           ${
@@ -2662,10 +2669,18 @@ function shopModal(): string {
   const shop = shopsAt(state).find((s) => s.id === openShopId);
   if (!shop) return '';
   const closed = shopClosedReason(state, shop);
+  const keeperAbsent = !closed ? shopKeeperReason(state, shop) : null;
+  const keeper = shop.keeperNpcId ? NPC_BY_ID[shop.keeperNpcId] : null;
+  const summonBtn =
+    keeperAbsent && keeper
+      ? `<div class="toolbar"><button class="pix-btn gold" data-act="summon-keeper" data-npc="${keeper.id}">催${keeper.name}回店（成功率 ${Math.round(summonKeeperChance(state, keeper.id) * 100)}%）</button></div>`
+      : '';
 
   const goods = closed
     ? `<p class="dim">${closed}</p>`
-    : shop.stock(state).length
+    : keeperAbsent
+      ? `<p class="dim">${keeperAbsent}</p>${summonBtn}`
+      : shop.stock(state).length
       ? `<div class="bag-grid">${shop
           .stock(state)
           .map(
@@ -2676,7 +2691,7 @@ function shopModal(): string {
       : '<p class="dim">暂时没货。</p>';
 
   const upgrades =
-    shop.id === 'blacksmith' && !closed
+    shop.id === 'blacksmith' && !closed && !keeperAbsent
       ? `<h3>工具升级</h3><div class="chips">${(['hoe', 'can', 'pickaxe', 'axe'] as ToolId[])
           .map((t) => {
             if (state.tools[t] < 0) return `<span class="chip off">${TOOL_NAMES[t]}已报废，先买新的</span>`;
@@ -2695,7 +2710,7 @@ function shopModal(): string {
         ? ['rod']
         : [];
   const repairs =
-    !closed && repairTargets.some((t) => repairCost(state, t) !== null)
+    !closed && !keeperAbsent && repairTargets.some((t) => repairCost(state, t) !== null)
       ? `<h3>修复耐久</h3><div class="chips">${repairTargets
           .map((t) => {
             const cost = repairCost(state, t);
@@ -2714,7 +2729,9 @@ function shopModal(): string {
   });
   const bag = closed
     ? '<p class="dim">店铺休息中，暂时不能出售。</p>'
-    : bagIds.length
+    : keeperAbsent
+      ? `<p class="dim">${keeper?.name ?? '店主'}不在店里，暂时不能出售。</p>`
+      : bagIds.length
       ? `<div class="bag-grid">${bagIds
           .map(
             (id) =>
@@ -2733,7 +2750,7 @@ function shopModal(): string {
   </div>
   <div class="shop-grid">
     <section><h3>商品（点一下购买）</h3>${goods}${upgrades}${repairs}</section>
-    <section class="shop-bag"><h3>我的背包${closed ? '' : '（点一下卖给本店）'}</h3>${bag}</section>
+    <section class="shop-bag"><h3>我的背包${closed || keeperAbsent ? '' : '（点一下卖给本店）'}</h3>${bag}</section>
   </div>`;
 }
 
@@ -3074,6 +3091,9 @@ document.addEventListener('click', (e) => {
     }
     case 'talk':
       doAction({ type: 'talk', npcId: el.dataset.npc! });
+      break;
+    case 'summon-keeper':
+      doAction({ type: 'summonKeeper', npcId: el.dataset.npc! });
       break;
     case 'open-shop':
       openShopId = el.dataset.shop!;

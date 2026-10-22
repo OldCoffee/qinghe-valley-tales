@@ -107,6 +107,8 @@ export const TALK_BIRTHDAY_BONUS = 10;
 export const TALK_SPOUSE_BONUS = 10;
 export const DAILY_DECAY = 2;
 export const POINTS_PER_HEART = 250;
+/** 催店主回店：基础成功率 + 每颗心加成（10 心必成），每次尝试耗时（分钟） */
+export const SUMMON_KEEPER = { baseChance: 0.2, chancePerHeart: 0.08, minutes: 10 };
 export const GIFTS_PER_WEEK = 2;
 /** 生日只放大正面礼物分，负面分不放大 */
 export const BIRTHDAY_MULTIPLIER = 8;

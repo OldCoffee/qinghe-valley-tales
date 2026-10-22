@@ -14,6 +14,7 @@ import {
   NPC_BEDTIME_MINUTES,
   POINTS_PER_HEART,
   PROPOSAL_HEARTS,
+  SUMMON_KEEPER,
   TALK_BIRTHDAY_BONUS,
   TALK_POINTS,
   TALK_SPOUSE_BONUS,
@@ -29,7 +30,7 @@ import { allTiles } from '../farm.js';
 import { pick, random } from '../rng.js';
 import type { Activity, GameEvent, GameState, Gender, LocationId } from '../types.js';
 import { addItem, info, love, removeItem, warn } from '../util.js';
-import type { ShopDef } from '../../data/shops.js';
+import { SHOPS, type ShopDef } from '../../data/shops.js';
 import type { ActivityView } from './activityView.js';
 
 const TALK_MINUTES = 10;
@@ -66,6 +67,9 @@ export function spouseId(s: GameState): string | null {
 
 export function npcLocation(s: GameState, npc: NpcDef): LocationId | null {
   if (s.minutes < DAY_START_MINUTES || s.minutes >= NPC_BEDTIME_MINUTES) return null;
+  // 今天被催回店的店主：当天留在店里（优先于婚后住农场与日常日程）
+  const summoned = s.npcs[npc.id];
+  if (summoned?.summonedDay === absoluteDay(s) && summoned.summonedTo) return summoned.summonedTo;
   if (s.npcs[npc.id].status === 'married') return 'farm';
   const festival = todayFestival(s);
   if (festival) return festival.location;
@@ -398,4 +402,46 @@ export function shopKeeperReason(s: GameState, shop: ShopDef): string | null {
 /** 店铺不可交易完整原因: 节日/休息日/营业时间 + 店主在场 */
 export function shopUnavailableReason(s: GameState, shop: ShopDef): string | null {
   return shopClosedReason(s, shop) ?? shopKeeperReason(s, shop);
+}
+
+/** 催店主回店的成功率：关系越好越高（按好感心数，10 心必成） */
+export function summonKeeperChance(s: GameState, npcId: string): number {
+  return Math.min(1, SUMMON_KEEPER.baseChance + SUMMON_KEEPER.chancePerHeart * heartsOf(s, npcId));
+}
+
+/**
+ * 催店主回店里：要在店里或当面找到店主才能催；每次尝试耗时，
+ * 成功后店主当天留在店里。尝试本身算完成（失败也耗时），故失败也返回 true。
+ */
+export function summonKeeper(s: GameState, events: GameEvent[], npcId: string): boolean {
+  const shop = SHOPS.find((sh) => sh.keeperNpcId === npcId);
+  const keeper = NPC_BY_ID[npcId];
+  if (!shop || !keeper) {
+    events.push(warn('这位不是店主，没法催回店里。'));
+    return false;
+  }
+  const closed = shopClosedReason(s, shop);
+  if (closed) {
+    events.push(warn(closed));
+    return false;
+  }
+  const keeperLoc = npcLocation(s, keeper);
+  if (keeperLoc === shop.location) {
+    events.push(info(`${keeper.name}已经在${shop.name}里了。`));
+    return false;
+  }
+  if (s.location !== shop.location && s.location !== keeperLoc) {
+    events.push(warn(`先去${shop.name}，或者当面找到${keeper.name}再催吧。`));
+    return false;
+  }
+  s.minutes += SUMMON_KEEPER.minutes;
+  const pct = Math.round(summonKeeperChance(s, npcId) * 100);
+  if (random(s) < summonKeeperChance(s, npcId)) {
+    s.npcs[npcId].summonedDay = absoluteDay(s);
+    s.npcs[npcId].summonedTo = shop.location;
+    events.push(love(`${keeper.name}被你催回了${shop.name}，今天都会在店里。（成功率 ${pct}%）`));
+  } else {
+    events.push(warn(`${keeper.name}正忙，没催动（成功率 ${pct}%，关系越好越容易催）。`));
+  }
+  return true;
 }

@@ -321,7 +321,7 @@ export function renderHelp(): string {
     '   去 go 农场|小镇|海滩|森林|山区 · 等待 wait [分钟] · 吃 eat <物品>',
     '   钓鱼 fish · 装备鱼竿 equiprod <鱼竿> · 装备鱼饵 equipbait <鱼饵|none> · 采集 forage',
     '   买 buy <物品> [数量] · 卖 sell <物品> [数量] · 货架 shop · 参加节日 festival',
-    '   升级 upgrade 锄头|水壶|镐子 · 捐献 donate [物品]（社区中心）',
+    '   升级 upgrade 锄头|水壶|镐子 · 捐献 donate [物品]（社区中心） · 催店主回店 summon <店主>',
     color.cyan('   矿洞'),
     '   进入 enter [楼层] · 敲 rock [数量] · 攻击 attack · 下楼 down · 离开 leave',
     color.cyan('   查看'),
