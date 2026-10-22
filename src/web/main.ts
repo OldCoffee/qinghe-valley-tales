@@ -1836,8 +1836,7 @@ function npcModalHtml(npcId: string): string {
                       <small>×${state.inventory[id]} · 值 ${preview.value} 金 · 点击赠送</small>
                     </button>`;
                   })
-                  .join('')}</div>
-          <p class="dim">提示：越合口味、越贵重的礼物加的亲密度越多；太廉价（≤5 金）或不合口味的礼物反而会掉亲密度。</p>`
+                  .join('')}</div>`
               : '<p class="dim">背包里暂时没有可赠送的礼物。</p>'
           }`
         : `<div class="bag-empty">
