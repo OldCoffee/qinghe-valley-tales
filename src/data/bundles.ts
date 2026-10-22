@@ -40,10 +40,10 @@ export const BUNDLES: BundleDef[] = [
   { id: 'smith_bundle', name: '铁匠包', room: 'boiler', needs: { copper_ore: 10, iron_ore: 10, gold_ore: 10 }, reward: { gold: 1500 } },
   { id: 'geologist_bundle', name: '地质学家包', room: 'boiler', needs: { amethyst: 1, topaz: 1, aquamarine: 1, jade: 1 }, reward: { gold: 1500 } },
   { id: 'adventurer_bundle', name: '冒险家包', room: 'boiler', needs: { slime: 20, bat_wing: 10, void_essence: 1 }, reward: { item: ['pizza', 5] } },
-  { id: 'tillage_base', name: '整地机包', room: 'tillage_workshop', needs: { wood: 20, scrap: 5, copper_ore: 10 }, reward: { gold: 800 }, unlock: 'auto_clear', unlockName: '自动整地机（一键清理 + 开垦）' },
+  { id: 'tillage_base', name: '整地机包', room: 'tillage_workshop', needs: { wood: 20, scrap: 5, copper_ore: 10 }, reward: { gold: 800 }, unlock: 'auto_clear', unlockName: '自动整地机（每日自动清理 + 开垦）' },
   { id: 'tillage_pro', name: '整地机进阶包', room: 'tillage_workshop', needs: { iron_ore: 10, gold_ore: 5, scrap: 8 }, reward: { gold: 1200 } },
-  { id: 'sowing_base', name: '播种机包', room: 'sowing_workshop', needs: { wood: 15, iron_ore: 10, scrap: 5 }, reward: { gold: 1000 }, unlock: 'auto_plant', unlockName: '自动播种机（一键种植 + 浇水）' },
+  { id: 'sowing_base', name: '播种机包', room: 'sowing_workshop', needs: { wood: 15, iron_ore: 10, scrap: 5 }, reward: { gold: 1000 }, unlock: 'auto_plant', unlockName: '自动播种机（每日自动补种 + 浇水）' },
   { id: 'sowing_pro', name: '播种机进阶包', room: 'sowing_workshop', needs: { gold_ore: 8, iron_ore: 10, scrap: 8 }, reward: { gold: 1500 } },
-  { id: 'harvest_base', name: '收获机包', room: 'harvest_workshop', needs: { iron_ore: 10, gold_ore: 5, scrap: 8 }, reward: { gold: 1200 }, unlock: 'auto_harvest', unlockName: '自动收获机（一键除草 + 收获）' },
+  { id: 'harvest_base', name: '收获机包', room: 'harvest_workshop', needs: { iron_ore: 10, gold_ore: 5, scrap: 8 }, reward: { gold: 1200 }, unlock: 'auto_harvest', unlockName: '自动收获机（每日自动除草 + 收获）' },
   { id: 'harvest_pro', name: '收获机进阶包', room: 'harvest_workshop', needs: { gold_ore: 10, iron_ore: 15, scrap: 10 }, reward: { gold: 1800 } },
 ];

@@ -63,11 +63,13 @@ export function runAutoFarm(s: GameState, events: GameEvent[], job: AutoFarmJob,
 }
 
 /**
- * 每日自动 (早晨执行): 每台机器集齐自己房间的进阶包后单独生效, 依次铲枯萎→清理→除草→收获→开垦→补种→浇水。
+ * 每日自动 (早晨执行): 每台机器一经解锁（基础包或整房集齐）即自动生效, 无需在农场页手动点击,
+ * 依次铲枯萎→清理→除草→收获→开垦→补种→浇水。
  * 不消耗体力与时间, 只推一条汇总事件。
  */
 export function runDailyAutoFarm(s: GameState, events: GameEvent[]): void {
-  const has = (job: AutoFarmJob) => s.unlocks.includes(AUTO_JOB_DAILY_UNLOCK[job]);
+  const has = (job: AutoFarmJob) =>
+    s.unlocks.includes(AUTO_JOB_UNLOCK[job]) || s.unlocks.includes(AUTO_JOB_DAILY_UNLOCK[job]);
   if (!has('clear') && !has('plant') && !has('harvest')) return;
   let uprooted = 0;
   let cleared = 0;

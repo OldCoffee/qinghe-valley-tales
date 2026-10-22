@@ -663,17 +663,28 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
     s.floatText = undefined;
   }
   if (action.type === 'chop') {
+    const beforeStumps = new Set(forestTreeSlots.map((t, i) => (t.stump ? i : -1)).filter((i) => i >= 0));
+    // 先把玩家实际砍的那棵定为树桩，再让 sync 按树桩数量对齐，
+    // 否则 sync 会从第一棵开始补桩，把玩家砍的第三棵又恢复、第一棵却先倒了
+    let idx = activeChopIdx;
+    if (idx !== null && forestTreeSlots[idx] && !forestTreeSlots[idx].stump) {
+      forestTreeSlots[idx].stump = true;
+      forestTreeSlots[idx].hits = 3;
+    }
     syncForestUiState();
     const chopEv = events.find((e) => e.text.includes('木材'));
     const m = chopEv?.text.match(/木材\s*×(\d+)/);
     const woodText = m ? `+木材 ×${m[1]}` : '+木材';
-    let idx = activeChopIdx;
-    if (idx === null || !forestTreeSlots[idx] || forestTreeSlots[idx].stump) {
-      idx = forestTreeSlots.findIndex((t) => !t.stump);
+    if (idx === null || !forestTreeSlots[idx] || !forestTreeSlots[idx].stump) {
+      // 通用砍树按钮（未指定具体树）：用 sync 本次新补的那棵树桩，没有则退回第一棵未倒的
+      const fresh = forestTreeSlots.findIndex((t, i) => t.stump && !beforeStumps.has(i));
+      idx = fresh >= 0 ? fresh : forestTreeSlots.findIndex((t) => !t.stump);
+      if (idx >= 0 && forestTreeSlots[idx] && !forestTreeSlots[idx].stump) {
+        forestTreeSlots[idx].stump = true;
+        forestTreeSlots[idx].hits = 3;
+      }
     }
     if (idx !== null && idx >= 0 && forestTreeSlots[idx]) {
-      forestTreeSlots[idx].stump = true;
-      forestTreeSlots[idx].hits = 3;
       forestTreeSlots[idx].fx = 'fall';
       forestTreeSlots[idx].floatText = woodText;
     }
@@ -1001,12 +1012,6 @@ function farmScene(): string {
     <button class="pix-btn gold" data-act="bulk-plant" ${bulkSeedCropId ? '' : 'disabled'}>一键播种${bulkSeedName ? `（${bulkSeedName}）` : ''}</button>
     <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
     <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${fieldStat.wiltedCount + ghStat.wiltedCount ? '' : 'disabled'}>一键铲除枯萎株${fieldStat.wiltedCount + ghStat.wiltedCount ? `（${fieldStat.wiltedCount + ghStat.wiltedCount} 株）` : ''}</button>
-  </div>
-  <div class="farm-bulk-bar">
-    <span class="dim">${uiIconSvg('wrench')} 自动农具：</span>
-    <button class="pix-btn" data-act="auto-farm" data-job="clear" ${state.unlocks.includes('auto_clear') ? '' : 'disabled'}>${uiIconSvg('auto-clear')} 自动整地机${state.unlocks.includes('auto_clear') ? (state.unlocks.includes('auto_clear_daily') ? ' · 每日自动' : '') : '（整地工坊解锁）'}</button>
-    <button class="pix-btn" data-act="auto-farm" data-job="plant" ${state.unlocks.includes('auto_plant') && bulkSeedCropId ? '' : 'disabled'}>${uiIconSvg('auto-plant')} 自动播种机${state.unlocks.includes('auto_plant') ? (bulkSeedCropId ? `（${bulkSeedName}）` : '（先选种子）') : '（播种工坊解锁）'}${state.unlocks.includes('auto_plant_daily') ? ' · 每日自动' : ''}</button>
-    <button class="pix-btn" data-act="auto-farm" data-job="harvest" ${state.unlocks.includes('auto_harvest') ? '' : 'disabled'}>${uiIconSvg('auto-harvest')} 自动收获机${state.unlocks.includes('auto_harvest') ? (state.unlocks.includes('auto_harvest_daily') ? ' · 每日自动' : '') : '（收获工坊解锁）'}</button>
   </div>
   ${tilePopover()}
   <div class="farm-stage">${gridHtml}</div>`;
@@ -2326,7 +2331,7 @@ function profileModalHtml(): string {
         ['auto_harvest', 'auto_harvest_daily', 'auto-harvest', '自动收获机'],
       ] as const)
         .map(([unlock, daily, icon, name]) => {
-          const stage = state.unlocks.includes(daily) ? '每日自动' : state.unlocks.includes(unlock) ? '一键可用' : '未解锁';
+          const stage = state.unlocks.includes(daily) || state.unlocks.includes(unlock) ? '每日自动' : '未解锁';
           return `<span class="chip ${stage !== '未解锁' ? 'ok' : ''}">${uiIconSvg(icon)} ${name} · ${stage}</span>`;
         })
         .join('')}
@@ -2835,11 +2840,6 @@ document.addEventListener('click', (e) => {
       save();
       render();
       break;
-    case 'auto-farm': {
-      const job = el.dataset.job as 'clear' | 'plant' | 'harvest';
-      doAction({ type: 'autoFarm', job, cropId: bulkSeedCropId ?? undefined });
-      break;
-    }
     case 'bulk-plant':
       if (bulkSeedCropId) doAction({ type: 'plant', cropId: bulkSeedCropId, target: 'all' });
       break;
