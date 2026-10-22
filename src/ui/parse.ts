@@ -54,6 +54,7 @@ const ALIASES: Record<string, string[]> = {
   equip: ['equip', '装备'],
   equiprod: ['equiprod', '装备鱼竿', '换鱼竿'],
   equipbait: ['equipbait', '装备鱼饵', '换鱼饵'],
+  craft: ['craft', 'forge', '制作', '锻造', '调饵'],
   unequip: ['unequip', '卸下'],
   repair: ['repair', '修理', '修复'],
   donate: ['donate', '捐', '捐献'],
@@ -309,6 +310,14 @@ export function parseCommand(line: string): Parsed {
       const bait = BAITS.find((b) => [b.id, b.name].some((x) => x.toLowerCase() === name));
       if (!bait) return error('要装备哪种鱼饵？');
       return action({ type: 'equipBait', baitId: bait.id });
+    }
+    case 'craft': {
+      const name = args.join(' ').toLowerCase();
+      const rod = RODS.find((r) => [r.id, r.itemId, r.name].some((x) => x.toLowerCase() === name));
+      if (rod) return action({ type: 'craftGear', targetId: rod.id });
+      const bait = BAITS.find((b) => [b.id, b.name].some((x) => x.toLowerCase() === name));
+      if (bait) return action({ type: 'craftGear', targetId: bait.id });
+      return error('要制作哪件渔具或鱼饵？');
     }
     case 'unequip': {
       const word = args[0]?.toLowerCase() ?? '';

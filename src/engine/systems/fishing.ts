@@ -7,12 +7,13 @@ import {
   TRASH_CHANCE,
 } from '../../data/config.js';
 import { FISH, FISHING_SPOT_DEFS, TRASH, weatherMatches, type FishDef } from '../../data/fish.js';
-import { BAIT_BY_ID, ROD_BY_ID, equippedRod, ownsCapability } from '../../data/fishingGear.js';
+import { BAIT_BY_ID, RODS, ROD_BY_ID, equippedRod, ownsCapability } from '../../data/fishingGear.js';
+import { ITEMS } from '../../data/items.js';
 import { pick, random } from '../rng.js';
 import { addXp, hasProf, skillLevel } from '../skills.js';
 import type { Activity, GameEvent, GameState, LocationId } from '../types.js';
-import { addItem, bad, good, info, removeItem, round1, warn } from '../util.js';
-import { toolUsable, wearTool } from './equipment.js';
+import { addItem, bad, good, info, recordCollected, removeItem, round1, warn } from '../util.js';
+import { toolMaxDurability, toolUsable, wearTool } from './equipment.js';
 import type { ActivityView } from './activityView.js';
 
 type FishingActivity = Extract<Activity, { kind: 'fishing' }>;
@@ -81,11 +82,62 @@ export function equipFishingBait(s: GameState, events: GameEvent[], baitId: stri
     return false;
   }
   if (!rod.allowsBait || (bait.advanced && !rod.allowsAdvancedBait)) {
-    events.push(warn(bait.advanced ? '这支鱼竿不能使用高级鱼饵。' : '竹制鱼竿不能安装鱼饵。'));
+    events.push(warn(bait.advanced ? '这支鱼竿不能使用史诗/传说鱼饵。' : '竹制鱼竿不能安装鱼饵。'));
     return false;
   }
   s.equippedBaitId = baitId;
   events.push(good(`装上了${bait.name}（剩余 ${s.inventory[baitId]}）。`));
+  return true;
+}
+
+export function craftFishingGear(s: GameState, events: GameEvent[], targetId: string): boolean {
+  const rod = ROD_BY_ID[targetId] ?? RODS.find((r) => r.itemId === targetId);
+  const bait = BAIT_BY_ID[targetId];
+  if (!rod && !bait) {
+    events.push(warn('没有这种渔具或鱼饵配方。'));
+    return false;
+  }
+  const level = skillLevel(s, 'fishing');
+  const minLevel = rod ? rod.minLevel : bait!.minLevel;
+  if (level < minLevel) {
+    events.push(warn(`制作${rod ? rod.name : bait!.name}需要钓鱼技能 ${minLevel} 级（当前 ${level} 级）。`));
+    return false;
+  }
+  if (rod && s.ownedRods.includes(rod.id)) {
+    events.push(warn(`你已经拥有${rod.name}了。`));
+    return false;
+  }
+  const recipe = rod ? rod.recipe : bait!.recipe;
+  if (!recipe || Object.keys(recipe).length === 0) {
+    events.push(warn('该物品暂不支持手作配方。'));
+    return false;
+  }
+  const missing = Object.entries(recipe)
+    .filter(([itemId, need]) => (s.inventory[itemId] ?? 0) < need)
+    .map(([itemId, need]) => `${ITEMS[itemId]?.name ?? itemId} ×${need - (s.inventory[itemId] ?? 0)}`);
+  if (missing.length > 0) {
+    events.push(warn(`原料不足，还差：${missing.join('、')}。`));
+    return false;
+  }
+  for (const [itemId, need] of Object.entries(recipe)) {
+    removeItem(s, itemId, need);
+  }
+  if (rod) {
+    s.ownedRods.push(rod.id);
+    s.equippedRodId = rod.id;
+    s.tools.rod = Math.max(s.tools.rod, rod.tier);
+    s.durability.rod = toolMaxDurability(Math.min(4, rod.tier));
+    s.equippedTools.rod = true;
+    recordCollected(s, rod.itemId);
+    events.push(good(`✨ 锻造完成了${rod.name}，已收入渔具包并装备！`));
+  } else if (bait) {
+    const qty = bait.craftYield ?? 4;
+    addItem(s, bait.id, qty);
+    if (equippedRod(s).allowsBait && (!bait.advanced || equippedRod(s).allowsAdvancedBait)) {
+      s.equippedBaitId = bait.id;
+    }
+    events.push(good(`✨ 调配完成了${bait.name} ×${qty}，已放入背包！`));
+  }
   return true;
 }
 
@@ -145,9 +197,11 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
   const weights = candidates.map((f) => {
     let weight = f.baseWeight + (hasProf(s, 'lucky_lure') ? 2 : 0) + rodLevel * f.difficulty * 0.25;
     if (f.tags.some((tag) => rod.affinity.includes(tag))) weight *= 1 + rod.encounterBonus;
+    if (rod.targetFishIds?.includes(f.id)) weight *= 1.45;
     if (bait && (!bait.legendaryOnly || f.tags.includes('legendary')) && f.tags.some((tag) => bait.tags.includes(tag))) {
       weight *= 1 + bait.weightBonus + (f.difficulty >= 5 ? bait.rareBonus ?? 0 : 0);
     }
+    if (bait?.targetFishIds?.includes(f.id)) weight *= 1.5;
     return Math.max(0.05, weight);
   });
   let roll = random(s) * weights.reduce((a, b) => a + b, 0);
@@ -160,10 +214,12 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
     }
   }
 
+  const rodTargetsFish = rod.targetFishIds?.includes(fish.id) ?? false;
+  const baitTargetsFish = bait?.targetFishIds?.includes(fish.id) ?? false;
   const act: FishingActivity = {
     kind: 'fishing',
     fishId: fish.id,
-    progress: 30,
+    progress: 30 + (rodTargetsFish ? 6 : 0) + (baitTargetsFish ? 4 : 0),
     tension: 20,
     round: 0,
     hint: 'rest',
@@ -171,8 +227,8 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
     rodId: rod.id,
     baitId: bait?.id ?? null,
     tensionCap: 100 + (rod.tensionCapBonus ?? 0),
-    tensionMult: (1 - (rod.tensionReduction ?? 0)) * (1 - (bait?.stabilityBonus ?? 0)),
-    progressMult: 1 + (rod.progressBonus ?? 0),
+    tensionMult: (1 - (rod.tensionReduction ?? 0)) * (1 - (bait?.stabilityBonus ?? 0)) * (rodTargetsFish ? 0.86 : 1) * (baitTargetsFish ? 0.92 : 1),
+    progressMult: (1 + (rod.progressBonus ?? 0)) * (rodTargetsFish ? 1.18 : 1) * (baitTargetsFish ? 1.1 : 1),
     lineBreakWearMult: 1 - (rod.lineBreakWearReduction ?? 0),
   };
   if (bait) {

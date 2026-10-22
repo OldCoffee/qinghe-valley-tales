@@ -1,5 +1,5 @@
 import { ITEMS, itemName } from '../data/items.js';
-import { BAIT_BY_ID, ROD_BY_ID } from '../data/fishingGear.js';
+import { BAITS, BAIT_BY_ID, RODS, ROD_BY_ID } from '../data/fishingGear.js';
 import { TOOL_LEVEL_NAMES, TOOL_NAMES } from '../data/skills.js';
 import { LOCATIONS, TRAVEL_DESTINATIONS } from '../data/world.js';
 import { travelTime } from '../engine/actions.js';
@@ -143,6 +143,26 @@ const ENTRIES: MenuEntry[] = [
       choices.unshift({ label: '卸下鱼饵', value: 'none' });
       const id = await chooseFrom(io, '选择鱼饵', choices);
       return id && `equipbait ${id}`;
+    },
+  },
+  {
+    label: '制作渔具/鱼饵',
+    when: (s) => s.location === 'farm' || FISHING_SPOTS.includes(s.location),
+    build: async (io, s) => {
+      const fmtRecipe = (r?: Record<string, number>) =>
+        r ? Object.entries(r).map(([id, n]) => `${itemName(id)}×${n}`).join('+') : '';
+      const choices = [
+        ...RODS.filter((r) => r.recipe && !s.ownedRods.includes(r.id)).map((r) => ({
+          label: `[鱼竿] ${r.name}（${fmtRecipe(r.recipe)}）`,
+          value: r.id,
+        })),
+        ...BAITS.filter((b) => b.recipe).map((b) => ({
+          label: `[鱼饵] ${b.name}×${b.craftYield ?? 4}（${fmtRecipe(b.recipe)}）`,
+          value: b.id,
+        })),
+      ];
+      const id = await chooseFrom(io, '制作什么', choices);
+      return id && `craft ${id}`;
     },
   },
   { label: '砍树', when: (s) => s.location === 'forest', build: fixed('chop') },

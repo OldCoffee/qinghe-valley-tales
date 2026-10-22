@@ -227,6 +227,7 @@ export type Action =
   | { type: 'fish' }
   | { type: 'equipRod'; rodId: string }
   | { type: 'equipBait'; baitId: string | null }
+  | { type: 'craftGear'; targetId: string }
   | { type: 'forage'; index?: number }
   | { type: 'chop' }
   | { type: 'grove'; grove: GroveId }

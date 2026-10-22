@@ -51,6 +51,7 @@ type UiModalState =
   | { kind: 'saves' }
   | { kind: 'profile' }
   | { kind: 'codex'; itemId: string }
+  | { kind: 'craft' }
   | { kind: 'create' }
   | null;
 
@@ -288,6 +289,46 @@ function renderToasts(): void {
   const layer = document.getElementById('fx-toast-layer');
   if (!layer) return;
   layer.innerHTML = toasts.map((t) => `<div class="fx-toast ${t.tone}">${esc(t.text)}</div>`).join('');
+}
+
+let craftRevealTimer: number | null = null;
+function playCraftRevealFx(itemId: string, qty: number, subtitle: string): void {
+  const layer = document.getElementById('craft-reveal-layer');
+  if (!layer) return;
+  if (craftRevealTimer) clearTimeout(craftRevealTimer);
+  const item = ITEMS[itemId];
+  const r = rarityOf(itemId);
+  const bagTab = document.querySelector<HTMLElement>('.nav-tab[data-page="bag"]');
+  const rect = bagTab?.getBoundingClientRect();
+  const dx = rect ? Math.round(rect.left + rect.width / 2 - window.innerWidth / 2) : -140;
+  const dy = rect ? Math.round(rect.top + rect.height / 2 - window.innerHeight / 2) : -240;
+  const highTier = r.tier >= 2;
+  layer.innerHTML = `
+    <div class="craft-reveal-stage rarity-tier-${r.tier} ${highTier ? 'high-tier' : ''}" style="--fly-x:${dx}px;--fly-y:${dy}px;">
+      <div class="craft-reveal-backdrop"></div>
+      <div class="craft-reveal-card">
+        <div class="craft-reveal-rays"></div>
+        <div class="craft-reveal-sparks">
+          <span>✦</span><span>★</span><span>✦</span><span>★</span><span>✦</span><span>★</span>
+        </div>
+        <span class="craft-reveal-tier">★ ${r.name}品质 · 制作完成 ★</span>
+        <div class="craft-reveal-icon">${itemIconSvg(itemId)}</div>
+        <b class="craft-reveal-name">${esc(item?.name ?? itemId)}${qty > 1 ? ` ×${qty}` : ''}</b>
+        <small class="craft-reveal-sub">${esc(subtitle)}</small>
+        <small class="craft-reveal-dest">已收入背包与装备栏</small>
+      </div>
+    </div>`;
+  layer.classList.add('active');
+  setTimeout(() => {
+    const stage = layer.querySelector('.craft-reveal-stage');
+    stage?.classList.add('fly-to-bag');
+    bagTab?.classList.add('bag-catch-pulse');
+    setTimeout(() => bagTab?.classList.remove('bag-catch-pulse'), 520);
+  }, 920);
+  craftRevealTimer = window.setTimeout(() => {
+    layer.classList.remove('active');
+    layer.innerHTML = '';
+  }, 1520);
 }
 
 function recordActionFx(action: Action, prev: GameState, next: GameState, events: GameEvent[], cells: string[]): void {
@@ -873,9 +914,11 @@ function fishingDockSection(): string {
     .map((b) => `<button class="chip ${b.id === state.equippedBaitId ? 'on' : ''}" data-act="equip-fishing-bait" data-bait="${b.id}">${b.name} ×${state.inventory[b.id]}</button>`)
     .join('');
   const bait = state.equippedBaitId ? BAIT_BY_ID[state.equippedBaitId] : null;
+  const rodFishNames = (rodDef.targetFishIds ?? []).slice(0, 4).map((id) => itemName(id)).join('、');
+  const baitFishNames = (bait?.targetFishIds ?? []).slice(0, 4).map((id) => itemName(id)).join('、');
   const effectBits = [
-    rodDef.affinity.length ? `鱼竿专长：${rodDef.affinity.map(tagName).join('、')}` : '',
-    bait ? `鱼饵目标：${bait.tags.map(tagName).join('、')}` : '未装鱼饵',
+    rodDef.affinity.length ? `鱼竿专长：${rodDef.affinity.map(tagName).join('、')}${rodFishNames ? `（针对 ${rodFishNames}）` : ''}` : '',
+    bait ? `鱼饵目标：${bait.tags.map(tagName).join('、')}${baitFishNames ? `（针对 ${baitFishNames}）` : ''}` : '未装鱼饵',
   ].filter(Boolean).join(' · ');
 
   return `<h3>${spot?.name ?? '水域'}钓鱼台（${spot?.waterType === 'river' ? '河流' : spot?.waterType === 'lake' ? '湖泊' : '海域'} ${spot?.tier ?? 1} 阶）</h3>
@@ -902,8 +945,9 @@ function fishingDockSection(): string {
         <div><span class="dim">选择鱼竿：</span><div class="chips">${rodChoices}</div></div>
         <div><span class="dim">选择鱼饵（有效咬钩后消耗 1 个）：</span><div class="chips">${baitChoices || '<span class="dim">背包里没有鱼饵</span>'}${bait ? '<button class="chip" data-act="equip-fishing-bait" data-bait="">卸下鱼饵</button>' : ''}</div></div>
         <small class="dim">${spot?.description ?? ''}${effectBits ? ` · ${effectBits}` : ''}</small>
-        <div style="display:flex;gap:8px;align-items:center;margin-top:auto;">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:auto;">
           <button class="pix-btn gold" data-act="fish" ${canCast ? '' : 'disabled'}>${uiIconSvg('skill_fishing')} 抛竿钓鱼</button>
+          <button class="pix-btn" data-act="open-craft">${uiIconSvg('wrench')} 制作渔具/鱼饵</button>
           <button class="pix-btn ghost" data-act="view-tool" data-tool="rod">查看鱼竿详情</button>
         </div>
       </div>
@@ -1280,6 +1324,7 @@ function bagPage(): string {
       <div class="bag-filters" role="group" aria-label="物品分类">${BAG_FILTERS.map(([f, label]) => `<button class="chip ${bagFilter === f ? 'on' : ''}" data-act="bag-filter" data-f="${f}" aria-pressed="${bagFilter === f}">${label}<small>${filterCount(f)}</small></button>`).join('')}</div>
       <div class="qty-row"><span>单次操作数量：</span>
         ${([1, 5, 'all'] as const).map((q) => `<button class="chip ${qty === q ? 'on' : ''}" data-act="qty" data-q="${q}" aria-pressed="${qty === q}">${q === 'all' ? '全部' : q}</button>`).join('')}
+        <button class="pix-btn gold" data-act="open-craft">${uiIconSvg('wrench')} 制作渔具与鱼饵</button>
       </div>
     </div>
 
@@ -1466,17 +1511,41 @@ function codexModalHtml(id: string): string {
     source = `前往${waters}钓鱼`;
   } else if (rod) {
     rows.push(['鱼竿阶位', `${rod.tier} 阶`]);
-    rows.push(['购买价格', rod.price > 0 ? `${rod.price} 金` : '非卖品']);
+    rows.push(['购买价格', rod.price > 0 && rod.id !== 'celestial' ? `${rod.price} 金` : '配方锻造专属']);
     if (rod.minLevel) rows.push(['钓鱼等级', `Lv.${rod.minLevel}`]);
-    if (rod.affinity.length) rows.push(['专长', rod.affinity.map((t) => FISH_TAG_NAMES[t] ?? t).join('、')]);
-    rows.push(['鱼饵', rod.allowsBait ? (rod.allowsAdvancedBait ? '可装普通与高级鱼饵' : '可装普通鱼饵') : '不可装鱼饵']);
-    source = rod.id === 'deep_sea' ? '完成社区中心鱼缸后，在海滩渔具店购买' : rod.id === 'iridium' ? '海滩渔具店购买，或完成社区中心鱼缸获赠' : '海滩渔具店购买';
+    if (rod.affinity.length) rows.push(['专长标签', rod.affinity.map((t) => FISH_TAG_NAMES[t] ?? t).join('、')]);
+    if (rod.targetFishIds?.length) rows.push(['针对鱼种', rod.targetFishIds.map((fid) => itemName(fid)).join('、')]);
+    rows.push(['专属效果', rod.specialtyDesc]);
+    if (rod.recipe) {
+      rows.push([
+        '制作原料',
+        Object.entries(rod.recipe)
+          .map(([rid, n]) => `${itemName(rid)} ×${n}（持有 ${state.inventory[rid] ?? 0}）`)
+          .join('、'),
+      ]);
+    }
+    rows.push(['鱼饵', rod.allowsBait ? (rod.allowsAdvancedBait ? '可装普通与史诗/传说鱼饵' : '可装普通/优秀/稀有鱼饵') : '不可装鱼饵']);
+    source =
+      rod.id === 'celestial'
+        ? '收集原料在「制作渔具与鱼饵」工作台锻造'
+        : rod.id === 'deep_sea'
+          ? '原料工作台锻造，或完成社区中心鱼缸后在渔具店购买'
+          : '原料工作台锻造，或在海滩渔具店购买';
   } else if (bait) {
-    if (bait.price) rows.push(['购买价格', `${bait.price} 金`]);
+    if (bait.price) rows.push(['商店售价', `${bait.price} 金`]);
     if (bait.minLevel) rows.push(['钓鱼等级', `Lv.${bait.minLevel}`]);
     rows.push(['目标鱼群', bait.tags.map((t) => FISH_TAG_NAMES[t] ?? t).join('、')]);
-    rows.push(['效果', `目标权重 +${Math.round(bait.weightBonus * 100)}%${bait.advanced ? ' · 高级鱼饵' : ''}${bait.legendaryOnly ? ' · 仅传奇鱼' : ''}`]);
-    source = bait.legendaryOnly ? '完成社区中心鱼缸获赠' : '海滩渔具店购买';
+    if (bait.targetFishIds?.length) rows.push(['针对鱼种', bait.targetFishIds.map((fid) => itemName(fid)).join('、')]);
+    rows.push(['专属效果', `${bait.specialtyDesc}（权重 +${Math.round(bait.weightBonus * 100)}%）`]);
+    if (bait.recipe) {
+      rows.push([
+        '调配原料',
+        `${Object.entries(bait.recipe)
+          .map(([rid, n]) => `${itemName(rid)} ×${n}（持有 ${state.inventory[rid] ?? 0}）`)
+          .join('、')} → 产出 ×${bait.craftYield ?? 4}`,
+      ]);
+    }
+    source = bait.legendaryOnly ? '原料工作台调配，或完成社区中心鱼缸获赠' : '原料工作台调配，或在海滩渔具店购买';
   } else if (crop) {
     if (item.category === 'seed') {
       rows.push(['种子价格', `${crop.seedPrice} 金`]);
@@ -2049,6 +2118,75 @@ function createModalHtml(): string {
     </div>`;
 }
 
+function craftModalHtml(): string {
+  const fishLv = skillLevel(state, 'fishing');
+  const recipeChips = (recipe: Record<string, number>) =>
+    Object.entries(recipe)
+      .map(([id, need]) => {
+        const have = state.inventory[id] ?? 0;
+        const ok = have >= need;
+        return `<span class="chip ${ok ? 'ok' : ''}">${itemName(id)} ${have}/${need}</span>`;
+      })
+      .join('');
+  const canMake = (recipe: Record<string, number>, minLv: number) =>
+    fishLv >= minLv && Object.entries(recipe).every(([id, need]) => (state.inventory[id] ?? 0) >= need);
+
+  const rodCards = RODS.filter((r) => r.recipe)
+    .map((r) => {
+      const owned = state.ownedRods.includes(r.id);
+      const ready = !owned && canMake(r.recipe!, r.minLevel);
+      const targets = (r.targetFishIds ?? []).slice(0, 4).map((id) => itemName(id)).join('、');
+      return `<div class="codex-card" style="align-items:flex-start;text-align:left;gap:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:6px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span class="bag-item-icon">${itemIconSvg(r.itemId)}</span><b>${r.name}</b></span>
+          ${rarityBadgeHtml(r.itemId, true)}
+        </div>
+        <small>${r.specialtyDesc}</small>
+        ${targets ? `<small class="dim">针对鱼类：${targets}</small>` : ''}
+        <small class="dim">需要钓鱼 Lv.${r.minLevel}（当前 Lv.${fishLv}）</small>
+        <div class="chips">${recipeChips(r.recipe!)}</div>
+        <button class="pix-btn ${ready ? 'gold' : ''}" data-act="craft-gear" data-target="${r.id}" ${ready ? '' : 'disabled'}>
+          ${owned ? '已拥有' : fishLv < r.minLevel ? `需钓鱼 Lv.${r.minLevel}` : ready ? '立即锻造' : '原料不足'}
+        </button>
+      </div>`;
+    })
+    .join('');
+
+  const baitCards = BAITS.filter((b) => b.recipe)
+    .map((b) => {
+      const ready = canMake(b.recipe!, b.minLevel);
+      const have = state.inventory[b.id] ?? 0;
+      const targets = (b.targetFishIds ?? []).slice(0, 4).map((id) => itemName(id)).join('、');
+      return `<div class="codex-card" style="align-items:flex-start;text-align:left;gap:6px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:6px;">
+          <span style="display:inline-flex;align-items:center;gap:6px;"><span class="bag-item-icon">${itemIconSvg(b.id)}</span><b>${b.name} ×${b.craftYield ?? 4}</b></span>
+          ${rarityBadgeHtml(b.id, true)}
+        </div>
+        <small>${b.specialtyDesc}</small>
+        ${targets ? `<small class="dim">针对鱼类：${targets}</small>` : ''}
+        <small class="dim">需要钓鱼 Lv.${b.minLevel} · 当前持有 ×${have}</small>
+        <div class="chips">${recipeChips(b.recipe!)}</div>
+        <button class="pix-btn ${ready ? 'gold' : ''}" data-act="craft-gear" data-target="${b.id}" ${ready ? '' : 'disabled'}>
+          ${fishLv < b.minLevel ? `需钓鱼 Lv.${b.minLevel}` : ready ? `调配 ×${b.craftYield ?? 4}` : '原料不足'}
+        </button>
+      </div>`;
+    })
+    .join('');
+
+  return `
+    <div class="modal-head">
+      <h2>${uiIconSvg('wrench')} 渔具锻造与鱼饵调配台</h2>
+      <button class="pix-btn" data-act="close-ui-modal">关闭</button>
+    </div>
+    <h3>专属鱼竿锻造（优良 / 稀有 / 史诗 / 传说）</h3>
+    <div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">${rodCards}</div>
+    <h3>定向鱼饵调配（原料合成）</h3>
+    <div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">${baitCards}</div>
+    <div class="detail-actions">
+      <button class="pix-btn ghost" data-act="close-ui-modal">关闭</button>
+    </div>`;
+}
+
 function uiModalContent(): string {
   if (!uiModal) return '';
   switch (uiModal.kind) {
@@ -2060,6 +2198,8 @@ function uiModalContent(): string {
       return itemModalHtml(uiModal.itemId);
     case 'codex':
       return codexModalHtml(uiModal.itemId);
+    case 'craft':
+      return craftModalHtml();
     case 'npc':
       return npcModalHtml(uiModal.npcId);
     case 'bundle':
@@ -2566,12 +2706,41 @@ document.addEventListener('click', (e) => {
     case 'equip-fishing-bait':
       doAction({ type: 'equipBait', baitId: el.dataset.bait || null });
       break;
+    case 'open-craft':
+      uiModal = { kind: 'craft' };
+      render();
+      break;
+    case 'craft-gear': {
+      const targetId = el.dataset.target!;
+      const rod = ROD_BY_ID[targetId];
+      const bait = BAIT_BY_ID[targetId];
+      const beforeOwned = state.ownedRods.length;
+      const beforeQty = bait ? (state.inventory[bait.id] ?? 0) : 0;
+      doAction({ type: 'craftGear', targetId });
+      if (rod && state.ownedRods.length > beforeOwned) {
+        playCraftRevealFx(rod.itemId, 1, rod.specialtyDesc);
+      } else if (bait && (state.inventory[bait.id] ?? 0) > beforeQty) {
+        playCraftRevealFx(bait.id, bait.craftYield ?? 4, bait.specialtyDesc);
+      }
+      break;
+    }
     case 'festival':
       doAction({ type: 'festival' });
       break;
-    case 'buy':
-      doAction({ type: 'buy', itemId: el.dataset.item!, qty: qty === 'all' ? 1 : qty });
+    case 'buy': {
+      const itemId = el.dataset.item!;
+      const rod = ROD_BY_ITEM[itemId];
+      const bait = BAIT_BY_ID[itemId];
+      const beforeOwned = state.ownedRods.length;
+      const beforeQty = state.inventory[itemId] ?? 0;
+      doAction({ type: 'buy', itemId, qty: qty === 'all' ? 1 : qty });
+      if (rod && state.ownedRods.length > beforeOwned && rod.rarity >= 2) {
+        playCraftRevealFx(rod.itemId, 1, rod.specialtyDesc);
+      } else if (bait && (state.inventory[itemId] ?? 0) > beforeQty && bait.rarity >= 2) {
+        playCraftRevealFx(bait.id, (state.inventory[itemId] ?? 0) - beforeQty, bait.specialtyDesc);
+      }
       break;
+    }
     case 'sell':
       doAction({ type: 'sell', itemId: el.dataset.item!, qty });
       break;

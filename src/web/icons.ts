@@ -240,7 +240,27 @@ function paintSpecial(g: Grid, id: string): boolean {
       return true;
     }
     case 'bait_dough': case 'bait_universal': case 'bait_corn': case 'bait_shellfish': case 'bait_glow': case 'bait_legend':
-      blob(g, 8, 8, 5, 5, id === 'bait_legend' ? '#FFD54F' : id === 'bait_glow' ? '#80DEEA' : id === 'bait_corn' ? '#FFCA28' : '#D7CCC8');
+    case 'bait_amber': case 'bait_jade': case 'bait_frost': case 'bait_void': case 'bait_dragon':
+      blob(
+        g,
+        8,
+        8,
+        5,
+        5,
+        id === 'bait_legend' || id === 'bait_dragon'
+          ? '#FFD54F'
+          : id === 'bait_glow' || id === 'bait_frost'
+            ? '#80DEEA'
+            : id === 'bait_void'
+              ? '#AB47BC'
+              : id === 'bait_jade'
+                ? '#2ECC71'
+                : id === 'bait_amber'
+                  ? '#FFB300'
+                  : id === 'bait_corn'
+                    ? '#FFCA28'
+                    : '#D7CCC8',
+      );
       px(g, 6, 6, '#FFFFFF'); px(g, 10, 9, '#6D4C41'); return true;
     case 'fists': rect(g, 4, 5, 8, 8, '#FFCC80'); rect(g, 5, 3, 2, 3, '#FFCC80'); rect(g, 8, 3, 2, 3, '#FFCC80'); rect(g, 11, 4, 1, 2, '#FFCC80'); return true;
     case 'driftwood': for (let i = 0; i < 10; i++) px(g, 3 + i, 10 - Math.floor(i / 2), '#8D6E63'); return true;

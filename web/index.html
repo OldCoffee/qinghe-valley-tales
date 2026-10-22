@@ -944,6 +944,85 @@
       .detail-title .bag-item-icon:has(> svg.qh-player-avatar) { width: 70px; height: 70px; }
       #create-name { border: 3px solid var(--wood-dark); background: #fffdf4; color: var(--ink); font-family: inherit; outline: none; }
       #create-name:focus { box-shadow: 0 0 0 3px #FFD54F; }
+
+      /* 高级物品生成居中展示与飞入背包动效 (EffectCraft + FigCraft Spec) */
+      #craft-reveal-layer {
+        position: fixed; inset: 0; z-index: 60; pointer-events: none;
+        display: none; align-items: center; justify-content: center;
+      }
+      #craft-reveal-layer.active { display: flex; }
+      .craft-reveal-stage {
+        position: relative; width: 100%; height: 100%;
+        display: flex; align-items: center; justify-content: center;
+      }
+      .craft-reveal-backdrop {
+        position: absolute; inset: 0; background: rgba(18, 12, 28, 0.72);
+        animation: craft-backdrop-fade 1.5s ease forwards;
+      }
+      .craft-reveal-card {
+        position: relative; width: 280px; padding: 20px 18px;
+        background: #fff8dc; color: var(--ink);
+        border: 5px solid #ffd54f; box-shadow: 0 0 38px rgba(255, 213, 79, 0.75), 0 8px 0 var(--wood-dark);
+        display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+        transform-origin: center center;
+        animation: craft-card-pop 0.88s cubic-bezier(0.18, 1.25, 0.4, 1) forwards;
+      }
+      .craft-reveal-stage.rarity-tier-1 .craft-reveal-card { border-color: #66bb6a; box-shadow: 0 0 30px rgba(102, 187, 106, 0.7), 0 8px 0 var(--wood-dark); }
+      .craft-reveal-stage.rarity-tier-2 .craft-reveal-card { border-color: #42a5f5; box-shadow: 0 0 36px rgba(66, 165, 245, 0.8), 0 8px 0 var(--wood-dark); }
+      .craft-reveal-stage.rarity-tier-3 .craft-reveal-card { border-color: #ab47bc; box-shadow: 0 0 44px rgba(171, 71, 188, 0.9), 0 8px 0 var(--wood-dark); }
+      .craft-reveal-stage.rarity-tier-4 .craft-reveal-card { border-color: #ffb300; box-shadow: 0 0 56px rgba(255, 179, 0, 0.98), 0 8px 0 var(--wood-dark); background: linear-gradient(180deg, #fffdf0 0%, #ffe082 100%); }
+      .craft-reveal-rays {
+        position: absolute; width: 340px; height: 340px; border-radius: 50%; z-index: -1;
+        background: conic-gradient(from 0deg, transparent 0deg 20deg, rgba(255, 213, 79, 0.38) 20deg 40deg, transparent 40deg 60deg, rgba(255, 213, 79, 0.38) 60deg 80deg, transparent 80deg 100deg, rgba(255, 213, 79, 0.38) 100deg 120deg, transparent 120deg 140deg, rgba(255, 213, 79, 0.38) 140deg 160deg, transparent 160deg 180deg, rgba(255, 213, 79, 0.38) 180deg 200deg, transparent 200deg 220deg, rgba(255, 213, 79, 0.38) 220deg 240deg, transparent 240deg 260deg, rgba(255, 213, 79, 0.38) 260deg 280deg, transparent 280deg 300deg, rgba(255, 213, 79, 0.38) 300deg 320deg, transparent 320deg 340deg, rgba(255, 213, 79, 0.38) 340deg 360deg);
+        animation: craft-rays-spin 4s linear infinite;
+      }
+      .craft-reveal-icon svg { width: 76px; height: 76px; filter: drop-shadow(0 4px 0 rgba(0,0,0,0.28)); }
+      .craft-reveal-tier { font-size: 16px; font-weight: bold; color: #8d4b00; background: rgba(255, 213, 79, 0.35); padding: 2px 10px; border: 2px solid var(--wood-dark); }
+      .craft-reveal-name { font-size: 24px; color: var(--wood-dark); }
+      .craft-reveal-sub { font-size: 16px; color: #5d341e; line-height: 1.25; }
+      .craft-reveal-dest { font-size: 15px; color: #2e7d32; font-weight: bold; }
+      .craft-reveal-sparks span {
+        position: absolute; font-size: 22px; color: #ffd54f; text-shadow: 0 2px 0 #000;
+        animation: craft-spark-float 0.9s ease-out infinite alternate;
+      }
+      .craft-reveal-sparks span:nth-child(1) { top: -18px; left: 12px; }
+      .craft-reveal-sparks span:nth-child(2) { top: -22px; right: 16px; animation-delay: 0.15s; }
+      .craft-reveal-sparks span:nth-child(3) { top: 45%; left: -22px; animation-delay: 0.25s; }
+      .craft-reveal-sparks span:nth-child(4) { top: 45%; right: -22px; animation-delay: 0.35s; }
+      .craft-reveal-sparks span:nth-child(5) { bottom: -18px; left: 26px; animation-delay: 0.2s; }
+      .craft-reveal-sparks span:nth-child(6) { bottom: -18px; right: 26px; animation-delay: 0.4s; }
+      .craft-reveal-stage.fly-to-bag .craft-reveal-card {
+        animation: craft-fly-to-bag 0.56s cubic-bezier(0.45, 0, 0.2, 1) forwards;
+      }
+      .nav-tab.bag-catch-pulse {
+        animation: bag-tab-catch 0.5s ease;
+      }
+      @keyframes craft-card-pop {
+        0% { transform: scale(0.18) rotate(-8deg); opacity: 0; }
+        55% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+        78% { transform: scale(0.97) rotate(0deg); opacity: 1; }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+      }
+      @keyframes craft-fly-to-bag {
+        0% { transform: translate(0, 0) scale(1); opacity: 1; }
+        100% { transform: translate(var(--fly-x, -140px), var(--fly-y, -240px)) scale(0.16); opacity: 0.08; }
+      }
+      @keyframes craft-backdrop-fade {
+        0%, 62% { opacity: 1; }
+        100% { opacity: 0; }
+      }
+      @keyframes craft-rays-spin {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      @keyframes craft-spark-float {
+        from { transform: translateY(0) scale(0.85); }
+        to { transform: translateY(-8px) scale(1.2); }
+      }
+      @keyframes bag-tab-catch {
+        0%, 100% { transform: scale(1); }
+        45% { transform: scale(1.09); background: #ffe082; box-shadow: 0 0 18px #ffd54f; }
+      }
     </style>
   </head>
   <body>
@@ -967,6 +1046,7 @@
     <footer class="log-panel"><div id="log" aria-live="polite"></div></footer>
 
     <div id="fx-toast-layer" aria-live="polite"></div>
+    <div id="craft-reveal-layer" aria-live="polite"></div>
     <div id="ui-modal" role="dialog" aria-modal="true"><div id="ui-modal-card" class="modal-surface"></div></div>
     <div id="shop-modal" role="dialog" aria-modal="true"><div id="shop-modal-card" class="modal-surface"></div></div>
     <div id="modal" role="dialog" aria-modal="true"><div id="modal-card" class="modal-surface"></div></div>

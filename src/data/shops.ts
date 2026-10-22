@@ -86,7 +86,12 @@ export const SHOPS: ShopDef[] = [
     keeperName: '陆远',
     buys: ['fish'],
     stock: (s) => [
-      ...RODS.filter((r) => (r.id !== 'deep_sea' || s.unlocks.includes('deep_sea_rod_available')) && !s.ownedRods?.includes(r.id)).map((r) => ({ itemId: r.itemId, price: r.price })),
+      ...RODS.filter(
+        (r) =>
+          r.id !== 'celestial' &&
+          (r.id !== 'deep_sea' || s.unlocks.includes('deep_sea_rod_available')) &&
+          !s.ownedRods?.includes(r.id),
+      ).map((r) => ({ itemId: r.itemId, price: r.price })),
       ...BAITS.filter((b) => b.price > 0).map((b) => ({ itemId: b.id, price: b.price })),
       { itemId: 'pendant', price: 5000 },
     ],

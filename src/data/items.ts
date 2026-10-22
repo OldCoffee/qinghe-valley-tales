@@ -1,7 +1,7 @@
 import type { ItemCategory, ToolId } from '../engine/types.js';
 import { CROPS, type CropDef } from './crops.js';
 import { FISH, TRASH } from './fish.js';
-import { BAITS, RODS } from './fishingGear.js';
+import { BAITS, BAIT_BY_ID, RODS, ROD_BY_ITEM } from './fishingGear.js';
 import { FORAGE } from './forage.js';
 import { GEMS, MONSTERS, ORES, WEAPONS } from './mine.js';
 
@@ -46,7 +46,7 @@ const SPECIALS: ItemDef[] = [
     sellPrice: 0,
     rodGrant: { rodId: r.id, minFishing: r.minLevel },
   })),
-  ...BAITS.map((b) => ({ id: b.id, name: b.name, category: 'bait' as const, sellPrice: Math.floor(b.price / 2) })),
+  ...BAITS.map((b) => ({ id: b.id, name: b.name, category: 'bait' as const, sellPrice: Math.max(8, Math.floor((b.price || 180) / 2)) })),
 ];
 
 function buildItems(): Record<string, ItemDef> {
@@ -106,13 +106,15 @@ export const RARITIES: RarityDef[] = [
   { tier: 3, name: '史诗', color: '#AB47BC' },
   { tier: 4, name: '传说', color: '#FFB300' },
 ];
-const RARITY_LEGENDARY = new Set(['legend', 'galaxy_sword', 'pendant']);
+const RARITY_LEGENDARY = new Set(['legend', 'ancient_sturgeon', 'mirror_dragonfish', 'abyss_oarfish', 'galaxy_sword', 'pendant']);
 const RARITY_EPIC = new Set(['diamond', 'rod_iridium', 'obsidian_sword', 'void_essence', 'crystal_fruit']);
 const WEAPON_RARITY: Record<string, RarityTier> = { fists: 0, rusty_sword: 0, steel_sword: 1, silver_blade: 2, obsidian_sword: 3, galaxy_sword: 4 };
 
 export function rarityOf(id: string): RarityDef {
   const item = ITEMS[id];
   if (!item) return RARITIES[0];
+  if (ROD_BY_ITEM[id]) return RARITIES[ROD_BY_ITEM[id].rarity];
+  if (BAIT_BY_ID[id]) return RARITIES[BAIT_BY_ID[id].rarity];
   if (RARITY_LEGENDARY.has(id)) return RARITIES[4];
   if (RARITY_EPIC.has(id)) return RARITIES[3];
   if (item.category === 'weapon') return RARITIES[WEAPON_RARITY[id] ?? 1];
