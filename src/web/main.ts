@@ -1628,8 +1628,7 @@ function itemModalHtml(id: string): string {
       ${sellPrice(state, detail.id) > 0 && detail.category !== 'tool' && !(weaponDef && state.weapon === detail.id) ? `<button class="pix-btn" data-act="sell-bag" data-item="${detail.id}">直接出售（八折 ${Math.floor(sellPrice(state, detail.id) * BAG_SELL_RATE)} 金/件）</button>` : ''}
       ${state.location === 'farm' && sellPrice(state, detail.id) > 0 && !(weaponDef && state.weapon === detail.id) ? `<button class="pix-btn" data-act="ship" data-item="${detail.id}">放进出货箱</button>` : ''}
       <button class="pix-btn ghost" data-act="close-ui-modal">关闭</button>
-    </div>
-    ${sellPrice(state, detail.id) > 0 && detail.category !== 'tool' ? '<p class="dim">背包直接出售随时可卖、立即到账，但只按八折；去对应商店出售是全价。</p>' : ''}`;
+    </div>`;
 }
 
 function npcModalHtml(npcId: string): string {
