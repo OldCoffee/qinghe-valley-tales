@@ -2707,19 +2707,22 @@ function shopModal(): string {
           .join('')}</div>`
       : '';
 
-  const bagIds = Object.keys(state.inventory);
-  const bag = bagIds.length
-    ? `<div class="bag-grid">${bagIds
-        .map((id) => {
-          const equippedWeapon = ITEMS[id].category === 'weapon' && state.weapon === id;
-          const sellable = !closed && !equippedWeapon && shop.buys.includes(ITEMS[id].category) && sellPrice(state, id) > 0;
-          const label = `${ITEMS[id].name} ×${state.inventory[id]}`;
-          return sellable
-            ? `<button class="item" data-act="sell" data-item="${id}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span>${rarityBadgeHtml(id)}<small>×${state.inventory[id]} · 卖 ${sellPrice(state, id)} 金</small></button>`
-            : `<div class="item off" title="${label}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span>${rarityBadgeHtml(id)}<small>×${state.inventory[id]}${closed ? '' : equippedWeapon ? ' · 已装备，先卸下' : ' · 本店不收'}</small></div>`;
-        })
-        .join('')}</div>`
-    : '<p class="dim">背包是空的。</p>';
+  // 只展示本店收的物品：不收的（类别不对/售价为 0/已装备武器）不出现在背包里
+  const bagIds = Object.keys(state.inventory).filter((id) => {
+    if ((state.inventory[id] ?? 0) <= 0) return false;
+    const equippedWeapon = ITEMS[id].category === 'weapon' && state.weapon === id;
+    return !equippedWeapon && shop.buys.includes(ITEMS[id].category) && sellPrice(state, id) > 0;
+  });
+  const bag = closed
+    ? '<p class="dim">店铺休息中，暂时不能出售。</p>'
+    : bagIds.length
+      ? `<div class="bag-grid">${bagIds
+          .map(
+            (id) =>
+              `<button class="item" data-act="sell" data-item="${id}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span>${rarityBadgeHtml(id)}<small>×${state.inventory[id]} · 卖 ${sellPrice(state, id)} 金</small></button>`,
+          )
+          .join('')}</div>`
+      : '<p class="dim">没有本店收的物品。</p>';
 
   return `
   <div class="shop-head">
