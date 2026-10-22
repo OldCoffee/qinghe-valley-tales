@@ -13,11 +13,10 @@ const BLACKSMITH = SHOPS.find((shop) => shop.id === 'blacksmith')!;
 export function upgradeCost(s: GameState, tool: ToolId) {
   const next = TOOL_UPGRADES[s.tools[tool]];
   if (!next) return null;
-  const discounted = s.unlocks.includes('smith_discount');
   return {
     ...next,
-    gold: discounted ? next.gold / 2 : next.gold,
-    days: discounted ? 1 : TOOL_UPGRADE_DAYS,
+    gold: next.gold,
+    days: TOOL_UPGRADE_DAYS,
   };
 }
 

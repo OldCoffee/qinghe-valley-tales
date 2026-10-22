@@ -114,16 +114,25 @@ export function setToolEquipped(s: GameState, events: GameEvent[], tool: ToolId,
 
 const REPAIR_SHOP: Record<string, string> = { hoe: 'blacksmith', can: 'blacksmith', pickaxe: 'blacksmith', rod: 'fish_shop', axe: 'blacksmith' };
 
+/** 社区中心锅炉房修好后 (smith_discount), 在铁匠铺维修半价; 渔具店修鱼竿不享受 */
+function smithRepairHalf(s: GameState, target: string): boolean {
+  if (!s.unlocks.includes('smith_discount')) return false;
+  if ((TOOLS as string[]).includes(target)) return REPAIR_SHOP[target] === 'blacksmith';
+  return true; // 武器都在铁匠铺修
+}
+
 export function repairCost(s: GameState, target: string): number | null {
+  const half = smithRepairHalf(s, target);
+  const applyHalf = (cost: number) => (half ? Math.ceil(cost / 2) : cost);
   if ((TOOLS as string[]).includes(target)) {
     const tool = target as ToolId;
     if (s.tools[tool] < 0) return null;
     const missing = toolMaxDurability(s.tools[tool]) - s.durability[tool];
-    return missing > 0 ? missing * DURABILITY.repairRate.tool : null;
+    return missing > 0 ? applyHalf(missing * DURABILITY.repairRate.tool) : null;
   }
   if (WEAPONS.some((w) => w.id === target) && s.inventory[target]) {
     const missing = weaponMaxDurability(target) - (s.weaponDurability[target] ?? weaponMaxDurability(target));
-    return missing > 0 ? missing * DURABILITY.repairRate.weapon : null;
+    return missing > 0 ? applyHalf(missing * DURABILITY.repairRate.weapon) : null;
   }
   return null;
 }

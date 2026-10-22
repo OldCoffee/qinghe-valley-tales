@@ -20,7 +20,7 @@ export const ROOMS: RoomDef[] = [
   { id: 'pantry', name: '茶水间', unlock: 'greenhouse', unlockText: '农场的旧温室修好了！温室里的作物不分季节，每天自动浇水。' },
   { id: 'crafts', name: '工艺室', unlock: 'minecart', unlockText: '矿车线路修通了！各地之间的移动时间减半。' },
   { id: 'fish_tank', name: '鱼缸', unlock: 'free_rod', unlockText: '老渔夫送了你一根铱金鱼竿作为谢礼！' },
-  { id: 'boiler', name: '锅炉房', unlock: 'smith_discount', unlockText: '铁匠铺的炉子修好了！工具升级半价，1 天完成。' },
+  { id: 'boiler', name: '锅炉房', unlock: 'smith_discount', unlockText: '铁匠铺的炉子修好了！在铁匠铺维修工具和武器半价。' },
   { id: 'workshop', name: '自动工坊', unlock: 'auto_daily', unlockText: '自动农具全部升级完成！每天开始时会自动完成已解锁的农活（铲枯萎、清理、除草、收获、开垦、补种、浇水）。' },
 ];
 
