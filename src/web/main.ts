@@ -1506,7 +1506,6 @@ function bagPage(): string {
       <div class="bag-filters" role="group" aria-label="物品分类">${BAG_FILTERS.map(([f, label]) => `<button class="chip ${bagFilter === f ? 'on' : ''}" data-act="bag-filter" data-f="${f}" aria-pressed="${bagFilter === f}">${label}<small>${filterCount(f)}</small></button>`).join('')}</div>
       <div class="qty-row"><span>单次操作数量：</span>
         ${([1, 5, 'all'] as const).map((q) => `<button class="chip ${qty === q ? 'on' : ''}" data-act="qty" data-q="${q}" aria-pressed="${qty === q}">${q === 'all' ? '全部' : q}</button>`).join('')}
-        <button class="pix-btn gold" data-act="open-craft">${uiIconSvg('wrench')} 制作渔具与鱼饵</button>
       </div>
     </div>
 
