@@ -1450,7 +1450,6 @@ function journalPage(): string {
             <div class="chips">
               ${bundles.map((b) => `<span class="chip ${bundleDone(state, b) ? 'ok' : ''}">${bundleDone(state, b) ? uiIconSvg('check') + ' ' : ''}${b.name}</span>`).join('')}
             </div>
-            <span style="margin-top:auto;font-weight:bold;color:var(--wood);">点击打开「${room.name}」收集弹窗 →</span>
           </button>`;
         }).join('')}
       </div>`;
