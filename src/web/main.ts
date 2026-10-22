@@ -770,15 +770,15 @@ function tileFace(tile: Tile): { cls: string; glyph: string; sub: string; badges
     wilted: Boolean(tile.crop?.wilted),
     fertile: Boolean(tile.fertile && tile.ground === 'tilled'),
   });
-  const debuffCls = `${tile.crop?.wilted ? ' debuff-wilted' : ''}${stage && !stage.ready && !tile.crop?.wilted && !tile.watered ? ' debuff-thirsty' : ''}${tile.weeds && tile.ground === 'tilled' ? ' debuff-weeds' : ''}`;
+  const debuffCls = `${tile.crop?.wilted ? ' debuff-wilted' : ''}${stage && !stage.ready && !tile.crop?.wilted && !tile.watered ? ' debuff-thirsty' : ''}${tile.weeds && tile.ground === 'tilled' ? ' debuff-weeds weedy' : ''}${tile.fertile && tile.ground === 'tilled' ? ' buff-fertile' : ''}`;
   if (tile.ground === 'locked') return { cls: 'locked', glyph: tileGroundSvg('locked'), sub: '', badges: '' };
   if (tile.ground === 'weed') return { cls: 'weed', glyph: tileGroundSvg('weed'), sub: '', badges: '' };
   if (tile.ground === 'stone') return { cls: 'stone', glyph: tileGroundSvg('stone'), sub: '', badges: '' };
   if (tile.ground === 'grass') return { cls: 'grass', glyph: tileGroundSvg('grass'), sub: '', badges: '' };
   if (tile.crop?.wilted && stage) return { cls: `wilted${debuffCls}`, glyph: cropGrowthSvg(tile.crop.cropId, stage.pct, { wilted: true, weeds: tile.weeds }), sub: stage.label, badges };
   if (stage?.ready) return { cls: `ready${debuffCls}`, glyph: cropGrowthSvg(tile.crop!.cropId, 100, { watered: tile.watered, weeds: tile.weeds }), sub: stage.label, badges };
-  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${debuffCls}`, glyph: cropGrowthSvg(tile.crop!.cropId, stage.pct, { watered: tile.watered, weeds: tile.weeds }), sub: stage.label, badges };
-  return { cls: `dry${debuffCls}`, glyph: tileGroundSvg(tile.watered ? 'soil_wet' : 'soil'), sub: '', badges };
+  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'} crop-growing${debuffCls}`, glyph: cropGrowthSvg(tile.crop!.cropId, stage.pct, { watered: tile.watered, weeds: tile.weeds }), sub: stage.label, badges };
+  return { cls: `${tile.watered ? 'wet' : 'dry'} soil-empty${debuffCls}`, glyph: tileGroundSvg(tile.watered ? 'soil_wet' : 'soil'), sub: '', badges };
 }
 
 /* ---------- 1. 场景整页 (Scene Page) ---------- */

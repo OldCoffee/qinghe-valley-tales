@@ -181,27 +181,100 @@
       .chip.foe { background: #f0a49e; }
       .chip.off { opacity: 0.6; }
 
-      /* 农田网格与操作微动效 */
-      .farm-stage { position: relative; }
+      /* 农田网格与全状态视觉体系（VectorCraft 矢量分层版） */
+      .farm-stage {
+        position: relative;
+        background: linear-gradient(180deg, #b88752 0%, #9b6b3b 100%);
+        border: 4px solid var(--wood-dark);
+        border-radius: 6px;
+        box-shadow: inset 0 2px 0 rgba(255, 243, 196, 0.35), 0 4px 0 var(--wood-dark);
+        padding: 10px;
+      }
       .farm-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
       .tile {
-        aspect-ratio: 1 / 0.88; border: 3px solid var(--wood-dark); padding: 4px 2px;
+        aspect-ratio: 1 / 0.88; border: 3px solid #2b1b0e; border-radius: 6px; padding: 4px 2px 9px;
         display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
         position: relative; overflow: visible;
-        box-shadow: inset -4px -4px 0 rgba(0,0,0,0.18), inset 4px 4px 0 rgba(255,255,255,0.15);
+        box-shadow: inset -3px -4px 0 rgba(0,0,0,0.28), inset 3px 3px 0 rgba(255,255,255,0.2), 0 2px 0 rgba(43,27,14,0.45);
+        transition: transform 0.08s ease, filter 0.12s ease;
       }
+      .tile:hover { transform: translateY(-2px); filter: brightness(1.06); z-index: 2; }
       .farm-grid.enter .tile { animation: tile-pop 0.28s steps(3) backwards; animation-delay: var(--d, 0ms); }
-      .tile b { font-size: 24px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
-      .tile b svg { width: 32px; height: 32px; display: block; }
-      .tile small { font-size: 15px; line-height: 1.05; text-align: center; }
-      .tile.grass { background: var(--grass); }
-      .tile.weed { background: #4e9b2a; }
-      .tile.stone { background: #9a9a92; }
-      .tile.dry { background: var(--soil); color: #ffe9c4; }
-      .tile.wet { background: var(--soil-wet); color: #bcd8ff; }
-      .tile.ready { background: var(--gold); animation: blink 1s steps(2) infinite; }
-      .tile.locked { background: #6d6d64; color: #ddd; }
-      .tile.wilted { background: #7a6a53; color: #d8c9a3; }
+      .tile b { font-size: 24px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.28)); }
+      .tile b svg { width: 38px; height: 38px; display: block; border-radius: 3px; }
+      .tile small {
+        font-size: 13px; font-weight: bold; line-height: 1.05; text-align: center;
+        text-shadow: 1px 1px 0 rgba(27, 16, 8, 0.85);
+      }
+      /* 1. 草地（已清理待开垦） */
+      .tile.grass {
+        background: linear-gradient(180deg, #78c247 0%, #559c2d 100%);
+        border-color: #2c5e14;
+        color: #f4ffe8;
+      }
+      /* 2. 荒草地（未清理杂草） */
+      .tile.weed {
+        background: linear-gradient(180deg, #5aa034 0%, #38701e 100%);
+        border-color: #1e420e;
+        color: #e6f7d4;
+      }
+      /* 3. 乱石地（压着巨石） */
+      .tile.stone {
+        background: linear-gradient(180deg, #8ca675 0%, #688056 100%);
+        border-color: #37474f;
+        color: #eceff1;
+      }
+      /* 4. 干耕地（已开垦待播种 / 今日未浇水作物） */
+      .tile.dry {
+        background:
+          repeating-linear-gradient(180deg, rgba(120, 73, 37, 0.28) 0 4px, rgba(202, 147, 100, 0.16) 4px 8px),
+          linear-gradient(180deg, #ad7446 0%, #86542d 100%);
+        border-color: #4e2c14;
+        color: #fff3c4;
+      }
+      /* 5. 湿耕地（已浇水湿润土垄 / 已浇水生长中作物） */
+      .tile.wet {
+        background:
+          repeating-linear-gradient(180deg, rgba(41, 23, 12, 0.36) 0 4px, rgba(100, 181, 246, 0.12) 4px 8px),
+          linear-gradient(180deg, #664229 0%, #462b19 100%);
+        border-color: #2b180d;
+        color: #d8eeff;
+        box-shadow: inset 0 0 0 2px rgba(100, 181, 246, 0.32), inset -3px -4px 0 rgba(0,0,0,0.35), 0 2px 0 rgba(43,27,14,0.45);
+      }
+      /* 6. 成熟可收获（丰收金辉） */
+      .tile.ready {
+        background:
+          radial-gradient(circle at 50% 36%, rgba(255, 249, 196, 0.45) 0%, transparent 68%),
+          linear-gradient(180deg, #f2b728 0%, #c98212 100%);
+        border-color: #fff3c4;
+        color: #2b1b0e;
+        box-shadow: inset 0 0 0 2px #ffd23f, 0 0 12px rgba(255, 210, 63, 0.65), 0 2px 0 #2b1b0e;
+        animation: ready-harvest-pulse 1.4s ease-in-out infinite;
+      }
+      .tile.ready small { color: #2b1b0e; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65); }
+      @keyframes ready-harvest-pulse {
+        0%, 100% { filter: brightness(1); box-shadow: inset 0 0 0 2px #ffd23f, 0 0 10px rgba(255, 210, 63, 0.55), 0 2px 0 #2b1b0e; }
+        50% { filter: brightness(1.09); box-shadow: inset 0 0 0 2px #fff9c4, 0 0 18px rgba(255, 210, 63, 0.9), 0 2px 0 #2b1b0e; }
+      }
+      /* 7. 未解锁（温室未修复） */
+      .tile.locked {
+        background:
+          repeating-linear-gradient(135deg, rgba(43, 27, 14, 0.16) 0 6px, transparent 6px 12px),
+          linear-gradient(180deg, #5d665b 0%, #434a41 100%);
+        border-color: #2b302a;
+        color: #cfd8dc;
+        opacity: 0.92;
+      }
+      /* 8. 枯萎（荒废灰褐） */
+      .tile.wilted {
+        background: linear-gradient(180deg, #857460 0%, #635544 100%);
+        border-color: #3e352b;
+        color: #dfd3b8;
+      }
+      /* 9. 肥沃土壤加成（金星微光边） */
+      .tile.buff-fertile {
+        box-shadow: inset 0 0 0 2px rgba(255, 213, 79, 0.65), inset -3px -4px 0 rgba(0,0,0,0.28), 0 2px 0 rgba(43,27,14,0.45);
+      }
       .tile.weedy { box-shadow: inset 0 0 0 3px #4e9b2a, inset -4px -4px 0 rgba(0,0,0,0.18); }
       .tile.fx-deweed { animation: fx-clear-burst 0.32s steps(4); }
       .tile.fx-uproot { animation: fx-clear-burst 0.32s steps(4); }
@@ -210,9 +283,14 @@
         background: #fff3c4; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
         padding: 8px 10px; margin: 0 0 10px;
       }
-      .tile.selected { outline: 4px solid var(--water); outline-offset: -7px; z-index: 2; }
-      .tile .grow { position: absolute; left: 4px; right: 4px; bottom: 3px; height: 6px; background: rgba(0,0,0,0.35); }
-      .tile .grow em { display: block; height: 100%; background: var(--grass); }
+      .tile.selected { outline: 4px solid #4fc3f7; outline-offset: -5px; z-index: 3; box-shadow: 0 0 12px rgba(79, 195, 247, 0.75); }
+      .tile .grow {
+        position: absolute; left: 5px; right: 5px; bottom: 3px; height: 6px;
+        background: rgba(20, 12, 4, 0.55); border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 3px; overflow: hidden;
+      }
+      .tile .grow em { display: block; height: 100%; background: linear-gradient(90deg, #66bb6a, #9ccc65); }
+      .tile.dry.crop-growing .grow em { background: linear-gradient(90deg, #ffb300, #ffd54f); }
+      .tile.ready .grow em { background: linear-gradient(90deg, #ffd54f, #fff9c4); }
 
       /* 农事格子微动效：till / water / plant / harvest / clear */
       .tile.fx-till { animation: fx-till 0.36s steps(4); }
