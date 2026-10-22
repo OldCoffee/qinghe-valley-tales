@@ -54,6 +54,7 @@ type UiModalState =
   | { kind: 'codex'; itemId: string }
   | { kind: 'craft'; bench?: WorkbenchId }
   | { kind: 'create' }
+  | { kind: 'seedBag' }
   | null;
 
 type TileFxKind = 'till' | 'water' | 'plant' | 'harvest' | 'clear' | 'deweed' | 'uproot';
@@ -89,8 +90,6 @@ let journalSubTab: JournalSubTab = 'skills';
 
 /** 当前点中的农田格子；点中后在就近浮层里展示操作 */
 let selectedCell: { row: number; col: number } | null = null;
-/** 一键播种的种子选择条是否展开（点「一键播种」后选种子，选完即播） */
-let bulkSeedPickerOpen = false;
 let qty: number | 'all' = 1;
 let selectedItem: string | null = null;
 let giftNpc: string | null = null;
@@ -1110,15 +1109,8 @@ function farmScene(): string {
       : '四季恒温'
     : '未解锁';
 
-  // 一键播种：点按钮后展开种子选择条，选完即播（并同步为每日自动播种的种子）
+  // 一键播种：点按钮打开背包弹窗选种子（按钮在无种子时置灰）
   const seedIds = Object.keys(state.inventory).filter((id) => ITEMS[id]?.category === 'seed' && (state.inventory[id] ?? 0) > 0);
-  const seedPickerHtml = bulkSeedPickerOpen
-    ? `<div class="farm-bulk-bar seed-picker">
-        <span class="dim">选择要播的种子：</span>
-        ${seedIds.map((id) => `<button class="chip" data-act="bulk-plant-seed" data-crop="${ITEMS[id].cropId}">${ITEMS[id].name} ×${state.inventory[id]}</button>`).join('') || '<span class="dim">背包里没有种子</span>'}
-        <button class="pix-btn" data-act="bulk-plant-cancel">取消</button>
-      </div>`
-    : '';
 
   const gridHtml = `<div class="farm-grid${farmEntered ? '' : ' enter'}">${activeRows
     .flatMap((r) =>
@@ -1155,7 +1147,6 @@ function farmScene(): string {
       <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${fieldStat.wiltedCount + ghStat.wiltedCount ? '' : 'disabled'}>一键铲除枯萎株${fieldStat.wiltedCount + ghStat.wiltedCount ? `（${fieldStat.wiltedCount + ghStat.wiltedCount} 株）` : ''}</button>
     </div>
   </div>
-  ${seedPickerHtml}
   ${tilePopover()}
   <div class="farm-stage">${gridHtml}</div>`;
 }
@@ -2616,9 +2607,39 @@ function craftModalHtml(focusBench?: WorkbenchId): string {
     </div>`;
 }
 
+/** 一键播种的背包弹窗：背包全部物品，种子可点选（选完关弹窗并整场播种），非种子置灰 */
+function seedBagModalHtml(): string {
+  const bagIds = Object.keys(state.inventory).filter((id) => (state.inventory[id] ?? 0) > 0);
+  const seedCount = bagIds.filter((id) => ITEMS[id]?.category === 'seed').length;
+  const grid = bagIds.length
+    ? `<div class="bag-grid">${bagIds
+        .map((id) => {
+          const isSeed = ITEMS[id]?.category === 'seed' && !!ITEMS[id].cropId;
+          if (isSeed) {
+            const crop = CROPS[ITEMS[id].cropId!];
+            return `<button class="item" data-act="bulk-plant-seed" data-crop="${ITEMS[id].cropId}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}${crop ? ` · ${crop.name}` : ''} · 点选播满全场</small></button>`;
+          }
+          return `<div class="item off"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]} · 不是种子</small></div>`;
+        })
+        .join('')}</div>`
+    : '<p class="dim">背包是空的，先去商店买点种子吧。</p>';
+  return `
+    <div class="modal-head">
+      <h2>${uiIconSvg('bag')} 背包 · 选择种子</h2>
+      <button class="pix-btn" data-act="close-ui-modal">关闭</button>
+    </div>
+    <p class="dim">点选一种种子，就会把开垦好的空地全部播上（已选种子会同步为每日自动播种）。</p>
+    ${seedCount ? grid : '<p class="dim">背包里没有种子，先去商店买点种子吧。</p>'}
+    <div class="detail-actions">
+      <button class="pix-btn ghost" data-act="close-ui-modal">取消</button>
+    </div>`;
+}
+
 function uiModalContent(): string {
   if (!uiModal) return '';
   switch (uiModal.kind) {
+    case 'seedBag':
+      return seedBagModalHtml();
     case 'map':
       return mapModalHtml();
     case 'tool':
@@ -2983,20 +3004,16 @@ document.addEventListener('click', (e) => {
       doAction({ type: 'harvest', target: 'all' });
       break;
     case 'bulk-plant':
-      bulkSeedPickerOpen = !bulkSeedPickerOpen;
+      uiModal = { kind: 'seedBag' };
       render();
       break;
     case 'bulk-plant-seed': {
       const cropId = el.dataset.crop!;
-      bulkSeedPickerOpen = false;
+      uiModal = null;
       state.autoPlantCropId = cropId; // 同步为每日自动播种的种子
       doAction({ type: 'plant', cropId, target: 'all' });
       break;
     }
-    case 'bulk-plant-cancel':
-      bulkSeedPickerOpen = false;
-      render();
-      break;
     case 'bulk-deweed':
       doAction({ type: 'deweed', target: 'all' });
       break;
