@@ -89,8 +89,8 @@ let journalSubTab: JournalSubTab = 'skills';
 
 /** 当前点中的农田格子；点中后在就近浮层里展示操作 */
 let selectedCell: { row: number; col: number } | null = null;
-/** 一键播种选中的作物 id；为空时默认背包第一种种子 */
-let bulkSeedCropId: string | null = null;
+/** 一键播种的种子选择条是否展开（点「一键播种」后选种子，选完即播） */
+let bulkSeedPickerOpen = false;
 let qty: number | 'all' = 1;
 let selectedItem: string | null = null;
 let giftNpc: string | null = null;
@@ -1110,18 +1110,15 @@ function farmScene(): string {
       : '四季恒温'
     : '未解锁';
 
-  // 一键播种：背包种子芯片选择，默认第一种
+  // 一键播种：点按钮后展开种子选择条，选完即播（并同步为每日自动播种的种子）
   const seedIds = Object.keys(state.inventory).filter((id) => ITEMS[id]?.category === 'seed' && (state.inventory[id] ?? 0) > 0);
-  if (!bulkSeedCropId || !seedIds.some((id) => ITEMS[id].cropId === bulkSeedCropId)) {
-    bulkSeedCropId = seedIds.length ? (ITEMS[seedIds[0]].cropId ?? null) : null;
-  }
-  const bulkSeedName = bulkSeedCropId ? CROPS[bulkSeedCropId]?.name : null;
-  const seedChips = seedIds
-    .map((id) => {
-      const cropId = ITEMS[id].cropId!;
-      return `<button class="chip ${bulkSeedCropId === cropId ? 'on' : ''}" data-act="bulk-seed" data-crop="${cropId}">${ITEMS[id].name} ×${state.inventory[id]}</button>`;
-    })
-    .join('');
+  const seedPickerHtml = bulkSeedPickerOpen
+    ? `<div class="farm-bulk-bar seed-picker">
+        <span class="dim">选择要播的种子：</span>
+        ${seedIds.map((id) => `<button class="chip" data-act="bulk-plant-seed" data-crop="${ITEMS[id].cropId}">${ITEMS[id].name} ×${state.inventory[id]}</button>`).join('') || '<span class="dim">背包里没有种子</span>'}
+        <button class="pix-btn" data-act="bulk-plant-cancel">取消</button>
+      </div>`
+    : '';
 
   const gridHtml = `<div class="farm-grid${farmEntered ? '' : ' enter'}">${activeRows
     .flatMap((r) =>
@@ -1151,17 +1148,14 @@ function farmScene(): string {
     </button>
     <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px;">
       <button class="pix-btn" data-act="bulk-water">全部浇水</button>
+      <button class="pix-btn gold" data-act="bulk-plant" ${seedIds.length ? '' : 'disabled'}>一键播种</button>
+      <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
       <button class="pix-btn gold" data-act="bulk-harvest">全部收获</button>
       <button class="pix-btn" data-act="ship-all">出货全部</button>
+      <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${fieldStat.wiltedCount + ghStat.wiltedCount ? '' : 'disabled'}>一键铲除枯萎株${fieldStat.wiltedCount + ghStat.wiltedCount ? `（${fieldStat.wiltedCount + ghStat.wiltedCount} 株）` : ''}</button>
     </div>
   </div>
-  <div class="farm-bulk-bar">
-    <span class="dim">一键播种种子：</span>
-    ${seedChips || '<span class="dim">背包里没有种子</span>'}
-    <button class="pix-btn gold" data-act="bulk-plant" ${bulkSeedCropId ? '' : 'disabled'}>一键播种${bulkSeedName ? `（${bulkSeedName}）` : ''}</button>
-    <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
-    <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${fieldStat.wiltedCount + ghStat.wiltedCount ? '' : 'disabled'}>一键铲除枯萎株${fieldStat.wiltedCount + ghStat.wiltedCount ? `（${fieldStat.wiltedCount + ghStat.wiltedCount} 株）` : ''}</button>
-  </div>
+  ${seedPickerHtml}
   ${tilePopover()}
   <div class="farm-stage">${gridHtml}</div>`;
 }
@@ -2988,14 +2982,20 @@ document.addEventListener('click', (e) => {
     case 'bulk-harvest':
       doAction({ type: 'harvest', target: 'all' });
       break;
-    case 'bulk-seed':
-      bulkSeedCropId = el.dataset.crop!;
-      state.autoPlantCropId = bulkSeedCropId; // 同步为每日自动播种的种子
-      save();
+    case 'bulk-plant':
+      bulkSeedPickerOpen = !bulkSeedPickerOpen;
       render();
       break;
-    case 'bulk-plant':
-      if (bulkSeedCropId) doAction({ type: 'plant', cropId: bulkSeedCropId, target: 'all' });
+    case 'bulk-plant-seed': {
+      const cropId = el.dataset.crop!;
+      bulkSeedPickerOpen = false;
+      state.autoPlantCropId = cropId; // 同步为每日自动播种的种子
+      doAction({ type: 'plant', cropId, target: 'all' });
+      break;
+    }
+    case 'bulk-plant-cancel':
+      bulkSeedPickerOpen = false;
+      render();
       break;
     case 'bulk-deweed':
       doAction({ type: 'deweed', target: 'all' });
