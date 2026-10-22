@@ -23,7 +23,7 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
-import { itemIconSvg, npcAvatarSvg, tileStatusSvg, toolIconSvg } from './icons.js';
+import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, uiIconSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -94,15 +94,16 @@ type NpcFxTone = 'beloved' | 'loved' | 'liked' | 'neutral' | 'cheap' | 'disliked
 let npcFxState: { npcId: string; tone: NpcFxTone; delta: number; label?: string } | null = null;
 
 const NPC_FX_PARTICLES: Record<NpcFxTone, string[]> = {
-  beloved: ['💖', '✨', '💖', '🌟', '💕', '✨'],
-  loved: ['💖', '💕', '💖', '✨', '💕'],
-  liked: ['💗', '💗', '✨', '💗'],
-  neutral: ['💛', '💛'],
-  cheap: ['💧', '…'],
-  disliked: ['💔', '💧'],
-  hated: ['💔', '🖤', '💢'],
-  talk: ['💬', '💗', '♪'],
+  beloved: ['heart', 'sparkle', 'heart', 'star', 'heart', 'sparkle'],
+  loved: ['heart', 'heart', 'heart', 'sparkle', 'heart'],
+  liked: ['heart', 'heart', 'sparkle', 'heart'],
+  neutral: ['star', 'star'],
+  cheap: ['drop', 'drop'],
+  disliked: ['heart_broken', 'drop'],
+  hated: ['heart_broken', 'heart_empty', 'warning'],
+  talk: ['chat', 'heart', 'note'],
 };
+const fxParticle = (name: string) => uiIconSvg(name);
 
 /** 亲密度细进度：当前心内点数进度与距下一心差值 */
 function friendshipBarHtml(npcId: string): string {
@@ -398,7 +399,11 @@ function doAction(action: Action, cells: string[] = []): void {
 
 /* ---------- 通用小组件 ---------- */
 
-const hearts = (n: number) => '♥'.repeat(n) + '♡'.repeat(Math.max(0, 10 - n));
+const hearts = (n: number) =>
+  Array.from({ length: 10 }, (_, i) => uiIconSvg(i < n ? 'heart' : 'heart_empty')).join('');
+const heartRow = (n: number, max = 5) =>
+  Array.from({ length: max }, (_, i) => uiIconSvg(i < n ? 'heart' : 'heart_empty')).join('');
+const starRow = (n: number) => Array.from({ length: Math.max(1, n) }, () => uiIconSvg('star')).join('');
 const bar = (value: number, max: number, cls: string) =>
   `<div class="bar ${cls}"><i style="width:${Math.max(0, Math.min(100, (value / max) * 100))}%"></i><span>${Math.ceil(value)}/${max}</span></div>`;
 
@@ -420,7 +425,7 @@ function skillEffectText(sk: SkillId): string {
   }
 }
 
-function skillBadge(sk: SkillId, icon: string): string {
+function skillBadge(sk: SkillId, icon: string): string { icon = uiIconSvg(icon);
   const p: SkillProgress = skillProgressOf(state, sk);
   const next = p.isMax ? '已满级' : `还差 ${p.toNext} 经验升 Lv.${p.level + 1}`;
   return `<span class="skill-badge">${icon} ${SKILL_NAMES[sk]} Lv.${p.level} <small>${skillEffectText(sk)} · ${next}</small></span>`;
@@ -429,10 +434,10 @@ function skillBadge(sk: SkillId, icon: string): string {
 /** 当前场景对应的技能徽标（农场=耕种、森林=采集、水域=钓鱼、山区/矿洞=采矿+战斗） */
 function sceneSkillBadges(): string {
   let badges = '';
-  if (state.location === 'farm') badges = skillBadge('farming', '🌱');
-  else if (state.location === 'forest') badges = skillBadge('foraging', '🌿') + skillBadge('fishing', '🎣');
-  else if (state.location === 'beach') badges = skillBadge('fishing', '🎣');
-  else if (state.location === 'mountain' || state.location === 'mine') badges = skillBadge('mining', '⛏') + skillBadge('combat', '⚔');
+  if (state.location === 'farm') badges = skillBadge('farming', 'skill_farming');
+  else if (state.location === 'forest') badges = skillBadge('foraging', 'skill_foraging') + skillBadge('fishing', 'skill_fishing');
+  else if (state.location === 'beach') badges = skillBadge('fishing', 'skill_fishing');
+  else if (state.location === 'mountain' || state.location === 'mine') badges = skillBadge('mining', 'skill_mining') + skillBadge('combat', 'skill_combat');
   return badges ? `<div class="skill-badge-row">${badges}</div>` : '';
 }
 
@@ -443,19 +448,23 @@ function cropStage(tile: Tile): { label: string; pct: number; ready: boolean } |
   return { label: def.name, pct: Math.min(100, Math.round((tile.crop.age / def.growDays) * 100)), ready };
 }
 
-function tileFace(tile: Tile): { cls: string; glyph: string; sub: string } {
+function tileFace(tile: Tile): { cls: string; glyph: string; sub: string; badges: string } {
   const stage = cropStage(tile);
-  if (tile.ground === 'locked') return { cls: 'locked', glyph: '锁', sub: '温室未修好' };
-  if (tile.ground === 'weed') return { cls: 'weed', glyph: tileStatusSvg('weed'), sub: '杂草' };
-  if (tile.ground === 'stone') return { cls: 'stone', glyph: tileStatusSvg('stone'), sub: '石头' };
-  if (tile.ground === 'grass') return { cls: 'grass', glyph: '地', sub: '空地' };
-  const weedCls = tile.weeds ? ' weedy' : '';
-  const fertileSub = tile.fertile ? ' · 肥沃' : '';
-  if (tile.crop?.wilted && stage) return { cls: `wilted${weedCls}`, glyph: tileStatusSvg('withered'), sub: `${stage.label} 已枯萎` };
-  if (stage?.ready) return { cls: `ready${weedCls}`, glyph: itemIconSvg(tile.crop!.cropId), sub: `${stage.label} 可收获${fertileSub}` };
-  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${weedCls}`, glyph: tileStatusSvg('sprout'), sub: `${stage.label} ${stage.pct}%${tile.watered ? '' : ' · 缺水'}${fertileSub}` };
-  // 空垦地不再显示「已开垦/有杂草」文字：状态靠格子样式（土色/杂草绿饰）辨识，详情看浮层
-  return { cls: `dry${weedCls}`, glyph: '土', sub: tile.fertile ? '肥沃' : '' };
+  const badges = tileDebuffBadgesSvg({
+    thirsty: Boolean(stage && !stage.ready && !tile.crop?.wilted && !tile.watered),
+    weeds: Boolean(tile.weeds && tile.ground === 'tilled'),
+    wilted: Boolean(tile.crop?.wilted),
+    fertile: Boolean(tile.fertile && tile.ground === 'tilled'),
+  });
+  const debuffCls = `${tile.crop?.wilted ? ' debuff-wilted' : ''}${stage && !stage.ready && !tile.crop?.wilted && !tile.watered ? ' debuff-thirsty' : ''}${tile.weeds && tile.ground === 'tilled' ? ' debuff-weeds' : ''}`;
+  if (tile.ground === 'locked') return { cls: 'locked', glyph: tileGroundSvg('locked'), sub: '', badges: '' };
+  if (tile.ground === 'weed') return { cls: 'weed', glyph: tileGroundSvg('weed'), sub: '', badges: '' };
+  if (tile.ground === 'stone') return { cls: 'stone', glyph: tileGroundSvg('stone'), sub: '', badges: '' };
+  if (tile.ground === 'grass') return { cls: 'grass', glyph: tileGroundSvg('grass'), sub: '', badges: '' };
+  if (tile.crop?.wilted && stage) return { cls: `wilted${debuffCls}`, glyph: cropGrowthSvg(tile.crop.cropId, stage.pct, { wilted: true, weeds: tile.weeds }), sub: stage.label, badges };
+  if (stage?.ready) return { cls: `ready${debuffCls}`, glyph: cropGrowthSvg(tile.crop!.cropId, 100, { watered: tile.watered, weeds: tile.weeds }), sub: stage.label, badges };
+  if (stage) return { cls: `${tile.watered ? 'wet' : 'dry'}${debuffCls}`, glyph: cropGrowthSvg(tile.crop!.cropId, stage.pct, { watered: tile.watered, weeds: tile.weeds }), sub: stage.label, badges };
+  return { cls: `dry${debuffCls}`, glyph: tileGroundSvg(tile.watered ? 'soil_wet' : 'soil'), sub: '', badges };
 }
 
 /* ---------- 1. 场景整页 (Scene Page) ---------- */
@@ -586,7 +595,7 @@ function farmScene(): string {
         return `<button class="tile ${f.cls} ${fxCls} ${selected ? 'selected' : ''}" style="--d:${((r % 6) * 8 + c) * 16}ms"
           data-act="tile" data-row="${r}" data-col="${c}" aria-label="${key} ${f.sub}" aria-pressed="${selected}">
           ${fx?.floatText ? `<span class="tile-float">${esc(fx.floatText)}</span>` : ''}
-          <b>${f.glyph}</b><small>${f.sub}</small>
+          <b>${f.glyph}</b>${f.badges}<small>${f.sub}</small>
           ${tile.crop && !tile.crop.wilted ? `<i class="grow"><em style="width:${cropStage(tile)!.pct}%"></em></i>` : ''}
         </button>`;
       }),
@@ -644,7 +653,7 @@ function townExtras(): string {
   return `<h3>白芷诊所（支付诊金恢复生命）</h3>
     <div class="cards grid-2">
       <button class="card place" data-act="open-clinic">
-        <b>🏥 白芷诊所</b>
+        <b>${uiIconSvg('clinic')} 白芷诊所</b>
         <span>${clinicOpen(state) ? '白芷坐诊中' : '白芷去森林采药了（晴天 10 点后回镇）'} · 生命 ${state.hp}/${hpMaxTown}${missingTown ? ` · 缺 ${missingTown} 点，补满 ${missingTown * CLINIC.goldPerHp} 金` : ' · 健康'} · 点击进入诊所</span>
       </button>
     </div>
@@ -677,7 +686,7 @@ function mineFloorHint(floor: number): string {
   const foes = MONSTERS.filter((mo) => floor >= mo.floors[0] && floor <= mo.floors[1]).map((mo) => mo.name).join('、');
   const chest = MINE_CHESTS[floor];
   const chestText = chest
-    ? `🎁 本层有宝箱：${[
+    ? `${uiIconSvg('chest')} 本层有宝箱：${[
         chest.gold ? `${chest.gold} 金` : '',
         chest.item ? `${itemName(chest.item[0])} ×${chest.item[1]}` : '',
         chest.weapon ? (WEAPONS.find((w) => w.id === chest.weapon)?.name ?? '') : '',
@@ -689,7 +698,7 @@ function mineFloorHint(floor: number): string {
   return `<div class="mine-hint">
     <b>本层提示</b>
     <span>出产：${ore?.name ?? '矿石'}${gems ? ` · 可能有宝石：${gems}` : ''}</span>
-    <span>${safe ? '🛡 安全层：没有怪物' : `出没：${foes || '无'}`}</span>
+    <span>${safe ? uiIconSvg('shield') + ' 安全层：没有怪物' : `出没：${foes || '无'}`}</span>
     <span>${nextSafe}</span>
     ${chestText ? `<span>${chestText}</span>` : ''}
   </div>`;
@@ -747,7 +756,7 @@ function fishingDockSection(): string {
     ? fishList
         .map((f) => {
           const caught = state.stats.fishSpecies.includes(f.id);
-          const stars = '★'.repeat(f.difficulty);
+          const stars = starRow(f.difficulty);
           return `<span class="chip ${caught ? 'ok' : ''}">${caught ? f.name : `未知鱼影（${f.name}）`} <small>${stars}</small></span>`;
         })
         .join('')
@@ -758,7 +767,7 @@ function fishingDockSection(): string {
       <button class="water-pond" data-act="fish" ${canCast ? '' : 'disabled'}>
         <div class="water-waves">〰 〰 〰 〰 〰 〰</div>
         <div class="pond-bobber">
-          <span>🎣</span>
+          <span>${uiIconSvg('skill_fishing')}</span>
           <span>${canCast ? '点击水面抛竿下钩' : rodBroken ? '鱼竿已报废' : '请先在背包装备鱼竿'}</span>
         </div>
       </button>
@@ -775,7 +784,7 @@ function fishingDockSection(): string {
           <div class="chips">${fishChips}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;margin-top:auto;">
-          <button class="pix-btn gold" data-act="fish" ${canCast ? '' : 'disabled'}>🎣 抛竿钓鱼</button>
+          <button class="pix-btn gold" data-act="fish" ${canCast ? '' : 'disabled'}>${uiIconSvg('skill_fishing')} 抛竿钓鱼</button>
           <button class="pix-btn ghost" data-act="view-tool" data-tool="rod">查看鱼竿详情</button>
         </div>
       </div>
@@ -836,13 +845,13 @@ function forestScene(): string {
       </div>
       <p class="dim" style="margin:6px 0;">${g.desc}</p>
       <p style="margin:4px 0;">${yields ? `本季产出：${yields.map(([id, q]) => `<span class="chip ok">${itemName(id)} ×${q}</span>`).join(' ')}` : g.offSeasonText}</p>
-      <button class="pix-btn ${ready ? 'gold' : ''}" data-act="grove" data-grove="${g.id}" ${ready ? '' : 'disabled'}>${ready ? `✋ 采摘${g.name}` : status}</button>
+      <button class="pix-btn ${ready ? 'gold' : ''}" data-act="grove" data-grove="${g.id}" ${ready ? '' : 'disabled'}>${ready ? uiIconSvg('hand') + ` 采摘${g.name}` : status}</button>
     </article>`;
   }).join('');
 
   const mysteryHtml = f.exploredToday
     ? `<div class="mystery-card revealed${mysteryState.flipFx ? ' fx-card-flip' : ''}">
-        <span class="mystery-glyph">✔</span>
+        <span class="mystery-glyph">${uiIconSvg('check')}</span>
         <b>${mysteryState.spotIdx !== null ? `${MYSTERY_CARDS[mysteryState.spotIdx].title} · ` : ''}今日奇遇已揭晓</b>
         <small>${esc(mysteryState.resultText || '你已在林间探索过，收获了一份奇遇。')}</small>
       </div>`
@@ -858,8 +867,8 @@ function forestScene(): string {
   <h3>林间伐木舞台（点击树木连续挥斧 3 下砍倒，掉落木材 ×2~4）</h3>
   <div class="forest-stage ${forestChopFx ? 'fx-chop' : ''}">
     <div class="forest-stage-head">
-      <span>🌲 剩余林木 <b>${f.trees}/8</b> 棵 · ${axeDur} · 木材可出货（10 金/块）</span>
-      <button class="pix-btn gold" data-act="chop" ${canChop ? '' : 'disabled'}>🪓 快速砍倒一棵</button>
+      <span>${uiIconSvg('tree')} 剩余林木 <b>${f.trees}/8</b> 棵 · ${axeDur} · 木材可出货（10 金/块）</span>
+      <button class="pix-btn gold" data-act="chop" ${canChop ? '' : 'disabled'}>${uiIconSvg('axe')} 快速砍倒一棵</button>
     </div>
     <div class="forest-grid">${treeSlotsHtml}</div>
   </div>
@@ -911,7 +920,7 @@ function mineScene(): string {
       <div class="mine-box ${mineFxState.rockHit ? 'fx-rock-hit' : ''}">
         <h4>矿脉岩石（剩余 ${m.rocks} 块 · 点击岩石直接敲击）</h4>
         <div class="rocks">${rocksHtml}</div>
-        ${m.ladder ? '<div style="margin-top:8px;"><span class="chip ok">✔ 已发现通往下一层的梯子！</span></div>' : ''}
+        ${m.ladder ? '<div style="margin-top:8px;"><span class="chip ok">' + uiIconSvg('check') + ' 已发现通往下一层的梯子！</span></div>' : ''}
       </div>
       <div class="mine-box">
         <h4>层内怪物（装备武器：${WEAPONS.find((w) => w.id === state.weapon)?.name ?? '拳头'}）</h4>
@@ -944,9 +953,9 @@ function scenePage(): string {
               return `<button class="npc-pill ${fx ? `fx-${fx.tone}` : ''}" data-act="open-npc" data-npc="${npc.id}">
               <span class="mini-ava">${npcAvatarSvg(npc.id)}</span>
               <b>${npc.name}</b>
-              <span class="hearts">${'♥'.repeat(Math.min(5, heartsOf(state, npc.id)) || 1)}</span>
+              <span class="hearts">${heartRow(Math.min(5, heartsOf(state, npc.id)) || 1)}</span>
               <small>${state.npcs[npc.id].talkedToday ? '已聊' : '可聊天'}</small>
-              ${fx ? `<span class="npc-pill-fx tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].slice(0, 3).map((p, i) => `<span style="--i:${i}">${p}</span>`).join('')}</span>` : ''}
+              ${fx ? `<span class="npc-pill-fx tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].slice(0, 3).map((p, i) => `<span style="--i:${i}">${fxParticle(p)}</span>`).join('')}</span>` : ''}
             </button>`;
             },
           )
@@ -1188,9 +1197,9 @@ function socialPage(): string {
   const list = socialSubTab === 'here' ? hereList : NPCS;
 
   const RELATION_BADGE: Record<string, string> = {
-    dating: '<span class="badge ok">💐 交往中</span>',
-    engaged: '<span class="badge ok">💍 已订婚</span>',
-    married: '<span class="badge ok">💒 已婚</span>',
+    dating: `<span class="badge ok">${uiIconSvg('bouquet')} 交往中</span>`,
+    engaged: `<span class="badge ok">${uiIconSvg('ring')} 已订婚</span>`,
+    married: `<span class="badge ok">${uiIconSvg('bell')} 已婚</span>`,
   };
   const cardsHtml = list.length
     ? `<div class="cards grid-2">${list
@@ -1208,18 +1217,18 @@ function socialPage(): string {
                   <b>${npc.name}</b>
                   <span class="hearts">${hearts(heartsOf(state, npc.id))}</span>
                   ${RELATION_BADGE[st.status] ?? ''}
-                  ${bday ? '<span class="badge ok">🎂 今日生日</span>' : ''}
+                  ${bday ? `<span class="badge ok">${uiIconSvg('cake')} 今日生日</span>` : ''}
                 </div>
                 <p class="npc-intro">${npc.intro}</p>
               </div>
-              <span class="npc-loc-badge ${isHere ? 'on' : ''}">${isHere ? '📍 在场' : locId ? LOCATIONS[locId].name : '家中休息'}</span>
+              <span class="npc-loc-badge ${isHere ? 'on' : ''}">${isHere ? uiIconSvg('pin') + ' 在场' : locId ? LOCATIONS[locId].name : '家中休息'}</span>
             </div>
             ${friendshipBarHtml(npc.id)}
             <div class="npc-chips">
-              <span class="chip ${st.talkedToday ? 'ok' : ''}">${st.talkedToday ? '✔ 今日已聊' : '今日未聊'}</span>
+              <span class="chip ${st.talkedToday ? 'ok' : ''}">${st.talkedToday ? uiIconSvg('check') + ' 今日已聊' : '今日未聊'}</span>
               <span class="chip">本周送礼 ${st.giftsThisWeek}/2</span>
-              ${streak > 1 ? `<span class="chip ok">🔥 连聊 ${streak} 天</span>` : ''}
-              <span class="chip ${bday ? 'ok' : ''}">🎂 ${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日</span>
+              ${streak > 1 ? `<span class="chip ok">${uiIconSvg('fire')} 连聊 ${streak} 天</span>` : ''}
+              <span class="chip ${bday ? 'ok' : ''}">${uiIconSvg('cake')} ${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日</span>
               ${npc.marriageable ? '<span class="chip">可恋爱</span>' : ''}
             </div>
             <button class="pix-btn ${isHere ? 'gold' : 'ghost'} npc-main-btn" data-act="open-npc" data-npc="${npc.id}">
@@ -1303,7 +1312,7 @@ function journalPage(): string {
             </div>
             <p style="margin:4px 0;" class="dim">${room.unlockText}</p>
             <div class="chips">
-              ${bundles.map((b) => `<span class="chip ${bundleDone(state, b) ? 'ok' : ''}">${bundleDone(state, b) ? '✔ ' : ''}${b.name}</span>`).join('')}
+              ${bundles.map((b) => `<span class="chip ${bundleDone(state, b) ? 'ok' : ''}">${bundleDone(state, b) ? uiIconSvg('check') + ' ' : ''}${b.name}</span>`).join('')}
             </div>
             <span style="margin-top:auto;font-weight:bold;color:var(--wood);">点击打开「${room.name}」收集弹窗 →</span>
           </button>`;
@@ -1325,12 +1334,12 @@ function journalPage(): string {
       <div class="card">
         ${
           state.evaluation
-            ? `<p><b>🕯 爷爷的评分：点亮了 ${state.evaluation.candles} 根蜡烛（总分 ${state.evaluation.score} 分）</b></p>`
-            : '<p><b>🕯 爷爷的约定：</b>第 3 年春天第 1 天，爷爷会回来看看你把青禾谷农场打理得怎么样。</p>'
+            ? `<p><b>${uiIconSvg('candle')} 爷爷的评分：点亮了 ${state.evaluation.candles} 根蜡烛（总分 ${state.evaluation.score} 分）</b></p>`
+            : '<p><b>' + uiIconSvg('candle') + ' 爷爷的约定：</b>第 3 年春天第 1 天，爷爷会回来看看你把青禾谷农场打理得怎么样。</p>'
         }
         ${
           state.wedding
-            ? `<p>💒 <b>婚礼预告：</b>你与 ${NPC_BY_ID[state.wedding.npcId].name} 的婚礼定于第 ${state.wedding.day} 日举行。</p>`
+            ? `<p>${uiIconSvg('bell')} <b>婚礼预告：</b>你与 ${NPC_BY_ID[state.wedding.npcId].name} 的婚礼定于第 ${state.wedding.day} 日举行。</p>`
             : '<p class="dim">与心仪的单身居民好感达到 8 心可赠送花束交往，10 心可赠送美人鱼吊坠求婚。</p>'
         }
       </div>`;
@@ -1362,13 +1371,13 @@ function mapModalHtml(): string {
           ${npcsAtLoc.length ? `在场居民：${npcsAtLoc.map((n) => n.name).join('、')}` : '当前无居民在场'}
         </div>
       </div>
-      <span>${here ? '📍 当前所在' : `前往 · 耗时 ${mins} 分钟${state.unlocks.includes('minecart') ? '（矿车加速）' : ''}`}</span>
+      <span>${here ? uiIconSvg('pin') + ' 当前所在' : `前往 · 耗时 ${mins} 分钟${state.unlocks.includes('minecart') ? '（矿车加速）' : ''}`}</span>
     </button>`;
   }).join('');
 
   return `
     <div class="modal-head">
-      <h2>🗺 青禾谷世界地图（点击目的地立即出发）</h2>
+      <h2>${uiIconSvg('map')} 青禾谷世界地图（点击目的地立即出发）</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="cards">${cards}</div>
@@ -1381,7 +1390,7 @@ function clinicModalHtml(): string {
   const open = clinicOpen(state);
   return `
     <div class="modal-head">
-      <h2>🏥 白芷诊所</h2>
+      <h2>${uiIconSvg('clinic')} 白芷诊所</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="detail-title">
@@ -1414,7 +1423,7 @@ function toolModalHtml(tool: ToolId): string {
 
   return `
     <div class="modal-head">
-      <h2>🛠 工具详情 · ${TOOL_NAMES[tool]}</h2>
+      <h2>${uiIconSvg('wrench')} 工具详情 · ${TOOL_NAMES[tool]}</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="detail-title">
@@ -1453,7 +1462,7 @@ function itemModalHtml(id: string): string {
 
   return `
     <div class="modal-head">
-      <h2>🎒 物品与装备详情</h2>
+      <h2>${uiIconSvg('bag')} 物品与装备详情</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="detail-title">
@@ -1501,13 +1510,13 @@ function npcModalHtml(npcId: string): string {
 
   return `
     <div class="modal-head">
-      <h2>💬 居民互动 · ${npc.name}</h2>
+      <h2>${uiIconSvg('chat')} 居民互动 · ${npc.name}</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="card npc npc-modal-card" style="margin-bottom:12px;">
       <div class="avatar-wrap">
         <div class="avatar ${fx && fx.tone !== 'talk' ? `fx-${fx.tone}` : ''}">${npcAvatarSvg(npc.id)}</div>
-        ${fx ? `<div class="npc-fx-particles tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].map((p, i) => `<span style="--i:${i}">${p}</span>`).join('')}</div>` : ''}
+        ${fx ? `<div class="npc-fx-particles tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].map((p, i) => `<span style="--i:${i}">${fxParticle(p)}</span>`).join('')}</div>` : ''}
       </div>
       <div>
         <b>${npc.name}</b> <span class="hearts">${hearts(heartsOf(state, npc.id))}</span>
@@ -1518,16 +1527,16 @@ function npcModalHtml(npcId: string): string {
           生日：${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日 ·
           最爱礼物：${lovedNames || '当季好物'}
         </p>
-        <p class="dim">${st.talkedToday ? '✔ 今天已经聊过天了' : '今天还没打招呼'} · 本周已送礼 ${st.giftsThisWeek}/2 次</p>
+        <p class="dim">${st.talkedToday ? uiIconSvg('check') + ' 今天已经聊过天了' : '今天还没打招呼'} · 本周已送礼 ${st.giftsThisWeek}/2 次</p>
       </div>
     </div>
-    ${fx ? `<div class="npc-react tone-${fx.tone}">${fx.tone === 'talk' ? '💬' : '🎁'} ${esc(fx.label ?? '')}</div>` : ''}
+    ${fx ? `<div class="npc-react tone-${fx.tone}">${fx.tone === 'talk' ? uiIconSvg('chat') : uiIconSvg('gift')} ${esc(fx.label ?? '')}</div>` : ''}
     ${
       isHere
         ? `<div class="toolbar">
-            <button class="pix-btn gold" data-act="talk" data-npc="${npc.id}">💬 与${npc.name}聊天</button>
+            <button class="pix-btn gold" data-act="talk" data-npc="${npc.id}">${uiIconSvg('chat')} 与${npc.name}聊天</button>
           </div>
-          <h3>🎁 从背包点选一件礼物送给 ${npc.name}</h3>
+          <h3>${uiIconSvg('gift')} 从背包点选一件礼物送给 ${npc.name}</h3>
           ${
             giftableIds.length
               ? `<div class="bag-grid">${giftableIds
@@ -1558,7 +1567,7 @@ function bundleModalHtml(roomId: string): string {
 
   return `
     <div class="modal-head">
-      <h2>🏛 社区中心 · ${room.name}</h2>
+      <h2>${uiIconSvg('building')} 社区中心 · ${room.name}</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <p>${room.unlockText} ${unlocked ? '<span class="badge ok">已修好解锁！</span>' : ''}</p>
@@ -1567,7 +1576,7 @@ function bundleModalHtml(roomId: string): string {
         const done = bundleDone(state, b);
         return `<div class="bundle-box ${done ? 'done' : ''}">
           <div style="display:flex;justify-content:space-between;align-items:center;">
-            <b>${done ? '✔ ' : ''}${b.name}</b>
+            <b>${done ? uiIconSvg('check') + ' ' : ''}${b.name}</b>
             <span class="dim">${b.reward.gold ? `奖励 ${b.reward.gold} 金` : b.reward.item ? `奖励 ${itemName(b.reward.item[0])} ×${b.reward.item[1]}` : ''}</span>
           </div>
           <div class="bundle-needs">
@@ -1732,20 +1741,20 @@ function renderFishingDuelModal(): string {
   let stateBadge = '';
   let stateDesc = '';
   if (act.hint === 'struggle') {
-    stateBadge = '🌊 猛烈挣扎！浪花四溅';
+    stateBadge = uiIconSvg('wave') + ' 猛烈挣扎！浪花四溅';
     stateDesc = '浮漂猛地往下一沉，鱼线绷得紧紧的！建议点「2. 顺势放线」卸掉张力，硬拉容易断线。';
   } else if (act.hint === 'rest') {
-    stateBadge = '🫧 水面平静 · 力气耗尽';
+    stateBadge = uiIconSvg('bubble') + ' 水面平静 · 力气耗尽';
     stateDesc = '鱼好像没什么力气了！趁现在点「1. 趁机收线」飞快拉近距离。';
   } else {
-    stateBadge = '❓ 涟漪阵阵 · 动向不明';
+    stateBadge = uiIconSvg('question') + ' 涟漪阵阵 · 动向不明';
     stateDesc = '水面泛起一圈圈涟漪，看不清鱼在蓄力还是休息，根据当前张力谨慎试探。';
   }
 
   return `
     <div class="modal-head">
-      <h2>🎣 水域拉锯战 · 第 ${act.round + 1}/12 回合</h2>
-      <span class="badge ${danger ? 'bad' : 'ok'}">${danger ? '⚠ 张力过高预警' : `难度 ${'★'.repeat(fish?.difficulty ?? 1)}`}</span>
+      <h2>${uiIconSvg('skill_fishing')} 水域拉锯战 · 第 ${act.round + 1}/12 回合</h2>
+      <span class="badge ${danger ? 'bad' : 'ok'}">${danger ? uiIconSvg('warning') + ' 张力过高预警' : `难度 ${starRow(fish?.difficulty ?? 1)}`}</span>
     </div>
     <div class="fish-duel-pond ${act.hint}">
       <div class="duel-state-banner">
@@ -1754,8 +1763,8 @@ function renderFishingDuelModal(): string {
       </div>
       <p style="margin:0 0 10px;font-size:18px;">${stateDesc}</p>
       <div class="duel-water-track">
-        <span class="duel-shore">🎣 岸边鱼钩</span>
-        <span class="duel-fish-swim" style="left:${fishLeft}%;">🐟 鱼影 (${progress}%)</span>
+        <span class="duel-shore">${uiIconSvg('skill_fishing')} 岸边鱼钩</span>
+        <span class="duel-fish-swim" style="left:${fishLeft}%;">${uiIconSvg('fish')} 鱼影 (${progress}%)</span>
       </div>
     </div>
     <div class="duel-meters">
@@ -1775,9 +1784,9 @@ function renderFishingDuelModal(): string {
       </div>
     </div>
     <div class="duel-btns">
-      <button class="pix-btn gold" data-act="choose" data-i="0">1. 🎣 趁机收线</button>
-      <button class="pix-btn" data-act="choose" data-i="1">2. 🌊 顺势放线</button>
-      <button class="pix-btn danger" data-act="choose" data-i="2">3. ✂ 剪断放弃</button>
+      <button class="pix-btn gold" data-act="choose" data-i="0">1. ${uiIconSvg('skill_fishing')} 趁机收线</button>
+      <button class="pix-btn" data-act="choose" data-i="1">2. ${uiIconSvg('wave')} 顺势放线</button>
+      <button class="pix-btn danger" data-act="choose" data-i="2">3. ${uiIconSvg('scissors')} 剪断放弃</button>
     </div>
     <p class="dim" style="margin:8px 0 0;font-size:16px;">提示：可直接按键盘数字键 1（收线）、2（放线）、3（放弃）操作。</p>
   `;
@@ -1785,7 +1794,7 @@ function renderFishingDuelModal(): string {
 
 function render(): void {
   const hpMax = maxHp(state);
-  $('hud-loc').innerHTML = `📍 <b>${LOCATIONS[state.location].name}</b> <small>[切换地点]</small>`;
+  $('hud-loc').innerHTML = `${uiIconSvg('pin')} <b>${LOCATIONS[state.location].name}</b> <small>[切换地点]</small>`;
   $('hud-date').textContent = `${formatDate(state)} ${formatTime(state.minutes)} · ${WEATHER_NAMES[state.weather]}（明日 ${WEATHER_NAMES[state.tomorrowWeather]}）`;
   $('hud-gold').textContent = `${state.gold} 金`;
   const hpCls = `hp${mineFxState.playerHit ? ' fx-hit' : ''}`;

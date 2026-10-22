@@ -202,11 +202,6 @@
       .tile.locked { background: #6d6d64; color: #ddd; }
       .tile.wilted { background: #7a6a53; color: #d8c9a3; }
       .tile.weedy { box-shadow: inset 0 0 0 3px #4e9b2a, inset -4px -4px 0 rgba(0,0,0,0.18); }
-      .tile.weedy::before {
-        content: '草'; position: absolute; top: 2px; right: 4px;
-        background: #4e9b2a; color: #fff; border: 2px solid var(--wood-dark);
-        font-size: 12px; padding: 0 3px; line-height: 1.2;
-      }
       .tile.fx-deweed { animation: fx-clear-burst 0.32s steps(4); }
       .tile.fx-uproot { animation: fx-clear-burst 0.32s steps(4); }
       .farm-bulk-bar {
@@ -221,12 +216,12 @@
       /* 农事格子微动效：till / water / plant / harvest / clear */
       .tile.fx-till { animation: fx-till 0.36s steps(4); }
       .tile.fx-till::after {
-        content: '▪ ▫ ▪'; position: absolute; top: -14px; color: #5b3a1e; font-size: 18px;
+        content: ''; width: 20px; height: 8px; background: repeating-linear-gradient(90deg, #5b3a1e 0 4px, transparent 4px 8px); position: absolute; top: -14px;
         pointer-events: none; animation: fx-particles 0.36s steps(4) forwards;
       }
       .tile.fx-water { animation: fx-water-tile 0.42s steps(4); }
       .tile.fx-water::after {
-        content: '💧💧💧'; position: absolute; top: -18px; color: var(--water); font-size: 16px;
+        content: ''; width: 22px; height: 14px; background: repeating-linear-gradient(90deg, var(--water) 0 4px, transparent 4px 8px); image-rendering: pixelated; position: absolute; top: -18px; color: var(--water); font-size: 16px;
         pointer-events: none; animation: fx-water-drop 0.42s steps(4) forwards;
       }
       .tile.fx-plant b { animation: fx-plant-sprout 0.38s steps(4); display: inline-block; }
@@ -382,7 +377,7 @@
       .tree-hp-dot.lost { background: #d8c9a3; }
       .tree-slot.fx-tree-hit { animation: tree-hit-shake 0.34s steps(4); }
       .tree-slot.fx-tree-hit::after {
-        content: '▪ ▫ ✦'; position: absolute; top: 6px; right: 10px;
+        content: ''; width: 18px; height: 6px; background: repeating-linear-gradient(90deg, #FFD54F 0 4px, transparent 4px 9px); image-rendering: pixelated; position: absolute; top: 6px; right: 10px;
         color: var(--soil); font-size: 18px; font-weight: bold;
         pointer-events: none; animation: fx-particles 0.36s steps(4) forwards;
       }
@@ -904,6 +899,24 @@
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation: none !important; transition: none !important; }
       }
+    
+      /* --- 星露谷像素风: 图标锐化 + 农田 Debuff 无文字视觉 --- */
+      .qh-pixel, .qh-svg-icon, .qh-svg-avatar, .qh-tile-svg, .qh-ui-icon { shape-rendering: crispEdges; image-rendering: pixelated; }
+      .qh-ui-icon { width: 1.05em; height: 1.05em; vertical-align: -0.18em; display: inline-block; }
+      .hearts .qh-ui-icon, .skill-badge .qh-ui-icon { width: 14px; height: 14px; vertical-align: -2px; }
+      .skill-badge svg { width: 16px; height: 16px; vertical-align: -3px; }
+      .badge svg, .chip svg { width: 14px; height: 14px; vertical-align: -2px; }
+      h2 svg, h3 svg { width: 20px; height: 20px; vertical-align: -3px; }
+      .pix-btn svg { width: 15px; height: 15px; vertical-align: -2px; }
+      .npc-fx-particles span .qh-ui-icon, .npc-pill-fx span .qh-ui-icon { width: 18px; height: 18px; }
+      .tile { position: relative; }
+      .tile-debuffs { position: absolute; top: 2px; right: 2px; display: flex; gap: 1px; z-index: 3; pointer-events: none; }
+      .tile-debuffs .qh-ui-icon { width: 15px; height: 15px; filter: drop-shadow(1px 1px 0 rgba(43,27,14,.65)); }
+      .tile.debuff-thirsty { box-shadow: inset 0 0 0 2px #D84315, inset 0 -8px 0 rgba(216,67,21,.18); animation: thirstyPulse 1.6s steps(2) infinite; }
+      .tile.debuff-weeds { box-shadow: inset 0 0 0 2px #33691E, inset 0 -10px 0 rgba(51,105,30,.35), inset 0 8px 0 rgba(85,139,47,.22); }
+      .tile.debuff-wilted { filter: saturate(.35) brightness(.82); box-shadow: inset 0 0 0 2px #6D4C41; }
+      @keyframes thirstyPulse { 50% { box-shadow: inset 0 0 0 2px #FFB300, inset 0 -8px 0 rgba(255,179,0,.15); } }
+      .tile.weedy::before { content: ''; position: absolute; inset: auto 0 0 0; height: 9px; background: repeating-linear-gradient(90deg, #33691E 0 3px, transparent 3px 7px, #558B2F 7px 10px, transparent 10px 14px); pointer-events: none; }
     </style>
   </head>
   <body>
