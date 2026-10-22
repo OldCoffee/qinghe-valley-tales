@@ -15,6 +15,7 @@ import { activityView } from '../engine/activity.js';
 import { formatDate, formatTime, shopClosedReason, todayFestival } from '../engine/calendar.js';
 import { cellName } from '../engine/farm.js';
 import { createNewGame } from '../engine/state.js';
+import { CANDLE_TEXT } from '../engine/evaluation.js';
 import { ensureCollection } from '../engine/util.js';
 import { ensureEquipment, repairCost, toolMaxDurability, weaponMaxDurability } from '../engine/systems/equipment.js';
 import { maxHp, sellPrice, skillLevel, skillProgressOf, type SkillProgress } from '../engine/skills.js';
@@ -25,7 +26,7 @@ import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
 import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
-import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
+import type { Action, Evaluation, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
 import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const SAVES_KEY = 'qinghe-valley-saves-v2';
@@ -494,6 +495,54 @@ function playSleepFx(s: GameState, passedOut = false): void {
   }, 1360);
 }
 
+/** VectorCraft 设计的爷爷神龛天象：灵魂光球 + 4 根蜡烛（按评价逐根点亮，未点亮只剩灰烛芯） */
+function grandpaShrineSvg(candles: number): string {
+  const flame = (cx: number, lit: boolean, i: number) =>
+    lit
+      ? `<g class="eval-flame" style="animation-delay:${0.55 + i * 0.38}s"><path d="M${cx} 62 L${cx + 7} 76 L${cx} 88 L${cx - 7} 76 Z" fill="#ffb300" stroke="#fff9c4" stroke-width="1.2"/><circle cx="${cx}" cy="76" r="3.2" fill="#ff8f00"/></g>`
+      : `<rect x="${cx - 1.2}" y="76" width="2.4" height="9" fill="#757575"/>`;
+  const candleXs = [62, 94, 126, 158];
+  return `<svg viewBox="0 0 220 150" width="300" height="205" aria-hidden="true">
+    <circle cx="110" cy="34" r="30" fill="#eceff1" fill-opacity="0.22"/>
+    <circle cx="110" cy="34" r="21" fill="#eceff1" stroke="#ffe082" stroke-width="2"/>
+    <circle cx="103" cy="29" r="3" fill="#37474f"/><circle cx="117" cy="29" r="3" fill="#37474f"/>
+    <path d="M101 42 Q110 47 119 42" stroke="#37474f" stroke-width="2" fill="none" stroke-linecap="round"/>
+    ${candleXs.map((cx, i) => flame(cx, i < candles, i)).join('')}
+    ${candleXs.map((cx) => `<rect x="${cx - 6}" y="88" width="12" height="26" rx="2" fill="#fff8e1" stroke="#bcaaa4"/>`).join('')}
+    <path d="M38 126 L182 126 L170 112 L50 112 Z" fill="#6d4c41" stroke="#ffd54f" stroke-width="1.5"/>
+  </svg>`;
+}
+
+/**
+ * EffectCraft/FigCraft 设计的爷爷评价专属动效（第三年春天第 1 天清晨）：
+ * 按前两年行为评价点亮 1–4 根蜡烛，四档氛围、光晕与台词各不相同。
+ */
+function playGrandpaEvalFx(ev: Evaluation): void {
+  const layer = document.getElementById('scene-fx-layer');
+  if (!layer) return;
+  if (sceneFxTimer) clearTimeout(sceneFxTimer);
+  const tier = Math.min(4, Math.max(1, ev.candles));
+  const notesHtml = ev.notes.length
+    ? ev.notes.map((n) => `<span>· ${esc(n)}</span>`).join('')
+    : '<span>· 这两年还没有留下特别的成绩</span>';
+  layer.innerHTML = `
+    <div class="sleep-fx-stage grandpa-eval-fx eval-tier-${tier}">
+      <div class="sleep-fx-stars"><span>✦</span><span>★</span><span>✦</span><span>★</span><span>✦</span></div>
+      <div class="eval-shrine">${grandpaShrineSvg(tier)}</div>
+      <div class="sleep-fx-card eval-card">
+        <b>🕯 爷爷的灵魂出现在神龛前 · 点亮了 ${tier} 根蜡烛</b>
+        <span class="eval-score-line">爷爷的评分：总分 ${ev.score} 分 · 回顾你这两年的生活……</span>
+        <span class="eval-notes">${notesHtml}</span>
+        <span class="eval-quote">${esc(CANDLE_TEXT[tier] ?? '')}</span>
+      </div>
+    </div>`;
+  layer.classList.add('active');
+  sceneFxTimer = window.setTimeout(() => {
+    layer.classList.remove('active');
+    layer.innerHTML = '';
+  }, 2950);
+}
+
 /**
  * 切换地点分阶段动效：先播路牌滑入并停在中央，此时尚未移动；
  * 停稳后才执行 apply（真正切换地点并渲染新场景），最后路牌滑出收尾揭开新场景。
@@ -761,7 +810,9 @@ function doAction(action: Action, cells: string[] = []): void {
   const afterDay = `${state.year}-${state.season}-${state.day}`;
   if (beforeDay !== afterDay) {
     nightFlash = true;
-    playSleepFx(state, action.type !== 'sleep');
+    // 第三年春天第 1 天：爷爷评价刚刚产生时，优先播放分档评价动效而不是普通的天气睡觉动效
+    if (!prev.evaluation && state.evaluation) playGrandpaEvalFx(state.evaluation);
+    else playSleepFx(state, action.type !== 'sleep');
   } else if (prev.location !== state.location) {
     if (suppressTravelFx) {
       // 已由分阶段旅行动效在移动前播放，此处不重复
