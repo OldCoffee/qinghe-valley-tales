@@ -1826,7 +1826,7 @@ function profileModalHtml(): string {
     </div>
     <div class="detail-title">
       <span class="bag-item-icon">${playerAvatarSvg(gender)}</span>
-      <div><b>${esc(state.playerName || '农场主')}</b><span>${gender === 'female' ? '女' : '男'} · 设定后不可修改</span></div>
+      <div><b>${esc(state.playerName || '农场主')}</b><span>${gender === 'female' ? '女' : '男'}</span></div>
     </div>
     <h3>个人信息</h3>
     <dl class="detail-list">
