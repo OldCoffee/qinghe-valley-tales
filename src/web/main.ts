@@ -1373,7 +1373,7 @@ function codexSection(): string {
         const qty = state.inventory[id] ?? 0;
         return `<div class="codex-card ${owned ? '' : 'uncollected'}">
           <span class="bag-item-icon">${itemIconSvg(id)}</span>
-          <b>${owned ? ITEMS[id].name : '未收集'}</b>
+          <b>${ITEMS[id].name}</b>
           ${rarityBadgeHtml(id, true)}
           <small>${owned ? (qty > 0 ? `持有 ×${qty}` : '已收集') : '尚未获得'}</small>
         </div>`;
