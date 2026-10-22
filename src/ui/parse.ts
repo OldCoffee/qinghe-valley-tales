@@ -54,6 +54,7 @@ const ALIASES: Record<string, string[]> = {
   unequip: ['unequip', '卸下'],
   repair: ['repair', '修理', '修复'],
   donate: ['donate', '捐', '捐献'],
+  autofarm: ['autofarm', '自动农具', '自动干活'],
   festival: ['festival', '节日', '参加'],
   heal: ['heal', '治疗', '看病'],
   inv: ['inv', 'i', '背包'],
@@ -262,6 +263,20 @@ export function parseCommand(line: string): Parsed {
       const tool = (Object.keys(TOOL_ALIASES) as ToolId[]).find((t) => TOOL_ALIASES[t].includes(word));
       if (!tool) return error('要升级什么工具？锄头、水壶或镐子，例如：upgrade 镐子');
       return action({ type: 'upgrade', tool });
+    }
+    case 'autofarm': {
+      const word = (args[0] ?? '').toLowerCase();
+      const job = (['clear', 'plant', 'harvest'] as const).find((j) => j === word) ??
+        (word.includes('清理') || word.includes('整地') ? 'clear' : word.includes('种') || word.includes('播') ? 'plant' : word.includes('收') ? 'harvest' : null);
+      if (!job) return error('自动农具要做什么？autofarm clear（清理整地）/ plant（播种灌溉）/ harvest（除草收获）');
+      // plant 需要作物: autofarm plant 防风草
+      let cropId: string | undefined;
+      if (job === 'plant' && args[1]) {
+        const crop = findCrop(args.slice(1).join(' '));
+        if (!crop) return error(`不认识的作物"${args.slice(1).join(' ')}"。`);
+        cropId = crop.id;
+      }
+      return action({ type: 'autoFarm', job, cropId });
     }
     case 'donate': {
       if (args.length === 0 || ALL_WORDS.includes(args[0].toLowerCase())) {

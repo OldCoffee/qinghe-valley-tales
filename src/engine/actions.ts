@@ -5,6 +5,7 @@ import { chooseActivity } from './activity.js';
 import { ensureEquipment, equipWeapon, repair, setToolEquipped, unequipWeapon } from './systems/equipment.js';
 import { endDay } from './day.js';
 import { maxHp } from './skills.js';
+import { runAutoFarm } from './systems/autofarm.js';
 import { donate } from './systems/bundles.js';
 import { buy, sell, sellFromBag, ship } from './systems/economy.js';
 import { healAtClinic } from './systems/clinic.js';
@@ -111,6 +112,8 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
       return setToolEquipped(s, events, action.tool, false);
     case 'repair':
       return repair(s, events, action.target);
+    case 'autoFarm':
+      return runAutoFarm(s, events, action.job, action.cropId);
     case 'donate': {
       // 不在小镇时先自动前往白鹭镇广场 (社区中心) 再捐献, 路上耗时与正常移动一致
       if (s.location !== 'town' && !move(s, events, 'town')) return false;

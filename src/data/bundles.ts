@@ -4,6 +4,9 @@ export interface BundleDef {
   room: string;
   needs: Record<string, number>;
   reward: { gold?: number; item?: [string, number] };
+  /** 完成该收集包额外解锁的自动农具 (unlock id 与工具名称, 见自动工坊) */
+  unlock?: string;
+  unlockName?: string;
 }
 
 export interface RoomDef {
@@ -18,6 +21,7 @@ export const ROOMS: RoomDef[] = [
   { id: 'crafts', name: '工艺室', unlock: 'minecart', unlockText: '矿车线路修通了！各地之间的移动时间减半。' },
   { id: 'fish_tank', name: '鱼缸', unlock: 'free_rod', unlockText: '老渔夫送了你一根铱金鱼竿作为谢礼！' },
   { id: 'boiler', name: '锅炉房', unlock: 'smith_discount', unlockText: '铁匠铺的炉子修好了！工具升级半价，1 天完成。' },
+  { id: 'workshop', name: '自动工坊', unlock: 'auto_daily', unlockText: '自动农具全部升级完成！每天开始时会自动完成已解锁的农活（铲枯萎、清理、除草、收获、开垦、补种、浇水）。' },
 ];
 
 export const BUNDLES: BundleDef[] = [
@@ -34,4 +38,7 @@ export const BUNDLES: BundleDef[] = [
   { id: 'smith_bundle', name: '铁匠包', room: 'boiler', needs: { copper_ore: 10, iron_ore: 10, gold_ore: 10 }, reward: { gold: 1500 } },
   { id: 'geologist_bundle', name: '地质学家包', room: 'boiler', needs: { amethyst: 1, topaz: 1, aquamarine: 1, jade: 1 }, reward: { gold: 1500 } },
   { id: 'adventurer_bundle', name: '冒险家包', room: 'boiler', needs: { slime: 20, bat_wing: 10, void_essence: 1 }, reward: { item: ['pizza', 5] } },
+  { id: 'workshop_clear', name: '清理整地包', room: 'workshop', needs: { wood: 20, scrap: 5, copper_ore: 10 }, reward: { gold: 800 }, unlock: 'auto_clear', unlockName: '自动农具 · 清理整地（自动清理 + 开垦）' },
+  { id: 'workshop_plant', name: '播种灌溉包', room: 'workshop', needs: { wood: 15, iron_ore: 10, scrap: 5 }, reward: { gold: 1000 }, unlock: 'auto_plant', unlockName: '自动农具 · 播种灌溉（自动种植 + 浇水）' },
+  { id: 'workshop_harvest', name: '除草收获包', room: 'workshop', needs: { iron_ore: 10, gold_ore: 5, scrap: 8 }, reward: { gold: 1200 }, unlock: 'auto_harvest', unlockName: '自动农具 · 除草收获（自动除草 + 收获）' },
 ];

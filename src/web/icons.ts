@@ -458,6 +458,9 @@ export function uiIconSvg(name: UiIconName): string {
     case 'drop': case 'debuff_thirsty': blob(g, 8, 9, 4, 5, '#42A5F5'); px(g, 8, 3, '#42A5F5'); px(g, 6, 8, '#BBDEFB'); if (name === 'debuff_thirsty') { rect(g, 12, 10, 2, 4, '#E53935'); px(g, 12, 15, '#E53935'); px(g, 13, 15, '#E53935'); } break;
     case 'debuff_weeds': px(g, 4, 13, '#33691E'); px(g, 5, 10, '#558B2F'); px(g, 6, 13, '#33691E'); px(g, 9, 11, '#558B2F'); px(g, 11, 13, '#33691E'); px(g, 12, 9, '#7CB342'); rect(g, 3, 14, 10, 1, '#33691E'); break;
     case 'debuff_wilted': blob(g, 8, 7, 4, 4, '#8D6E63'); px(g, 8, 11, '#6D4C41'); px(g, 6, 13, '#795548'); px(g, 10, 13, '#795548'); px(g, 6, 6, D); px(g, 10, 6, D); break;
+    case 'auto-clear': rect(g, 9, 2, 2, 8, '#8D6E63'); rect(g, 4, 10, 6, 4, '#B0BEC5'); rect(g, 4, 10, 6, 1, '#ECEFF1'); px(g, 3, 14, '#6D4C41'); px(g, 12, 13, '#6D4C41'); px(g, 10, 14, '#8D5524'); break;
+    case 'auto-plant': rect(g, 7, 8, 2, 6, '#43A047'); px(g, 6, 6, '#66BB6A'); px(g, 9, 5, '#66BB6A'); px(g, 5, 5, '#81C784'); px(g, 10, 8, '#81C784'); rect(g, 5, 14, 6, 1, '#6D4C41'); px(g, 2, 10, '#42A5F5'); px(g, 13, 11, '#42A5F5'); break;
+    case 'auto-harvest': rect(g, 7, 5, 2, 9, '#FB8C00'); px(g, 5, 3, '#FFD54F'); px(g, 10, 3, '#FFD54F'); px(g, 4, 6, '#FFD54F'); px(g, 11, 6, '#FFD54F'); px(g, 6, 9, '#FFE082'); px(g, 9, 9, '#FFE082'); rect(g, 4, 14, 8, 1, '#8D6E63'); break;
     case 'skill_farming': return cropGrowthSvg('parsnip', 30, { watered: true });
     case 'skill_foraging': return uiIconSvg('tree');
     case 'skill_fishing': return uiIconSvg('fish');

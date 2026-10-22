@@ -99,6 +99,16 @@ const ENTRIES: MenuEntry[] = [
     },
   },
   { label: '收获', when: at('farm'), build: fixed('harvest all') },
+  { label: '自动农具 · 清理整地', when: (s) => s.location === 'farm' && s.unlocks.includes('auto_clear'), build: fixed('autofarm clear') },
+  {
+    label: '自动农具 · 播种灌溉',
+    when: (s) => s.location === 'farm' && s.unlocks.includes('auto_plant'),
+    build: async (io, s) => {
+      const id = s.autoPlantCropId ?? (await chooseFrom(io, '种什么', itemChoices(s, (i) => ITEMS[i].category === 'seed')));
+      return id && `autofarm plant ${id}`;
+    },
+  },
+  { label: '自动农具 · 除草收获', when: (s) => s.location === 'farm' && s.unlocks.includes('auto_harvest'), build: fixed('autofarm harvest') },
   {
     label: '清理',
     when: at('farm'),

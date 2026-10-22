@@ -78,6 +78,10 @@ function claimRewards(s: GameState, events: GameEvent[]): void {
       parts.push(`${itemName(bundle.reward.item[0])} ×${bundle.reward.item[1]}`);
     }
     events.push(good(`🎉 完成了${bundle.name}！奖励：${parts.join('、')}。`));
+    if (bundle.unlock && !s.unlocks.includes(bundle.unlock)) {
+      applyUnlock(s, bundle.unlock);
+      events.push(good(`解锁了${bundle.unlockName ?? '自动农具'}！去农场页使用自动农具按钮。`));
+    }
   }
   for (const room of ROOMS) {
     if (s.rewardsClaimed.includes(room.id) || !roomDone(s, room)) continue;

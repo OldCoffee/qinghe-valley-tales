@@ -23,6 +23,7 @@ export function createNewGame(seed: number, playerGender: Gender = 'male', playe
     version: SAVE_VERSION,
     playerGender,
     playerName: playerName.trim() || '农场主',
+    autoPlantCropId: null,
     collection: [...Object.keys(START_INVENTORY), START_WEAPON],
     year: 1,
     season: 'spring',

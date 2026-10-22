@@ -125,6 +125,8 @@ export interface GameState {
   playerGender: Gender;
   /** 主角姓名（创建存档时设定，之后不可修改；老存档缺失时按 '农场主' 兜底） */
   playerName: string;
+  /** 每日自动播种的作物 id (农场页选择一键播种种子时设定); null 表示未设定 */
+  autoPlantCropId: string | null;
   /** 图鉴已收集物品 id（获得过即记录，卖掉/用掉不移除） */
   collection: string[];
   year: number;
@@ -214,6 +216,7 @@ export type Action =
   | { type: 'unequipTool'; tool: ToolId }
   | { type: 'repair'; target: string }
   | { type: 'donate'; itemId: string | 'all' }
+  | { type: 'autoFarm'; job: 'clear' | 'plant' | 'harvest'; cropId?: string }
   | { type: 'festival' }
   | { type: 'choose'; index: number };
 

@@ -198,6 +198,7 @@ function normalizeLoadedState(data: GameState): GameState | null {
   ensureEquipment(data);
   if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
   if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
+  if (typeof data.autoPlantCropId !== 'string') data.autoPlantCropId = null;
   ensureCollection(data);
   return data;
 }
@@ -705,6 +706,13 @@ function farmScene(): string {
     <button class="pix-btn gold" data-act="bulk-plant" ${bulkSeedCropId ? '' : 'disabled'}>一键播种${bulkSeedName ? `（${bulkSeedName}）` : ''}</button>
     <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
     <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${fieldStat.wiltedCount + ghStat.wiltedCount ? '' : 'disabled'}>一键铲除枯萎株${fieldStat.wiltedCount + ghStat.wiltedCount ? `（${fieldStat.wiltedCount + ghStat.wiltedCount} 株）` : ''}</button>
+  </div>
+  <div class="farm-bulk-bar">
+    <span class="dim">${uiIconSvg('wrench')} 自动农具：</span>
+    <button class="pix-btn" data-act="auto-farm" data-job="clear" ${state.unlocks.includes('auto_clear') ? '' : 'disabled'}>${uiIconSvg('auto-clear')} 自动清理整地${state.unlocks.includes('auto_clear') ? '' : '（社区中心自动工坊解锁）'}</button>
+    <button class="pix-btn" data-act="auto-farm" data-job="plant" ${state.unlocks.includes('auto_plant') && bulkSeedCropId ? '' : 'disabled'}>${uiIconSvg('auto-plant')} 自动播种灌溉${state.unlocks.includes('auto_plant') ? (bulkSeedCropId ? `（${bulkSeedName}）` : '（先选种子）') : '（社区中心自动工坊解锁）'}</button>
+    <button class="pix-btn" data-act="auto-farm" data-job="harvest" ${state.unlocks.includes('auto_harvest') ? '' : 'disabled'}>${uiIconSvg('auto-harvest')} 自动除草收获${state.unlocks.includes('auto_harvest') ? '' : '（社区中心自动工坊解锁）'}</button>
+    ${state.unlocks.includes('auto_daily') ? '<span class="badge ok">每日自动已开启</span>' : ''}
   </div>
   ${tilePopover()}
   <div class="farm-stage">${gridHtml}</div>`;
@@ -1716,7 +1724,7 @@ function bundleModalHtml(roomId: string): string {
         return `<div class="bundle-box ${done ? 'done' : ''}">
           <div style="display:flex;justify-content:space-between;align-items:center;">
             <b>${done ? uiIconSvg('check') + ' ' : ''}${b.name}</b>
-            <span class="dim">${b.reward.gold ? `奖励 ${b.reward.gold} 金` : b.reward.item ? `奖励 ${itemName(b.reward.item[0])} ×${b.reward.item[1]}` : ''}</span>
+            <span class="dim">${b.reward.gold ? `奖励 ${b.reward.gold} 金` : b.reward.item ? `奖励 ${itemName(b.reward.item[0])} ×${b.reward.item[1]}` : ''}${b.unlockName ? `${b.reward.gold || b.reward.item ? ' · ' : ''}解锁 ${b.unlockName}${b.unlock && state.unlocks.includes(b.unlock) ? '（已解锁）' : ''}` : ''}</span>
           </div>
           <div class="bundle-needs">
             ${Object.entries(b.needs)
@@ -1855,6 +1863,18 @@ function profileModalHtml(): string {
           return `<span class="chip ${state.equippedTools[t] && !broken ? 'ok' : ''}">${toolIconSvg(t, Math.max(0, state.tools[t]))} ${TOOL_NAMES[t]} · ${broken ? '已报废' : `${toolLabel(t)} · 耐久 ${state.durability[t]}/${toolMaxDurability(state.tools[t])}`} ${state.equippedTools[t] && !broken ? '· 已装备' : ''}</span>`;
         })
         .join('')}
+    </div>
+    <h3>自动农具（社区中心自动工坊）</h3>
+    <div class="chips">
+      ${([
+        ['auto_clear', 'auto-clear', '自动清理整地'],
+        ['auto_plant', 'auto-plant', '自动播种灌溉'],
+        ['auto_harvest', 'auto-harvest', '自动除草收获'],
+      ] as const)
+        .map(([unlock, icon, name]) => `<span class="chip ${state.unlocks.includes(unlock) ? 'ok' : ''}">${uiIconSvg(icon)} ${name}${state.unlocks.includes(unlock) ? '' : ' · 未解锁'}</span>`)
+        .join('')}
+      <span class="chip ${state.unlocks.includes('auto_daily') ? 'ok' : ''}">${state.unlocks.includes('auto_daily') ? '每日自动已开启' : '每日自动未开启（集齐自动工坊）'}</span>
+      ${state.autoPlantCropId && CROPS[state.autoPlantCropId] ? `<span class="chip">每日自动播种：${CROPS[state.autoPlantCropId].name}</span>` : ''}
     </div>
     <h3>技能</h3>
     <p class="dim">${SKILL_ORDER.map((sk) => `${SKILL_NAMES[sk]} Lv.${skillProgressOf(state, sk).level}`).join(' · ')}</p>
@@ -2243,8 +2263,15 @@ document.addEventListener('click', (e) => {
       break;
     case 'bulk-seed':
       bulkSeedCropId = el.dataset.crop!;
+      state.autoPlantCropId = bulkSeedCropId; // 同步为每日自动播种的种子
+      save();
       render();
       break;
+    case 'auto-farm': {
+      const job = el.dataset.job as 'clear' | 'plant' | 'harvest';
+      doAction({ type: 'autoFarm', job, cropId: bulkSeedCropId ?? undefined });
+      break;
+    }
     case 'bulk-plant':
       if (bulkSeedCropId) doAction({ type: 'plant', cropId: bulkSeedCropId, target: 'all' });
       break;

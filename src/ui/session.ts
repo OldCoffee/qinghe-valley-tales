@@ -51,6 +51,7 @@ export function loadState(store: SaveStore): GameState | null {
     ensureEquipment(data);
     if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
     if (typeof data.playerName !== 'string' || !data.playerName.trim()) data.playerName = '农场主';
+    if (typeof data.autoPlantCropId !== 'string') data.autoPlantCropId = null;
     ensureCollection(data);
     return data;
   } catch {

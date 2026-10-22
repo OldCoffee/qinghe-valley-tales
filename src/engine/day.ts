@@ -17,6 +17,7 @@ import { pick, random } from './rng.js';
 import { maxHp, sellPrice } from './skills.js';
 import { spawnForage } from './systems/foraging.js';
 import { resetForestDaily } from './systems/forest.js';
+import { runDailyAutoFarm } from './systems/autofarm.js';
 import { morningSocial, nightlySocial } from './systems/social.js';
 import { finishUpgrades } from './systems/tools.js';
 import type { GameEvent, GameState, Season, Weather } from './types.js';
@@ -157,6 +158,7 @@ export function endDay(s: GameState, events: GameEvent[], passedOut: boolean): v
 
   events.push(info(`—— ${formatDate(s)} ${WEATHER_NAMES[s.weather]} ——`));
   events.push(info(pick(s, MORNING_LINES[s.weather])));
+  runDailyAutoFarm(s, events);
   if (income > 0) events.push(good(`出货箱结算：+${income} 金。`));
   if (passedOut) events.push(warn('昨晚没休息好，今天体力只恢复了一半。'));
 
