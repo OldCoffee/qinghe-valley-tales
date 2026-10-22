@@ -1736,8 +1736,7 @@ function mapModalHtml(): string {
       <h2>${uiIconSvg('map')} 青禾谷世界地图（点击目的地立即出发）</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
-    <div class="cards">${cards}</div>
-    <p class="hint" style="margin-top:12px;">提示：前往山区后即可乘电梯下矿洞；修好社区中心「工艺室」可开通矿车令全图移动耗时减半。</p>`;
+    <div class="cards">${cards}</div>`;
 }
 
 function clinicModalHtml(): string {
