@@ -264,10 +264,12 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
 
   const rodTargetsFish = rod.targetFishIds?.includes(fish.id) ?? false;
   const baitTargetsFish = bait?.targetFishIds?.includes(fish.id) ?? false;
+  // 阶位压制：鱼竿阶位越高于鱼的难度，控线越稳、收线越快；对同阶/高阶鱼不生效，保留挑战
+  const tierEdge = Math.max(0, rod.tier + 1 - fish.difficulty);
   const act: FishingActivity = {
     kind: 'fishing',
     fishId: fish.id,
-    progress: 30 + (rodTargetsFish ? 6 : 0) + (baitTargetsFish ? 4 : 0),
+    progress: 30 + tierEdge * 4 + (rodTargetsFish ? 6 : 0) + (baitTargetsFish ? 4 : 0),
     tension: 20,
     round: 0,
     hint: 'rest',
@@ -275,8 +277,13 @@ export function startFishing(s: GameState, events: GameEvent[]): boolean {
     rodId: rod.id,
     baitId: bait?.id ?? null,
     tensionCap: 100 + (rod.tensionCapBonus ?? 0),
-    tensionMult: (1 - (rod.tensionReduction ?? 0)) * (1 - (bait?.stabilityBonus ?? 0)) * (rodTargetsFish ? 0.86 : 1) * (baitTargetsFish ? 0.92 : 1),
-    progressMult: (1 + (rod.progressBonus ?? 0)) * (rodTargetsFish ? 1.18 : 1) * (baitTargetsFish ? 1.1 : 1),
+    tensionMult:
+      (1 - (rod.tensionReduction ?? 0)) *
+      (1 - (bait?.stabilityBonus ?? 0)) *
+      (rodTargetsFish ? 0.86 : 1) *
+      (baitTargetsFish ? 0.92 : 1) *
+      Math.max(0.3, 1 - tierEdge * 0.18),
+    progressMult: (1 + (rod.progressBonus ?? 0)) * (rodTargetsFish ? 1.18 : 1) * (baitTargetsFish ? 1.1 : 1) * (1 + tierEdge * 0.15),
     lineBreakWearMult: 1 - (rod.lineBreakWearReduction ?? 0),
   };
   if (bait) {
@@ -295,11 +302,13 @@ function bar(value: number, width = 20): string {
 }
 
 export function fishingView(act: FishingActivity): ActivityView {
+  const tensionCap = act.tensionCap ?? 100;
+  const tensionPct = Math.max(0, Math.min(100, (act.tension / tensionCap) * 100));
   return {
     title: '🎣 拉锯中',
     lines: [
       `进度 ${bar(act.progress)} ${Math.round(act.progress)}%`,
-      `张力 ${bar(act.tension)} ${Math.round(act.tension)}%`,
+      `张力 ${bar(tensionPct)} ${Math.round(act.tension)}/${tensionCap}`,
       HINTS[act.hint],
       `鱼放松时收线能拉近它；鱼挣扎时放线能卸掉张力。张力满了线会断，鱼竿还会额外磨损 ${DURABILITY.lineBreakWear} 点耐久。`,
     ],

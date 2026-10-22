@@ -2359,8 +2359,10 @@ function renderFishingDuelModal(): string {
   const act = state.activity;
   const fish = FISH.find((f) => f.id === act.fishId);
   const progress = Math.max(0, Math.min(100, Math.round(act.progress)));
-  const tension = Math.max(0, Math.min(100, Math.round(act.tension)));
-  const danger = tension >= 70;
+  const tensionCap = act.tensionCap ?? 100;
+  const tension = Math.max(0, Math.min(tensionCap, Math.round(act.tension)));
+  const tensionPct = Math.round((tension / tensionCap) * 100);
+  const danger = tensionPct >= 70;
   // 鱼从右侧 86% 随进度向左侧岸边 18% 游动
   const fishLeft = Math.round(86 - (progress / 100) * 68);
 
@@ -2405,10 +2407,10 @@ function renderFishingDuelModal(): string {
       </div>
       <div class="duel-meter-row ${danger ? 'tension-danger' : ''}">
         <div class="duel-meter-head">
-          <b>鱼线张力（满 100% 鱼线崩断，额外 -${DURABILITY.lineBreakWear} 耐久）</b>
-          <span>${tension}% ${danger ? '· 危险！快放线' : ''}</span>
+          <b>鱼线张力（满 ${tensionCap} 鱼线崩断，额外 -${DURABILITY.lineBreakWear} 耐久）</b>
+          <span>${tension}/${tensionCap} ${danger ? '· 危险！快放线' : ''}</span>
         </div>
-        ${bar(tension, 100, danger ? 'hp' : tension >= 45 ? 'warnbar' : 'xp')}
+        ${bar(tensionPct, 100, danger ? 'hp' : tensionPct >= 45 ? 'warnbar' : 'xp')}
       </div>
     </div>
     <div class="duel-btns">
