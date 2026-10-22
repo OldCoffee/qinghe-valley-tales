@@ -407,18 +407,83 @@ function playPageRefreshFx(): void {
 }
 
 let sceneFxTimer: number | null = null;
-/** EffectCraft 设计的睡觉独立动效：星夜入眠 → 月升破晓 → 新的一天横幅 */
+
+/** VectorCraft 设计的纯圆形无黑框清晨天象徽章（晴天朝阳 / 小雨云滴 / 暴风雨雷云 / 大雪冰晶 / 昏睡弯月） */
+function sleepWeatherEmblemSvg(weather: GameState['weather'], passedOut: boolean): string {
+  if (passedOut) {
+    return `<svg viewBox="0 0 160 160" width="144" height="144" aria-hidden="true">
+      <circle cx="80" cy="80" r="68" fill="#7986cb" fill-opacity="0.16"/>
+      <circle cx="80" cy="80" r="54" fill="#7986cb" fill-opacity="0.28"/>
+      <circle cx="80" cy="80" r="42" fill="#3949ab" fill-opacity="0.5" stroke="#c5cae9" stroke-width="2.5"/>
+      <path d="M90 46 C70 46 54 62 54 82 C54 102 70 118 90 118 C99 118 107 114 113 108 C99 110 85 100 83 84 C81 68 91 54 105 50 C100 47 95 46 90 46 Z" fill="#ffe082" stroke="#fff8e1" stroke-width="2"/>
+    </svg>`;
+  }
+  if (weather === 'rain') {
+    return `<svg viewBox="0 0 160 160" width="144" height="144" aria-hidden="true">
+      <circle cx="80" cy="80" r="68" fill="#4fc3f7" fill-opacity="0.16"/>
+      <circle cx="80" cy="80" r="54" fill="#4fc3f7" fill-opacity="0.28"/>
+      <circle cx="80" cy="80" r="42" fill="#1e3f5a" stroke="#81d4fa" stroke-width="2.5"/>
+      <path d="M54 88 C47 88 42 82 44 74 C46 66 54 62 62 64 C66 52 80 46 94 50 C106 52 112 62 112 70 C120 70 126 76 124 84 C122 88 116 88 110 88 Z" fill="#90caf9" stroke="#e3f2fd" stroke-width="2.5"/>
+      <path d="M62 96 L56 112 M82 98 L76 116 M102 96 L96 112" stroke="#29b6f6" stroke-width="4" stroke-linecap="round"/>
+    </svg>`;
+  }
+  if (weather === 'storm') {
+    return `<svg viewBox="0 0 160 160" width="144" height="144" aria-hidden="true">
+      <circle cx="80" cy="80" r="68" fill="#9575cd" fill-opacity="0.2"/>
+      <circle cx="80" cy="80" r="54" fill="#9575cd" fill-opacity="0.34"/>
+      <circle cx="80" cy="80" r="42" fill="#263238" stroke="#ffd54f" stroke-width="2.5"/>
+      <path d="M54 84 C47 84 42 78 44 70 C46 62 54 58 62 60 C66 48 80 42 94 46 C106 48 112 58 112 66 C120 66 126 72 124 80 C122 84 116 84 110 84 Z" fill="#455a64" stroke="#90a4ae" stroke-width="2.5"/>
+      <path d="M84 78 L68 100 L82 100 L72 122 L100 94 L84 94 Z" fill="#ffd54f" stroke="#fff9c4" stroke-width="1.5"/>
+    </svg>`;
+  }
+  if (weather === 'snow') {
+    return `<svg viewBox="0 0 160 160" width="144" height="144" aria-hidden="true">
+      <circle cx="80" cy="80" r="68" fill="#b3e5fc" fill-opacity="0.18"/>
+      <circle cx="80" cy="80" r="54" fill="#b3e5fc" fill-opacity="0.32"/>
+      <circle cx="80" cy="80" r="40" fill="#e1f5fe" fill-opacity="0.24" stroke="#81d4fa" stroke-width="3"/>
+      <path d="M80 48 L80 112 M48 80 L112 80 M57 57 L103 103 M103 57 L57 103" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="80" cy="80" r="8" fill="#ffffff"/>
+    </svg>`;
+  }
+  // sunny: 纯圆多层同心金日 + 12 芒冠 + 柔光高光，无任何 CSS filter / box-shadow 方形离屏纹理
+  return `<svg viewBox="0 0 160 160" width="144" height="144" aria-hidden="true">
+    <circle cx="80" cy="80" r="72" fill="#ffb300" fill-opacity="0.16"/>
+    <circle cx="80" cy="80" r="58" fill="#ff9e2c" fill-opacity="0.34"/>
+    <polygon points="80,26 89,42 107,33 107,53 127,53 118,71 134,80 118,89 127,107 107,107 107,127 89,118 80,134 71,118 53,127 53,107 33,107 42,89 26,80 42,71 33,53 53,53 53,33 71,42" fill="#ffb300" stroke="#fff3c4" stroke-width="1.5"/>
+    <circle cx="80" cy="80" r="34" fill="#ffd54f" stroke="#fff9c4" stroke-width="3"/>
+    <ellipse cx="70" cy="68" rx="12" ry="8" fill="#fffde7" fill-opacity="0.88"/>
+  </svg>`;
+}
+
+/** EffectCraft + VectorCraft 设计的分天气睡觉转场动效：不同次日天气展现各自天象与粒子 */
 function playSleepFx(s: GameState, passedOut = false): void {
   const layer = document.getElementById('scene-fx-layer');
   if (!layer) return;
   if (sceneFxTimer) clearTimeout(sceneFxTimer);
-  const dateText = `${formatDate(s)} · ${WEATHER_NAMES[s.weather]}`;
+  const w = s.weather;
+  const dateText = `${formatDate(s)} · ${WEATHER_NAMES[w]}`;
+  const headlineByWeather: Record<GameState['weather'], string> = {
+    sunny: '☀ 晨光初照 · 晴朗的一天开始了',
+    rain: '🌧 细雨润泽 · 今日农田免浇水',
+    storm: '⛈ 雷雨交加 · 狂风掠过青禾谷',
+    snow: '❄ 瑞雪纷飞 · 银装素裹的清晨',
+  };
+  const headline = passedOut ? '☾ 深夜昏睡 · 被送回农舍' : headlineByWeather[w];
+  const themeCls = passedOut ? 'weather-night' : `weather-${w}`;
+  let ambientHtml = '';
+  if (passedOut || w === 'sunny') {
+    ambientHtml = `<div class="sleep-fx-stars"><span>✦</span><span>★</span><span>✦</span><span>★</span><span>✦</span></div>`;
+  } else if (w === 'rain' || w === 'storm') {
+    ambientHtml = `<div class="sleep-fx-rain"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>${w === 'storm' ? '<div class="sleep-fx-flash"></div>' : ''}`;
+  } else if (w === 'snow') {
+    ambientHtml = `<div class="sleep-fx-snow"><span>❄</span><span>❅</span><span>✦</span><span>❄</span><span>❅</span><span>❄</span></div>`;
+  }
   layer.innerHTML = `
-    <div class="sleep-fx-stage">
-      <div class="sleep-fx-stars"><span>✦</span><span>★</span><span>✦</span><span>★</span><span>✦</span></div>
-      <div class="sleep-fx-orb">${passedOut ? '☾' : '☀'}</div>
+    <div class="sleep-fx-stage ${themeCls}">
+      ${ambientHtml}
+      <div class="sleep-fx-orb">${sleepWeatherEmblemSvg(w, passedOut)}</div>
       <div class="sleep-fx-card">
-        <b>${passedOut ? '☾ 深夜昏睡 · 被送回农舍' : '☾ 晚安，青禾谷 · 新的一天开始了 ☀'}</b>
+        <b>${esc(headline)}</b>
         <span>${esc(dateText)}</span>
       </div>
     </div>`;

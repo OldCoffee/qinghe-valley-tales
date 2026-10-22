@@ -1213,8 +1213,12 @@
         position: relative; width: 100%; height: 100%;
         display: flex; flex-direction: column; align-items: center; justify-content: center;
         background: radial-gradient(circle at 50% 35%, #232c5c 0%, #141932 62%, #0c0f20 100%);
-        animation: sleep-sky-dawn 1.38s ease-in-out forwards;
+        animation: sleep-sky-sunny 1.38s ease-in-out forwards;
       }
+      .sleep-fx-stage.weather-rain { animation-name: sleep-sky-rain; }
+      .sleep-fx-stage.weather-storm { animation-name: sleep-sky-storm; }
+      .sleep-fx-stage.weather-snow { animation-name: sleep-sky-snow; }
+      .sleep-fx-stage.weather-night { animation-name: sleep-sky-night; }
       .sleep-fx-stars span {
         position: absolute; color: #fff3c4; font-size: 22px; text-shadow: 0 0 10px #ffd23f;
         animation: sleep-star-twinkle 0.8s ease-in-out infinite alternate;
@@ -1224,14 +1228,56 @@
       .sleep-fx-stars span:nth-child(3) { top: 14%; left: 48%; animation-delay: 0.35s; }
       .sleep-fx-stars span:nth-child(4) { top: 34%; left: 16%; animation-delay: 0.15s; }
       .sleep-fx-stars span:nth-child(5) { top: 32%; right: 18%; animation-delay: 0.4s; }
+      /* 雨天/暴风雨斜雨丝粒子 */
+      .sleep-fx-rain { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+      .sleep-fx-rain i {
+        position: absolute; top: -40px; width: 3px; height: 42px;
+        background: linear-gradient(180deg, rgba(129,212,250,0), #81d4fa);
+        transform: rotate(14deg);
+        animation: sleep-rain-drop 0.52s linear infinite;
+      }
+      .sleep-fx-rain i:nth-child(1) { left: 16%; animation-delay: 0s; }
+      .sleep-fx-rain i:nth-child(2) { left: 26%; animation-delay: 0.18s; }
+      .sleep-fx-rain i:nth-child(3) { left: 37%; animation-delay: 0.08s; }
+      .sleep-fx-rain i:nth-child(4) { left: 48%; animation-delay: 0.28s; }
+      .sleep-fx-rain i:nth-child(5) { left: 59%; animation-delay: 0.14s; }
+      .sleep-fx-rain i:nth-child(6) { left: 70%; animation-delay: 0.34s; }
+      .sleep-fx-rain i:nth-child(7) { left: 80%; animation-delay: 0.06s; }
+      .sleep-fx-rain i:nth-child(8) { left: 88%; animation-delay: 0.22s; }
+      .sleep-fx-flash {
+        position: absolute; inset: 0; pointer-events: none;
+        background: radial-gradient(circle at 50% 32%, rgba(255, 249, 196, 0.75), rgba(149, 117, 205, 0.25) 60%, transparent 100%);
+        animation: sleep-storm-flash 1.36s ease-out forwards;
+      }
+      /* 雪天飘雪粒子 */
+      .sleep-fx-snow { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+      .sleep-fx-snow span {
+        position: absolute; top: 8%; color: #ffffff; font-size: 24px;
+        text-shadow: 0 0 10px #81d4fa;
+        animation: sleep-snow-fall 1.25s ease-in-out infinite;
+      }
+      .sleep-fx-snow span:nth-child(1) { left: 18%; animation-delay: 0s; }
+      .sleep-fx-snow span:nth-child(2) { left: 31%; top: 16%; animation-delay: 0.18s; }
+      .sleep-fx-snow span:nth-child(3) { left: 45%; top: 10%; animation-delay: 0.32s; }
+      .sleep-fx-snow span:nth-child(4) { left: 60%; top: 14%; animation-delay: 0.12s; }
+      .sleep-fx-snow span:nth-child(5) { left: 74%; top: 18%; animation-delay: 0.26s; }
+      .sleep-fx-snow span:nth-child(6) { left: 84%; top: 12%; animation-delay: 0.4s; }
+      /* 纯圆形 SVG 天象容器：无背景盒、无 box-shadow、无 drop-shadow 离屏纹理（彻底消除任何方框伪影） */
       .sleep-fx-orb {
-        width: 112px; height: 112px;
-        background: radial-gradient(circle, #fff9d6 0%, #ffd23f 58%, rgba(255, 179, 0, 0) 74%);
-        box-shadow: 0 0 48px #ffd23f;
+        width: 144px; height: 144px;
+        border-radius: 50% !important;
+        background: transparent !important;
+        border: 0 !important;
+        outline: none !important;
+        box-shadow: none !important;
+        filter: none !important;
         display: flex; align-items: center; justify-content: center;
-        font-size: 52px; color: #3d2410;
         animation: sleep-orb-arc 1.32s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
       }
+      .sleep-fx-orb svg { width: 144px; height: 144px; display: block; background: transparent !important; border: 0 !important; box-shadow: none !important; filter: none !important; }
+      .sleep-fx-stage.weather-rain .sleep-fx-orb { animation-name: sleep-orb-rain; }
+      .sleep-fx-stage.weather-storm .sleep-fx-orb { animation-name: sleep-orb-storm; }
+      .sleep-fx-stage.weather-snow .sleep-fx-orb { animation-name: sleep-orb-snow; }
       .sleep-fx-card {
         margin-top: 18px; padding: 14px 28px;
         background: rgba(27, 35, 64, 0.92); color: #fff3c4;
@@ -1241,17 +1287,89 @@
       }
       .sleep-fx-card b { display: block; font-size: 26px; color: #ffd23f; margin-bottom: 4px; }
       .sleep-fx-card span { font-size: 19px; color: #fff3c4; }
-      @keyframes sleep-sky-dawn {
+      .sleep-fx-stage.weather-rain .sleep-fx-card {
+        background: rgba(18, 38, 58, 0.94); border-color: #4fc3f7;
+        box-shadow: 0 8px 0 #0a1520, 0 0 28px rgba(79, 195, 247, 0.45);
+      }
+      .sleep-fx-stage.weather-rain .sleep-fx-card b { color: #81d4fa; }
+      .sleep-fx-stage.weather-storm .sleep-fx-card {
+        background: rgba(26, 20, 46, 0.94); border-color: #ffd54f;
+        box-shadow: 0 8px 0 #0d091a, 0 0 28px rgba(179, 136, 255, 0.55);
+      }
+      .sleep-fx-stage.weather-storm .sleep-fx-card b { color: #ffd54f; }
+      .sleep-fx-stage.weather-snow .sleep-fx-card {
+        background: rgba(24, 42, 64, 0.94); border-color: #b3e5fc;
+        box-shadow: 0 8px 0 #0c1826, 0 0 28px rgba(179, 229, 252, 0.5);
+      }
+      .sleep-fx-stage.weather-snow .sleep-fx-card b { color: #e1f5fe; }
+      @keyframes sleep-sky-sunny {
         0% { opacity: 0; }
-        18%, 62% { opacity: 0.96; background: radial-gradient(circle at 50% 35%, #232c5c 0%, #141932 62%, #0c0f20 100%); }
-        82% { opacity: 0.92; background: radial-gradient(circle at 50% 45%, #ffd23f 0%, #ff9e44 45%, #3a86ff 100%); }
+        18%, 56% { opacity: 0.96; background: radial-gradient(circle at 50% 35%, #232c5c 0%, #141932 62%, #0c0f20 100%); }
+        82% { opacity: 0.94; background: radial-gradient(circle at 50% 42%, #ffd23f 0%, #ff9e44 45%, #3a86ff 100%); }
+        100% { opacity: 0; }
+      }
+      @keyframes sleep-sky-rain {
+        0% { opacity: 0; }
+        18%, 56% { opacity: 0.96; background: radial-gradient(circle at 50% 35%, #16283d 0%, #0e1a28 65%, #081019 100%); }
+        82% { opacity: 0.94; background: radial-gradient(circle at 50% 40%, #2c5378 0%, #1b3652 55%, #102236 100%); }
+        100% { opacity: 0; }
+      }
+      @keyframes sleep-sky-storm {
+        0% { opacity: 0; }
+        18%, 56% { opacity: 0.97; background: radial-gradient(circle at 50% 35%, #1f1838 0%, #120e24 65%, #090714 100%); }
+        82% { opacity: 0.95; background: radial-gradient(circle at 50% 38%, #3c2a66 0%, #21183b 55%, #110c21 100%); }
+        100% { opacity: 0; }
+      }
+      @keyframes sleep-sky-snow {
+        0% { opacity: 0; }
+        18%, 56% { opacity: 0.96; background: radial-gradient(circle at 50% 35%, #1d314a 0%, #122033 65%, #0a1320 100%); }
+        82% { opacity: 0.94; background: radial-gradient(circle at 50% 42%, #5c8ab5 0%, #34587d 52%, #1d354f 100%); }
+        100% { opacity: 0; }
+      }
+      @keyframes sleep-sky-night {
+        0% { opacity: 0; }
+        18%, 80% { opacity: 0.96; background: radial-gradient(circle at 50% 35%, #232c5c 0%, #141932 62%, #0c0f20 100%); }
         100% { opacity: 0; }
       }
       @keyframes sleep-orb-arc {
         0% { transform: translate(-110px, 28px) scale(0.55); opacity: 0; }
         35% { transform: translate(0, -12px) scale(1); opacity: 1; }
-        75% { transform: translate(65px, -4px) scale(1.18); opacity: 1; }
-        100% { transform: translate(120px, 16px) scale(1.35); opacity: 0; }
+        75% { transform: translate(65px, -4px) scale(1.15); opacity: 1; }
+        100% { transform: translate(120px, 16px) scale(1.28); opacity: 0; }
+      }
+      @keyframes sleep-orb-rain {
+        0% { transform: translateY(-48px) scale(0.7); opacity: 0; }
+        32% { transform: translateY(-6px) scale(1); opacity: 1; }
+        78% { transform: translateY(4px) scale(1.06); opacity: 1; }
+        100% { transform: translateY(24px) scale(0.95); opacity: 0; }
+      }
+      @keyframes sleep-orb-storm {
+        0% { transform: scale(0.65); opacity: 0; }
+        28% { transform: scale(1.08); opacity: 1; }
+        48% { transform: translate(-4px, 2px) scale(0.98); opacity: 1; }
+        68% { transform: translate(4px, -2px) scale(1.12); opacity: 1; }
+        100% { transform: scale(0.92); opacity: 0; }
+      }
+      @keyframes sleep-orb-snow {
+        0% { transform: translateY(-30px) rotate(-35deg) scale(0.65); opacity: 0; }
+        35% { transform: translateY(-6px) rotate(0deg) scale(1); opacity: 1; }
+        78% { transform: translateY(2px) rotate(35deg) scale(1.08); opacity: 1; }
+        100% { transform: translateY(18px) rotate(60deg) scale(0.95); opacity: 0; }
+      }
+      @keyframes sleep-rain-drop {
+        from { transform: translate(0, -20px) rotate(14deg); opacity: 0; }
+        30% { opacity: 0.9; }
+        to { transform: translate(-36px, 520px) rotate(14deg); opacity: 0; }
+      }
+      @keyframes sleep-storm-flash {
+        0%, 24%, 52%, 100% { opacity: 0; }
+        30% { opacity: 0.72; }
+        62% { opacity: 0.45; }
+      }
+      @keyframes sleep-snow-fall {
+        0% { transform: translate(0, -16px) rotate(0deg); opacity: 0; }
+        25% { opacity: 0.95; }
+        100% { transform: translate(18px, 340px) rotate(120deg); opacity: 0; }
       }
       @keyframes sleep-card-rise {
         0% { transform: translateY(18px) scale(0.9); opacity: 0; }
