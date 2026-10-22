@@ -55,6 +55,7 @@ const ALIASES: Record<string, string[]> = {
   equiprod: ['equiprod', '装备鱼竿', '换鱼竿'],
   equipbait: ['equipbait', '装备鱼饵', '换鱼饵'],
   craft: ['craft', 'forge', '制作', '锻造', '调饵'],
+  workbench: ['workbench', 'bench', '工作台', '解锁工作台'],
   unequip: ['unequip', '卸下'],
   repair: ['repair', '修理', '修复'],
   donate: ['donate', '捐', '捐献'],
@@ -310,6 +311,12 @@ export function parseCommand(line: string): Parsed {
       const bait = BAITS.find((b) => [b.id, b.name].some((x) => x.toLowerCase() === name));
       if (!bait) return error('要装备哪种鱼饵？');
       return action({ type: 'equipBait', baitId: bait.id });
+    }
+    case 'workbench': {
+      const name = args.join(' ').toLowerCase();
+      if (['rod', '渔具', '鱼竿'].includes(name)) return action({ type: 'unlockWorkbench', bench: 'rod' });
+      if (['bait', '鱼饵'].includes(name)) return action({ type: 'unlockWorkbench', bench: 'bait' });
+      return error('要解锁哪台工作台？例如：workbench 渔具 或 workbench 鱼饵');
     }
     case 'craft': {
       const name = args.join(' ').toLowerCase();

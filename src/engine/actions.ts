@@ -11,7 +11,7 @@ import { buy, sell, sellFromBag, ship } from './systems/economy.js';
 import { healAtClinic } from './systems/clinic.js';
 import { clear, deweed, harvest, plant, till, uproot, water } from './systems/farming.js';
 import { joinFestival } from './systems/festivals.js';
-import { craftFishingGear, equipFishingBait, equipFishingRod, fishingSpotAccessReason, FISHING_SPOTS, startFishing } from './systems/fishing.js';
+import { craftFishingGear, equipFishingBait, equipFishingRod, fishingSpotAccessReason, FISHING_SPOTS, startFishing, unlockWorkbench } from './systems/fishing.js';
 import { forage } from './systems/foraging.js';
 import { chopTree, ensureForest, exploreForest, harvestGrove } from './systems/forest.js';
 import { attack, descend, enterMine, leaveMine, mineRock } from './systems/mine.js';
@@ -84,6 +84,8 @@ function dispatch(s: GameState, action: Action, events: GameEvent[]): boolean {
       return equipFishingBait(s, events, action.baitId);
     case 'craftGear':
       return craftFishingGear(s, events, action.targetId);
+    case 'unlockWorkbench':
+      return unlockWorkbench(s, events, action.bench);
     case 'forage':
       return forage(s, events, action.index);
     case 'chop':

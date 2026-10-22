@@ -7,7 +7,7 @@ import {
   TRASH_CHANCE,
 } from '../../data/config.js';
 import { FISH, FISHING_SPOT_DEFS, TRASH, weatherMatches, type FishDef } from '../../data/fish.js';
-import { BAIT_BY_ID, RODS, ROD_BY_ID, equippedRod, ownsCapability } from '../../data/fishingGear.js';
+import { BAIT_BY_ID, RODS, ROD_BY_ID, WORKBENCHES, equippedRod, ownsCapability, type WorkbenchDef, type WorkbenchId } from '../../data/fishingGear.js';
 import { ITEMS } from '../../data/items.js';
 import { pick, random } from '../rng.js';
 import { addXp, hasProf, skillLevel } from '../skills.js';
@@ -90,11 +90,59 @@ export function equipFishingBait(s: GameState, events: GameEvent[], baitId: stri
   return true;
 }
 
+export function workbenchUnlocked(s: GameState, bench: WorkbenchDef): boolean {
+  return s.unlocks.includes(bench.unlockId);
+}
+
+/** 制作前的工作台校验：先解锁，再到对应工作台所在地；通过返回 null */
+export function workbenchBlockReason(s: GameState, bench: WorkbenchDef): string | null {
+  if (!workbenchUnlocked(s, bench)) return `先去${bench.placeName}解锁${bench.name}`;
+  if (s.location !== bench.location) return `到${bench.placeName}的${bench.name}才能制作`;
+  return null;
+}
+
+export function unlockWorkbench(s: GameState, events: GameEvent[], benchId: WorkbenchId): boolean {
+  const bench = WORKBENCHES[benchId];
+  if (!bench) {
+    events.push(warn('没有这台工作台。'));
+    return false;
+  }
+  if (workbenchUnlocked(s, bench)) {
+    events.push(info(`${bench.name}已经解锁了。`));
+    return false;
+  }
+  if (s.location !== bench.location) {
+    events.push(warn(`去${bench.placeName}才能解锁${bench.name}。`));
+    return false;
+  }
+  const missing: string[] = [];
+  if (s.gold < bench.unlockGold) missing.push(`金币 ×${bench.unlockGold - s.gold}`);
+  for (const [itemId, need] of Object.entries(bench.unlockRecipe)) {
+    const have = s.inventory[itemId] ?? 0;
+    if (have < need) missing.push(`${ITEMS[itemId]?.name ?? itemId} ×${need - have}`);
+  }
+  if (missing.length > 0) {
+    events.push(warn(`解锁${bench.name}还差：${missing.join('、')}。`));
+    return false;
+  }
+  s.gold -= bench.unlockGold;
+  for (const [itemId, need] of Object.entries(bench.unlockRecipe)) removeItem(s, itemId, need);
+  s.unlocks.push(bench.unlockId);
+  events.push(good(`解锁了${bench.name}！在${bench.placeName}就能${bench.id === 'rod' ? '锻造鱼竿' : '调配鱼饵'}了。`));
+  return true;
+}
+
 export function craftFishingGear(s: GameState, events: GameEvent[], targetId: string): boolean {
   const rod = ROD_BY_ID[targetId] ?? RODS.find((r) => r.itemId === targetId);
   const bait = BAIT_BY_ID[targetId];
   if (!rod && !bait) {
     events.push(warn('没有这种渔具或鱼饵配方。'));
+    return false;
+  }
+  const bench = WORKBENCHES[rod ? 'rod' : 'bait'];
+  const blocked = workbenchBlockReason(s, bench);
+  if (blocked) {
+    events.push(warn(`${blocked}。`));
     return false;
   }
   const level = skillLevel(s, 'fishing');

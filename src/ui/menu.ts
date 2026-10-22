@@ -145,9 +145,11 @@ const ENTRIES: MenuEntry[] = [
       return id && `equipbait ${id}`;
     },
   },
+  { label: '解锁渔具工作台（小镇铁匠铺）', when: (s) => s.location === 'town' && !s.unlocks.includes('rod_workbench'), build: fixed('workbench rod') },
+  { label: '解锁鱼饵工作台（海滩渔夫小屋）', when: (s) => s.location === 'beach' && !s.unlocks.includes('bait_workbench'), build: fixed('workbench bait') },
   {
-    label: '制作渔具/鱼饵',
-    when: (s) => s.location === 'farm' || FISHING_SPOTS.includes(s.location),
+    label: '制作渔具/鱼饵（需对应工作台）',
+    when: (s) => s.location === 'town' || s.location === 'beach',
     build: async (io, s) => {
       const fmtRecipe = (r?: Record<string, number>) =>
         r ? Object.entries(r).map(([id, n]) => `${itemName(id)}×${n}`).join('+') : '';

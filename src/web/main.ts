@@ -2,7 +2,7 @@ import { BUNDLES, ROOMS } from '../data/bundles.js';
 import { BAG_SELL_RATE, CLINIC, DURABILITY, FISH_MAX_ROUNDS, POINTS_PER_HEART, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
 import { FISH, FISHING_SPOT_DEFS } from '../data/fish.js';
-import { BAITS, BAIT_BY_ID, ensureFishingGear, equippedRod, RODS, ROD_BY_ID, ROD_BY_ITEM } from '../data/fishingGear.js';
+import { BAITS, BAIT_BY_ID, ensureFishingGear, equippedRod, RODS, ROD_BY_ID, ROD_BY_ITEM, WORKBENCHES, type WorkbenchId } from '../data/fishingGear.js';
 import { ITEMS, itemName, rarityOf } from '../data/items.js';
 import { GROVES } from '../data/forest.js';
 import { FORAGE } from '../data/forage.js';
@@ -51,7 +51,7 @@ type UiModalState =
   | { kind: 'saves' }
   | { kind: 'profile' }
   | { kind: 'codex'; itemId: string }
-  | { kind: 'craft' }
+  | { kind: 'craft'; bench?: WorkbenchId }
   | { kind: 'create' }
   | null;
 
@@ -1139,6 +1139,7 @@ function scenePage(): string {
       ${forageNodesSection('野外散落采集物（点击哪个拾取哪个）')}
       ${fishingDockSection()}
       ${shopCards()}
+      ${workbenchCards()}
       ${townExtras()}`;
   }
 
@@ -1527,10 +1528,10 @@ function codexModalHtml(id: string): string {
     rows.push(['鱼饵', rod.allowsBait ? (rod.allowsAdvancedBait ? '可装普通与史诗/传说鱼饵' : '可装普通/优秀/稀有鱼饵') : '不可装鱼饵']);
     source =
       rod.id === 'celestial'
-        ? '收集原料在「制作渔具与鱼饵」工作台锻造'
+        ? '在白鹭镇铁匠铺的渔具工作台锻造（需先解锁）'
         : rod.id === 'deep_sea'
-          ? '原料工作台锻造，或完成社区中心鱼缸后在渔具店购买'
-          : '原料工作台锻造，或在海滩渔具店购买';
+          ? '渔具工作台锻造，或完成社区中心鱼缸后在渔具店购买'
+          : '渔具工作台锻造，或在海滩渔具店购买';
   } else if (bait) {
     if (bait.price) rows.push(['商店售价', `${bait.price} 金`]);
     if (bait.minLevel) rows.push(['钓鱼等级', `Lv.${bait.minLevel}`]);
@@ -1545,7 +1546,7 @@ function codexModalHtml(id: string): string {
           .join('、')} → 产出 ×${bait.craftYield ?? 4}`,
       ]);
     }
-    source = bait.legendaryOnly ? '原料工作台调配，或完成社区中心鱼缸获赠' : '原料工作台调配，或在海滩渔具店购买';
+    source = bait.legendaryOnly ? '在海滩老渔夫小屋的鱼饵工作台调配，或完成社区中心鱼缸获赠' : '在海滩老渔夫小屋的鱼饵工作台调配，或在海滩渔具店购买';
   } else if (crop) {
     if (item.category === 'seed') {
       rows.push(['种子价格', `${crop.seedPrice} 金`]);
@@ -2118,7 +2119,36 @@ function createModalHtml(): string {
     </div>`;
 }
 
-function craftModalHtml(): string {
+function workbenchBarHtml(benchId: WorkbenchId): string {
+  const bench = WORKBENCHES[benchId];
+  const unlocked = state.unlocks.includes(bench.unlockId);
+  const here = state.location === bench.location;
+  const costChips =
+    `<span class="chip ${state.gold >= bench.unlockGold ? 'ok' : ''}">金币 ${state.gold}/${bench.unlockGold}</span>` +
+    Object.entries(bench.unlockRecipe)
+      .map(([id, need]) => `<span class="chip ${(state.inventory[id] ?? 0) >= need ? 'ok' : ''}">${itemName(id)} ${state.inventory[id] ?? 0}/${need}</span>`)
+      .join('');
+  const canUnlock = here && state.gold >= bench.unlockGold && Object.entries(bench.unlockRecipe).every(([id, need]) => (state.inventory[id] ?? 0) >= need);
+  const action = unlocked
+    ? here
+      ? '<span class="badge ok">已解锁 · 可制作</span>'
+      : `<button class="pix-btn" data-act="go-workbench" data-bench="${benchId}">前往${bench.placeName}</button>`
+    : here
+      ? `<button class="pix-btn gold" data-act="unlock-workbench" data-bench="${benchId}" ${canUnlock ? '' : 'disabled'}>解锁${bench.name}</button>`
+      : `<button class="pix-btn" data-act="go-workbench" data-bench="${benchId}">前往${bench.placeName}解锁</button>`;
+  return `<div class="mine-hint"><b>${bench.name}</b><span>${bench.placeName}</span><span>${unlocked ? '已解锁' : '未解锁'}</span><div class="chips">${unlocked ? '' : costChips}</div>${action}</div>`;
+}
+
+function workbenchCards(): string {
+  const bench = state.location === 'town' ? WORKBENCHES.rod : state.location === 'beach' ? WORKBENCHES.bait : null;
+  if (!bench) return '';
+  const unlocked = state.unlocks.includes(bench.unlockId);
+  return `<h3>工作台</h3><div class="cards grid-2"><button class="card place" data-act="open-craft" data-bench="${bench.id}">
+    <b>${uiIconSvg('wrench')} ${bench.name}</b>
+    <span>${unlocked ? '已解锁 · 点击制作' : `未解锁 · ${bench.unlockGold} 金 + ${Object.entries(bench.unlockRecipe).map(([id, n]) => `${itemName(id)}×${n}`).join('、')}`}</span></button></div>`;
+}
+
+function craftModalHtml(focusBench?: WorkbenchId): string {
   const fishLv = skillLevel(state, 'fishing');
   const recipeChips = (recipe: Record<string, number>) =>
     Object.entries(recipe)
@@ -2128,13 +2158,16 @@ function craftModalHtml(): string {
         return `<span class="chip ${ok ? 'ok' : ''}">${itemName(id)} ${have}/${need}</span>`;
       })
       .join('');
-  const canMake = (recipe: Record<string, number>, minLv: number) =>
-    fishLv >= minLv && Object.entries(recipe).every(([id, need]) => (state.inventory[id] ?? 0) >= need);
+  const benchUsable = (benchId: WorkbenchId) => state.unlocks.includes(WORKBENCHES[benchId].unlockId) && state.location === WORKBENCHES[benchId].location;
+  const benchBlock = (benchId: WorkbenchId) =>
+    !state.unlocks.includes(WORKBENCHES[benchId].unlockId) ? `先解锁${WORKBENCHES[benchId].name}` : `去${WORKBENCHES[benchId].placeName}`;
+  const canMake = (benchId: WorkbenchId, recipe: Record<string, number>, minLv: number) =>
+    benchUsable(benchId) && fishLv >= minLv && Object.entries(recipe).every(([id, need]) => (state.inventory[id] ?? 0) >= need);
 
   const rodCards = RODS.filter((r) => r.recipe)
     .map((r) => {
       const owned = state.ownedRods.includes(r.id);
-      const ready = !owned && canMake(r.recipe!, r.minLevel);
+      const ready = !owned && canMake('rod', r.recipe!, r.minLevel);
       const targets = (r.targetFishIds ?? []).slice(0, 4).map((id) => itemName(id)).join('、');
       return `<div class="codex-card" style="align-items:flex-start;text-align:left;gap:6px;">
         <div style="display:flex;justify-content:space-between;align-items:center;width:100%;gap:6px;">
@@ -2146,7 +2179,7 @@ function craftModalHtml(): string {
         <small class="dim">需要钓鱼 Lv.${r.minLevel}（当前 Lv.${fishLv}）</small>
         <div class="chips">${recipeChips(r.recipe!)}</div>
         <button class="pix-btn ${ready ? 'gold' : ''}" data-act="craft-gear" data-target="${r.id}" ${ready ? '' : 'disabled'}>
-          ${owned ? '已拥有' : fishLv < r.minLevel ? `需钓鱼 Lv.${r.minLevel}` : ready ? '立即锻造' : '原料不足'}
+          ${owned ? '已拥有' : !benchUsable('rod') ? benchBlock('rod') : fishLv < r.minLevel ? `需钓鱼 Lv.${r.minLevel}` : ready ? '立即锻造' : '原料不足'}
         </button>
       </div>`;
     })
@@ -2154,7 +2187,7 @@ function craftModalHtml(): string {
 
   const baitCards = BAITS.filter((b) => b.recipe)
     .map((b) => {
-      const ready = canMake(b.recipe!, b.minLevel);
+      const ready = canMake('bait', b.recipe!, b.minLevel);
       const have = state.inventory[b.id] ?? 0;
       const targets = (b.targetFishIds ?? []).slice(0, 4).map((id) => itemName(id)).join('、');
       return `<div class="codex-card" style="align-items:flex-start;text-align:left;gap:6px;">
@@ -2167,21 +2200,20 @@ function craftModalHtml(): string {
         <small class="dim">需要钓鱼 Lv.${b.minLevel} · 当前持有 ×${have}</small>
         <div class="chips">${recipeChips(b.recipe!)}</div>
         <button class="pix-btn ${ready ? 'gold' : ''}" data-act="craft-gear" data-target="${b.id}" ${ready ? '' : 'disabled'}>
-          ${fishLv < b.minLevel ? `需钓鱼 Lv.${b.minLevel}` : ready ? `调配 ×${b.craftYield ?? 4}` : '原料不足'}
+          ${!benchUsable('bait') ? benchBlock('bait') : fishLv < b.minLevel ? `需钓鱼 Lv.${b.minLevel}` : ready ? `调配 ×${b.craftYield ?? 4}` : '原料不足'}
         </button>
       </div>`;
     })
     .join('');
 
+  const rodSection = `<h3>渔具工作台 · 鱼竿锻造</h3>${workbenchBarHtml('rod')}<div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">${rodCards}</div>`;
+  const baitSection = `<h3>鱼饵工作台 · 鱼饵调配</h3>${workbenchBarHtml('bait')}<div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">${baitCards}</div>`;
   return `
     <div class="modal-head">
-      <h2>${uiIconSvg('wrench')} 渔具锻造与鱼饵调配台</h2>
+      <h2>${uiIconSvg('wrench')} 渔具与鱼饵工作台</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
-    <h3>专属鱼竿锻造（优良 / 稀有 / 史诗 / 传说）</h3>
-    <div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">${rodCards}</div>
-    <h3>定向鱼饵调配（原料合成）</h3>
-    <div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr));">${baitCards}</div>
+    ${focusBench === 'bait' ? baitSection : focusBench === 'rod' ? rodSection : rodSection + baitSection}
     <div class="detail-actions">
       <button class="pix-btn ghost" data-act="close-ui-modal">关闭</button>
     </div>`;
@@ -2199,7 +2231,7 @@ function uiModalContent(): string {
     case 'codex':
       return codexModalHtml(uiModal.itemId);
     case 'craft':
-      return craftModalHtml();
+      return craftModalHtml(uiModal.bench);
     case 'npc':
       return npcModalHtml(uiModal.npcId);
     case 'bundle':
@@ -2707,9 +2739,23 @@ document.addEventListener('click', (e) => {
       doAction({ type: 'equipBait', baitId: el.dataset.bait || null });
       break;
     case 'open-craft':
-      uiModal = { kind: 'craft' };
+      uiModal = { kind: 'craft', bench: (el.dataset.bench as WorkbenchId | undefined) || undefined };
       render();
       break;
+    case 'unlock-workbench':
+      doAction({ type: 'unlockWorkbench', bench: el.dataset.bench as WorkbenchId });
+      break;
+    case 'go-workbench': {
+      const bench = WORKBENCHES[el.dataset.bench as WorkbenchId];
+      uiModal = null;
+      page = 'scene';
+      if (state.location !== bench.location) doAction({ type: 'move', to: bench.location });
+      if (state.location === bench.location) {
+        uiModal = { kind: 'craft', bench: bench.id };
+        render();
+      }
+      break;
+    }
     case 'craft-gear': {
       const targetId = el.dataset.target!;
       const rod = ROD_BY_ID[targetId];

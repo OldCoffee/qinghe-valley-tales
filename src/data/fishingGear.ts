@@ -1,4 +1,4 @@
-import type { GameState } from '../engine/types.js';
+import type { GameState, LocationId } from '../engine/types.js';
 
 export type WaterType = 'river' | 'lake' | 'ocean';
 export type FishTag =
@@ -62,6 +62,40 @@ export interface BaitDef {
   advanced?: boolean;
   legendaryOnly?: boolean;
 }
+
+export type WorkbenchId = 'rod' | 'bait';
+
+export interface WorkbenchDef {
+  id: WorkbenchId;
+  name: string;
+  /** 工作台所在地点与展示名称 */
+  location: LocationId;
+  placeName: string;
+  unlockId: string;
+  unlockGold: number;
+  unlockRecipe: Record<string, number>;
+}
+
+export const WORKBENCHES: Record<WorkbenchId, WorkbenchDef> = {
+  rod: {
+    id: 'rod',
+    name: '渔具工作台',
+    location: 'town',
+    placeName: '白鹭镇阿铁铁匠铺',
+    unlockId: 'rod_workbench',
+    unlockGold: 500,
+    unlockRecipe: { wood: 10, copper_ore: 5 },
+  },
+  bait: {
+    id: 'bait',
+    name: '鱼饵工作台',
+    location: 'beach',
+    placeName: '海滩老渔夫的小屋',
+    unlockId: 'bait_workbench',
+    unlockGold: 300,
+    unlockRecipe: { wood: 5, clam: 2 },
+  },
+};
 
 export const RODS: RodDef[] = [
   {

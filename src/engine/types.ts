@@ -228,6 +228,7 @@ export type Action =
   | { type: 'equipRod'; rodId: string }
   | { type: 'equipBait'; baitId: string | null }
   | { type: 'craftGear'; targetId: string }
+  | { type: 'unlockWorkbench'; bench: 'rod' | 'bait' }
   | { type: 'forage'; index?: number }
   | { type: 'chop' }
   | { type: 'grove'; grove: GroveId }
