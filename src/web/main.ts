@@ -1286,7 +1286,10 @@ function fishingDockSection(): string {
         .map((f) => {
           const caught = state.stats.fishSpecies.includes(f.id);
           const stars = starRow(f.difficulty);
-          return `<span class="chip ${caught ? 'ok' : ''}">${caught ? f.name : '未知鱼影'} <small>${stars}</small></span>`;
+          const weatherText = { any: '任意天气', sunny: '晴天', rain: '雨天（含暴风雨）', snow: '雪天', storm: '暴风雨' }[f.weather];
+          const seasonText = f.seasons.length === 4 ? '全年' : f.seasons.map((x) => SEASON_NAMES[x]).join('/');
+          const hourText = `${f.hours[0]}–${f.hours[1] > 24 ? `次日 ${f.hours[1] - 24}` : f.hours[1]} 点`;
+          return `<span class="chip ${caught ? 'ok' : ''}" title="出没：${hourText} · ${weatherText} · ${seasonText}">${caught ? f.name : '未知鱼影'} <small>${stars}</small></span>`;
         })
         .join('')
     : '<span class="dim">当前时段或天气下水面很安静，换个时段或雨天来看看吧。</span>';
