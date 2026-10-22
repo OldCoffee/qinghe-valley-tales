@@ -5,6 +5,7 @@ import { TOOL_LEVEL_NAMES, TOOL_NAMES } from '../../data/skills.js';
 import { absoluteDay, shopClosedReason } from '../calendar.js';
 import type { GameEvent, GameState, ToolId } from '../types.js';
 import { good, removeItem, warn } from '../util.js';
+import { shopUnavailableReason } from './social.js';
 import { toolMaxDurability } from './equipment.js';
 
 const BLACKSMITH = SHOPS.find((shop) => shop.id === 'blacksmith')!;
@@ -33,7 +34,7 @@ export function upgrade(s: GameState, events: GameEvent[], tool: ToolId): boolea
     events.push(warn(`工具升级要去小镇的${BLACKSMITH.name}。`));
     return false;
   }
-  const closed = shopClosedReason(s, BLACKSMITH);
+  const closed = shopUnavailableReason(s, BLACKSMITH);
   if (closed) {
     events.push(warn(closed));
     return false;

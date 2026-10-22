@@ -2,7 +2,7 @@ import { BUNDLES, ROOMS } from '../data/bundles.js';
 import { BAG_SELL_RATE, CLINIC, DURABILITY, POINTS_PER_HEART, SAVE_VERSION, TOOL_POWER } from '../data/config.js';
 import { CROPS } from '../data/crops.js';
 import { FISH, ROD_NAMES } from '../data/fish.js';
-import { ITEMS, itemName } from '../data/items.js';
+import { ITEMS, itemName, rarityOf } from '../data/items.js';
 import { GROVES } from '../data/forest.js';
 import { MONSTERS, WEAPONS, ORES, GEMS, MINE_CHESTS } from '../data/mine.js';
 import { NPC_BY_ID, NPCS } from '../data/npcs.js';
@@ -13,6 +13,7 @@ import { activityView } from '../engine/activity.js';
 import { formatDate, formatTime, shopClosedReason, todayFestival } from '../engine/calendar.js';
 import { cellName } from '../engine/farm.js';
 import { createNewGame } from '../engine/state.js';
+import { ensureCollection } from '../engine/util.js';
 import { ensureEquipment, repairCost, toolMaxDurability, weaponMaxDurability } from '../engine/systems/equipment.js';
 import { maxHp, sellPrice, skillLevel, skillProgressOf, type SkillProgress } from '../engine/skills.js';
 import { bundleDone, donatedCount, neededItems } from '../engine/systems/bundles.js';
@@ -20,10 +21,10 @@ import { shopsAt } from '../engine/systems/economy.js';
 import { availableFish, FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { clinicCost, clinicOpen } from '../engine/systems/clinic.js';
 import { elevatorFloors } from '../engine/systems/mine.js';
-import { giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, type GiftTier } from '../engine/systems/social.js';
+import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, shopUnavailableReason, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
-import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
+import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -32,7 +33,7 @@ const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 type PageId = 'scene' | 'bag' | 'social' | 'journal';
 type FarmSubTab = 'field' | 'greenhouse';
 type SocialSubTab = 'here' | 'all';
-type JournalSubTab = 'skills' | 'bundles' | 'records';
+type JournalSubTab = 'skills' | 'bundles' | 'records' | 'codex';
 
 /** 多样化交互弹窗状态（店铺弹窗使用 openShopId 独立承载，活动事件使用引擎 activity 承载） */
 type UiModalState =
@@ -176,6 +177,8 @@ function load(): GameState | null {
     const data = JSON.parse(raw) as GameState;
     if (data.version !== SAVE_VERSION) return null;
     ensureEquipment(data);
+    if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
+    ensureCollection(data);
     return data;
   } catch {
     return null;
@@ -401,6 +404,11 @@ function doAction(action: Action, cells: string[] = []): void {
 
 const hearts = (n: number) =>
   Array.from({ length: 10 }, (_, i) => uiIconSvg(i < n ? 'heart' : 'heart_empty')).join('');
+/** 稀有度像素徽章: 奖章图标 + 档位名 (title 含完整稀有度) */
+const rarityBadgeHtml = (id: string, withName = false) => {
+  const r = rarityOf(id);
+  return `<span class="rarity-badge rarity-${r.tier}" title="稀有度：${r.name}">${rarityBadgeSvg(r.tier)}${withName ? `<small>${r.name}</small>` : ''}</span>`;
+};
 const heartRow = (n: number, max = 5) =>
   Array.from({ length: max }, (_, i) => uiIconSvg(i < n ? 'heart' : 'heart_empty')).join('');
 const starRow = (n: number) => Array.from({ length: Math.max(1, n) }, () => uiIconSvg('star')).join('');
@@ -635,12 +643,13 @@ function markFarmEntered(): void {
 function shopCards(): string {
   const shops = shopsAt(state);
   if (!shops.length) return '';
-  return `<h3>镇上店铺（点击进店交易/升级/修复）</h3><div class="cards grid-2">${shops
+  return `<h3>镇上店铺</h3><div class="cards grid-2">${shops
     .map((shop) => {
-      const closed = shopClosedReason(state, shop);
+      const closed = shopUnavailableReason(state, shop);
+      const keeper = shop.keeperName ? `${shop.keeperName}在店 · ` : '';
       return `<button class="card place" data-act="open-shop" data-shop="${shop.id}">
         <b>${shop.name}</b>
-        <span>${formatTime(shop.open)}-${formatTime(shop.close)} · ${closed ?? '营业中 · 点击打开弹窗'}</span></button>`;
+        <span>${formatTime(shop.open)}-${formatTime(shop.close)} · ${closed ?? keeper + '营业中'}</span></button>`;
     })
     .join('')}</div>`;
 }
@@ -650,14 +659,14 @@ function townExtras(): string {
   const need = neededItems(state).filter((id) => (state.inventory[id] ?? 0) > 0);
   const hpMaxTown = maxHp(state);
   const missingTown = Math.max(0, hpMaxTown - state.hp);
-  return `<h3>白芷诊所（支付诊金恢复生命）</h3>
+  return `<h3>白芷诊所</h3>
     <div class="cards grid-2">
       <button class="card place" data-act="open-clinic">
         <b>${uiIconSvg('clinic')} 白芷诊所</b>
         <span>${clinicOpen(state) ? '白芷坐诊中' : '白芷去森林采药了（晴天 10 点后回镇）'} · 生命 ${state.hp}/${hpMaxTown}${missingTown ? ` · 缺 ${missingTown} 点，补满 ${missingTown * CLINIC.goldPerHp} 金` : ' · 健康'} · 点击进入诊所</span>
       </button>
     </div>
-    <h3>社区中心（点击房间打开收集包捐献弹窗）</h3>
+    <h3>社区中心</h3>
     <div class="room-grid">
       ${ROOMS.map((room) => {
         const bundles = BUNDLES.filter((b) => b.room === room.id);
@@ -720,7 +729,6 @@ function forageNodesSection(label?: string): string {
           (_, idx) => `<button class="forage-node unexplored" data-act="forage-one" data-idx="${idx}" aria-label="未探索的草丛，点击翻开">
             <span class="forage-badge">${tileStatusSvg('weed')}</span>
             <b>草丛 #${idx + 1}</b>
-            <small class="dim">未探索 · 点击翻开</small>
           </button>`,
         )
         .join('')}
@@ -867,7 +875,7 @@ function forestScene(): string {
   <h3>林间伐木舞台（点击树木连续挥斧 3 下砍倒，掉落木材 ×2~4）</h3>
   <div class="forest-stage ${forestChopFx ? 'fx-chop' : ''}">
     <div class="forest-stage-head">
-      <span>${uiIconSvg('tree')} 剩余林木 <b>${f.trees}/8</b> 棵 · ${axeDur} · 木材可出货（10 金/块）</span>
+      <span>${uiIconSvg('tree')} 剩余林木 <b>${f.trees}/8</b> 棵 · ${axeDur}</span>
       <button class="pix-btn gold" data-act="chop" ${canChop ? '' : 'disabled'}>${uiIconSvg('axe')} 快速砍倒一棵</button>
     </div>
     <div class="forest-grid">${treeSlotsHtml}</div>
@@ -953,7 +961,7 @@ function scenePage(): string {
               return `<button class="npc-pill ${fx ? `fx-${fx.tone}` : ''}" data-act="open-npc" data-npc="${npc.id}">
               <span class="mini-ava">${npcAvatarSvg(npc.id)}</span>
               <b>${npc.name}</b>
-              <span class="hearts">${heartRow(Math.min(5, heartsOf(state, npc.id)) || 1)}</span>
+              <span class="hearts">${heartRow(Math.min(5, heartsOf(state, npc.id)))}</span>
               <small>${state.npcs[npc.id].talkedToday ? '已聊' : '可聊天'}</small>
               ${fx ? `<span class="npc-pill-fx tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].slice(0, 3).map((p, i) => `<span style="--i:${i}">${fxParticle(p)}</span>`).join('')}</span>` : ''}
             </button>`;
@@ -1123,6 +1131,7 @@ function equipmentSection(warnings: string[]): string {
       return `<article class="equip-card weapon ${equipped ? 'on' : ''} ${low ? 'low-dur' : ''} ${wearFlash ? 'fx-wear' : ''}" data-act="view-weapon" data-item="${id}" title="点击查看${def.name}详情">
         <div class="equip-head"><span class="equip-title-row"><span class="equip-icon">${itemIconSvg(id)}</span><b>${def.name}</b></span>${equipped ? '<span class="badge ok">已装备</span>' : '<span class="badge">未装备</span>'}</div>
         <span class="equip-meta">伤害 ${def.damage[0]}-${def.damage[1]} · 暴击 ${5 + Math.max(0, WEAPONS.findIndex((w) => w.id === id)) * 2}%</span>
+        ${rarityBadgeHtml(id, true)}
         ${durBar(cur, max)}
         ${low ? '<p class="equip-note warn-text">耐久偏低，及时修理。</p>' : ''}
         <div class="equip-actions">
@@ -1172,6 +1181,7 @@ function bagPage(): string {
                 (id) => `<button class="bag-item ${selectedItem === id ? 'on' : ''}" data-act="item" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
                   <span class="bag-item-icon">${itemIconSvg(id)}</span>
                   <span class="bag-item-main"><b>${ITEMS[id].name}</b><small>${bagItemMeta(id)}</small></span>
+                  ${rarityBadgeHtml(id)}
                   <span class="bag-item-qty">×${state.inventory[id]}</span>
                 </button>`,
               )
@@ -1229,7 +1239,8 @@ function socialPage(): string {
               <span class="chip">本周送礼 ${st.giftsThisWeek}/2</span>
               ${streak > 1 ? `<span class="chip ok">${uiIconSvg('fire')} 连聊 ${streak} 天</span>` : ''}
               <span class="chip ${bday ? 'ok' : ''}">${uiIconSvg('cake')} ${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日</span>
-              ${npc.marriageable ? '<span class="chip">可恋爱</span>' : ''}
+              ${npc.marriageable ? (canRomance(state, npc) ? '<span class="chip ok">可恋爱</span>' : '<span class="chip">同性 · 仅好友</span>') : ''}
+              <span class="chip">${npc.gender === 'female' ? '女' : '男'}</span>
             </div>
             <button class="pix-btn ${isHere ? 'gold' : 'ghost'} npc-main-btn" data-act="open-npc" data-npc="${npc.id}">
               ${isHere ? '互动 / 送礼' : '查看资料'}
@@ -1250,6 +1261,55 @@ function socialPage(): string {
     </div>
     ${cardsHtml}
   </div>`;
+}
+
+/* ---------- 图鉴 (Codex): 按类展示已收集 / 未收集与完成度 ---------- */
+const CODEX_CATEGORIES: { key: string; label: string; match: (id: string) => boolean }[] = [
+  { key: 'equip', label: '装备', match: (id) => ITEMS[id].category === 'weapon' },
+  { key: 'tools', label: '工具', match: (id) => ITEMS[id].category === 'tool' },
+  { key: 'crops', label: '作物', match: (id) => ITEMS[id].category === 'crop' || ITEMS[id].category === 'seed' },
+  { key: 'forage', label: '采集物', match: (id) => ITEMS[id].category === 'forage' },
+  { key: 'fish', label: '鱼类', match: (id) => ITEMS[id].category === 'fish' },
+  { key: 'oregem', label: '矿石宝石', match: (id) => ITEMS[id].category === 'ore' || ITEMS[id].category === 'gem' },
+  { key: 'food', label: '食物', match: (id) => ITEMS[id].category === 'food' },
+  { key: 'other', label: '其他', match: (id) => !['weapon', 'tool', 'crop', 'seed', 'forage', 'fish', 'ore', 'gem', 'food'].includes(ITEMS[id].category) },
+];
+
+/** 是否已入图鉴: 获得记录 / 当前持有 / 工具武器按拥有状态推导 (老存档兼容) */
+function codexCollected(id: string): boolean {
+  if ((state.collection ?? []).includes(id)) return true;
+  if ((state.inventory[id] ?? 0) > 0) return true;
+  const item = ITEMS[id];
+  if (item?.toolGrant) return state.tools[item.toolGrant.tool] >= item.toolGrant.level;
+  if (item?.category === 'weapon') return state.weapon === id || typeof state.weaponDurability[id] === 'number';
+  return false;
+}
+
+function codexSection(): string {
+  const allIds = Object.keys(ITEMS);
+  const totalGot = allIds.filter(codexCollected).length;
+  const pct = Math.round((totalGot / allIds.length) * 100);
+  const cats = CODEX_CATEGORIES.map((cat) => {
+    const ids = allIds.filter(cat.match);
+    const got = ids.filter(codexCollected).length;
+    const cards = ids
+      .map((id) => {
+        const owned = codexCollected(id);
+        const qty = state.inventory[id] ?? 0;
+        return `<div class="codex-card ${owned ? '' : 'uncollected'}">
+          <span class="bag-item-icon">${itemIconSvg(id)}</span>
+          <b>${owned ? ITEMS[id].name : '未收集'}</b>
+          ${rarityBadgeHtml(id, true)}
+          <small>${owned ? (qty > 0 ? `持有 ×${qty}` : '已收集') : '尚未获得'}</small>
+        </div>`;
+      })
+      .join('');
+    return `<h3>${cat.label} <small class="dim">${got}/${ids.length}</small></h3><div class="codex-grid">${cards}</div>`;
+  }).join('');
+  return `<h3>物品图鉴 <small class="dim">已收集 ${totalGot}/${allIds.length}（${pct}%）</small></h3>
+    <div class="codex-progress">${bar(totalGot, allIds.length, 'xp')}</div>
+    <p class="dim">通过收获、采集、钓鱼、挖矿、购买或获赠第一次得到一件物品时自动入册；卖掉或用掉不会取消收集记录。</p>
+    ${cats}`;
 }
 
 /* ---------- 4. 手册与状态整页 (Journal & Status Page) ---------- */
@@ -1288,6 +1348,8 @@ function journalPage(): string {
           <span>伤害 ${weapon?.damage.join('-') ?? '1-2'} · 前往背包整页管理</span>
         </button>
       </div>`;
+  } else if (journalSubTab === 'codex') {
+    content = codexSection();
   } else if (journalSubTab === 'bundles') {
     content = `
       <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:12px;">
@@ -1322,6 +1384,7 @@ function journalPage(): string {
     content = `
       <h3>农场主生涯统计</h3>
       <dl class="detail-list">
+        <div><dt>主角性别</dt><dd>${playerGenderOf(state) === 'female' ? '女' : '男'}（点顶栏「主角」按钮可切换，交往/订婚/婚后不可切换）</dd></div>
         <div><dt>累计总收入</dt><dd>${state.stats.totalEarned} 金</dd></div>
         <div><dt>累计收获作物</dt><dd>${state.stats.cropsHarvested} 株</dd></div>
         <div><dt>累计钓获鱼类</dt><dd>${state.stats.fishCaught} 条（解锁 ${state.stats.fishSpecies.length} 种图鉴）</dd></div>
@@ -1340,7 +1403,7 @@ function journalPage(): string {
         ${
           state.wedding
             ? `<p>${uiIconSvg('bell')} <b>婚礼预告：</b>你与 ${NPC_BY_ID[state.wedding.npcId].name} 的婚礼定于第 ${state.wedding.day} 日举行。</p>`
-            : '<p class="dim">与心仪的单身居民好感达到 8 心可赠送花束交往，10 心可赠送美人鱼吊坠求婚。</p>'
+            : '<p class="dim">与心仪的异性单身居民好感达到 8 心可赠送花束交往，10 心可赠送美人鱼吊坠求婚；同性居民只能成为好友。</p>'
         }
       </div>`;
   }
@@ -1352,6 +1415,7 @@ function journalPage(): string {
         社区中心收集包 <small>可捐 ${need.length}</small>
       </button>
       <button class="sub-tab ${journalSubTab === 'records' ? 'on' : ''}" data-act="journal-subtab" data-sub="records">生涯记录与荣誉</button>
+      <button class="sub-tab ${journalSubTab === 'codex' ? 'on' : ''}" data-act="journal-subtab" data-sub="codex">图鉴 <small>${Object.keys(ITEMS).filter(codexCollected).length} 已收集</small></button>
     </div>
     ${content}
   </div>`;
@@ -1394,7 +1458,7 @@ function clinicModalHtml(): string {
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
     <div class="detail-title">
-      <span class="bag-item-icon">芷</span>
+      <span class="bag-item-icon">${npcAvatarSvg('bai_zhi')}</span>
       <div><b>白芷</b><span>${open ? '坐诊中 · 镇上的草药医生' : '去森林采药了 · 晴天 10 点后回镇，雨天整天在镇上'}</span></div>
     </div>
     <dl class="detail-list">
@@ -1468,8 +1532,10 @@ function itemModalHtml(id: string): string {
     <div class="detail-title">
       <span class="bag-item-icon">${itemIconSvg(detail.id)}</span>
       <div><b>${detail.name}</b><span>持有 ×${count} · ${category}</span></div>
+      ${rarityBadgeHtml(detail.id, true)}
     </div>
     <dl class="detail-list">
+      <div><dt>稀有度</dt><dd>${rarityOf(detail.id).name}</dd></div>
       <div><dt>单件售价</dt><dd>${sellPrice(state, detail.id)} 金</dd></div>
       ${detail.energy ? `<div><dt>食用恢复</dt><dd>+${detail.energy} 体力</dd></div>` : ''}
       ${cropDef ? `<div><dt>种植季节与周期</dt><dd>${cropDef.seasons.map((s) => SEASON_NAMES[s]).join('、')}季 · ${cropDef.growDays} 天成熟</dd></div>` : ''}
@@ -1523,6 +1589,7 @@ function npcModalHtml(npcId: string): string {
         ${friendshipBarHtml(npc.id)}
         <p>${npc.intro}</p>
         <p class="dim">
+          性别：<b>${npc.gender === 'female' ? '女' : '男'}</b>${npc.marriageable ? (canRomance(state, npc) ? ' · 可恋爱' : ' · 与主角同性，只能成为好友') : ''} ·
           所在位置：<b>${locId ? LOCATIONS[locId].name : '家中'}</b> ·
           生日：${SEASON_NAMES[npc.birthday.season]} ${npc.birthday.day} 日 ·
           最爱礼物：${lovedNames || '当季好物'}
@@ -1544,7 +1611,7 @@ function npcModalHtml(npcId: string): string {
                     const preview = giftEvaluation(npc, id, isBirthday(state, npc));
                     return `<button class="item" data-act="gift-direct" data-npc="${npc.id}" data-item="${id}" title="价值 ${preview.value} 金（${preview.valueLabel}）">
                       <b>${itemIconSvg(id)}</b>
-                      <span>${ITEMS[id].name}</span>
+                      <span>${ITEMS[id].name}</span>${rarityBadgeHtml(id)}
                       <small>×${state.inventory[id]} · 值 ${preview.value} 金 · 点击赠送</small>
                     </button>`;
                   })
@@ -1635,7 +1702,7 @@ function shopModal(): string {
           .stock(state)
           .map(
             (e) => `<button class="item buy" data-act="buy" data-item="${e.itemId}" ${state.gold < e.price ? 'disabled' : ''}>
-              <b>${itemIconSvg(e.itemId)}</b><span>${itemName(e.itemId)}</span><small>${e.price} 金${ITEMS[e.itemId].energy ? ` · +${ITEMS[e.itemId].energy} 体力` : ''}</small></button>`,
+              <b>${itemIconSvg(e.itemId)}</b><span>${itemName(e.itemId)}</span>${rarityBadgeHtml(e.itemId)}<small>${e.price} 金${ITEMS[e.itemId].energy ? ` · +${ITEMS[e.itemId].energy} 体力` : ''}</small></button>`,
           )
           .join('')}</div>`
       : '<p class="dim">暂时没货。</p>';
@@ -1679,8 +1746,8 @@ function shopModal(): string {
           const sellable = !closed && !equippedWeapon && shop.buys.includes(ITEMS[id].category) && sellPrice(state, id) > 0;
           const label = `${ITEMS[id].name} ×${state.inventory[id]}`;
           return sellable
-            ? `<button class="item" data-act="sell" data-item="${id}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]} · 卖 ${sellPrice(state, id)} 金</small></button>`
-            : `<div class="item off" title="${label}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}${closed ? '' : equippedWeapon ? ' · 已装备，先卸下' : ' · 本店不收'}</small></div>`;
+            ? `<button class="item" data-act="sell" data-item="${id}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span>${rarityBadgeHtml(id)}<small>×${state.inventory[id]} · 卖 ${sellPrice(state, id)} 金</small></button>`
+            : `<div class="item off" title="${label}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span>${rarityBadgeHtml(id)}<small>×${state.inventory[id]}${closed ? '' : equippedWeapon ? ' · 已装备，先卸下' : ' · 本店不收'}</small></div>`;
         })
         .join('')}</div>`
     : '<p class="dim">背包是空的。</p>';
@@ -1797,6 +1864,8 @@ function render(): void {
   $('hud-loc').innerHTML = `${uiIconSvg('pin')} <b>${LOCATIONS[state.location].name}</b> <small>[切换地点]</small>`;
   $('hud-date').textContent = `${formatDate(state)} ${formatTime(state.minutes)} · ${WEATHER_NAMES[state.weather]}（明日 ${WEATHER_NAMES[state.tomorrowWeather]}）`;
   $('hud-gold').textContent = `${state.gold} 金`;
+  const genderBtn = document.getElementById('hud-gender');
+  if (genderBtn) genderBtn.textContent = `主角：${playerGenderOf(state) === 'female' ? '女' : '男'}`;
   const hpCls = `hp${mineFxState.playerHit ? ' fx-hit' : ''}`;
   $('hud-bars').innerHTML =
     bar(state.energy, state.maxEnergy, 'energy') + (state.hp < hpMax || state.location === 'mine' ? bar(state.hp, hpMax, hpCls) : '');
@@ -2167,10 +2236,23 @@ document.addEventListener('click', (e) => {
     case 'choose':
       doAction({ type: 'choose', index: Number(el.dataset.i) });
       break;
+    case 'cycle-gender': {
+      const inRelation = Object.values(state.npcs).some((n) => n.status === 'dating' || n.status === 'engaged' || n.status === 'married');
+      if (inRelation) {
+        pushToast('交往、订婚或婚后不能切换性别', 'warn');
+        break;
+      }
+      state.playerGender = playerGenderOf(state) === 'female' ? 'male' : 'female';
+      selectedItem = null;
+      save();
+      render();
+      pushToast(`主角性别已切换为${state.playerGender === 'female' ? '女' : '男'}（恋爱仅限异性）`, 'good');
+      break;
+    }
     case 'new-game':
       if (confirm('开始新游戏？现在的存档会被覆盖。')) {
         localStorage.removeItem(SAVE_KEY);
-        state = createNewGame(Date.now());
+        state = createNewGame(Date.now(), playerGenderOf(state));
         page = 'scene';
         farmSubTab = 'field';
         selectedCell = null;

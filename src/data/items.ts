@@ -86,6 +86,33 @@ export function findCrop(query: string): CropDef | undefined {
   return item?.cropId ? CROPS[item.cropId] : undefined;
 }
 
+/* ---------- 稀有度 (全物品覆盖, 按类别与价值分档) ---------- */
+export type RarityTier = 0 | 1 | 2 | 3 | 4;
+export interface RarityDef { tier: RarityTier; name: string; color: string }
+export const RARITIES: RarityDef[] = [
+  { tier: 0, name: '普通', color: '#A1887F' },
+  { tier: 1, name: '优良', color: '#66BB6A' },
+  { tier: 2, name: '稀有', color: '#42A5F5' },
+  { tier: 3, name: '史诗', color: '#AB47BC' },
+  { tier: 4, name: '传说', color: '#FFB300' },
+];
+const RARITY_LEGENDARY = new Set(['legend', 'galaxy_sword', 'pendant']);
+const RARITY_EPIC = new Set(['diamond', 'rod_iridium', 'obsidian_sword', 'void_essence', 'crystal_fruit']);
+const WEAPON_RARITY: Record<string, RarityTier> = { fists: 0, rusty_sword: 0, steel_sword: 1, silver_blade: 2, obsidian_sword: 3, galaxy_sword: 4 };
+
+export function rarityOf(id: string): RarityDef {
+  const item = ITEMS[id];
+  if (!item) return RARITIES[0];
+  if (RARITY_LEGENDARY.has(id)) return RARITIES[4];
+  if (RARITY_EPIC.has(id)) return RARITIES[3];
+  if (item.category === 'weapon') return RARITIES[WEAPON_RARITY[id] ?? 1];
+  if (item.category === 'tool') return RARITIES[Math.min(3, Math.max(0, item.toolGrant?.level ?? 0)) as RarityTier];
+  const v = item.sellPrice;
+  if (item.category === 'fish') return RARITIES[(v >= 200 ? 3 : v >= 100 ? 2 : v >= 50 ? 1 : 0) as RarityTier];
+  if (item.category === 'gem') return RARITIES[(v >= 250 ? 3 : v >= 100 ? 2 : 1) as RarityTier];
+  return RARITIES[(v >= 250 ? 3 : v >= 120 ? 2 : v >= 55 ? 1 : 0) as RarityTier];
+}
+
 export function itemName(id: string): string {
   return ITEMS[id]?.name ?? id;
 }

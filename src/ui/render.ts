@@ -16,7 +16,7 @@ import { bundleDone, donatedCount } from '../engine/systems/bundles.js';
 import { shopsAt } from '../engine/systems/economy.js';
 import { FISHING_SPOTS } from '../engine/systems/fishing.js';
 import { describeFloor, weaponDamage } from '../engine/systems/mine.js';
-import { heartsOf, npcsHere } from '../engine/systems/social.js';
+import { canRomance, heartsOf, npcsHere } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Cell, GameEvent, GameState, ItemCategory, Tile, ToolId } from '../engine/types.js';
 import { color } from './color.js';
@@ -273,12 +273,12 @@ export function renderPeople(s: GameState): string {
   const lines = [color.bold(' 👥 镇民')];
   for (const npc of NPCS) {
     const state = s.npcs[npc.id];
-    const tag = npc.marriageable ? color.dim(' 可恋爱') : '';
+    const tag = npc.marriageable ? color.dim(canRomance(s, npc) ? ' 可恋爱' : ' 同性·仅好友') : '';
     const gifts = color.dim(` 本周送礼 ${state.giftsThisWeek}/2${state.talkedToday ? ' · 今天聊过' : ''}`);
-    lines.push(`   ${npc.name.padEnd(3, '　')} ${hearts(s, npc.id)} ${color.dim(`${state.friendship} 点`)}${STATUS_NAMES[state.status]}${tag}${gifts}`);
+    lines.push(`   ${npc.name.padEnd(3, '　')}（${npc.gender === 'female' ? '女' : '男'}） ${hearts(s, npc.id)} ${color.dim(`${state.friendship} 点`)}${STATUS_NAMES[state.status]}${tag}${gifts}`);
     lines.push(color.dim(`        ${npc.intro} 生日：${{ spring: '春', summer: '夏', fall: '秋', winter: '冬' }[npc.birthday.season]} ${npc.birthday.day} 日`));
   }
-  lines.push(color.dim(`   每 ${POINTS_PER_HEART} 点好感 = 1 颗心。8 心送花束可以交往，10 心送美人鱼吊坠可以求婚。`));
+  lines.push(color.dim(`   每 ${POINTS_PER_HEART} 点好感 = 1 颗心。8 心送花束可以和异性交往，10 心送美人鱼吊坠可以求婚；同性只能成为好友。`));
   return lines.join('\n');
 }
 

@@ -40,6 +40,7 @@ export interface Tile {
 }
 
 export type RelationStatus = 'friend' | 'dating' | 'engaged' | 'married';
+export type Gender = 'male' | 'female';
 
 export interface NpcState {
   friendship: number;
@@ -120,6 +121,10 @@ export interface Evaluation {
 
 export interface GameState {
   version: number;
+  /** 主角性别（老存档缺失时按 'male' 兜底）；恋爱/求婚仅限与 NPC 异性之间 */
+  playerGender: Gender;
+  /** 图鉴已收集物品 id（获得过即记录，卖掉/用掉不移除） */
+  collection: string[];
   year: number;
   season: Season;
   day: number;

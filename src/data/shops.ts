@@ -16,6 +16,9 @@ export interface ShopDef {
   close: number;
   /** 0 = 周一 */
   closedWeekday?: number;
+  /** 看店人 (居民 id): 不在店内时不可买卖/升级/修理; 缺省为店员随营业时间当班 */
+  keeperNpcId?: string;
+  keeperName?: string;
   buys: ItemCategory[];
   stock(s: GameState): ShopItem[];
 }
@@ -30,6 +33,8 @@ export const SHOPS: ShopDef[] = [
     open: hour(9),
     close: hour(17),
     closedWeekday: 2,
+    keeperNpcId: 'zhou_bo',
+    keeperName: '周伯',
     buys: ['crop', 'forage', 'seed', 'food'],
     stock: (s) => [
       ...Object.values(CROPS)
@@ -44,6 +49,8 @@ export const SHOPS: ShopDef[] = [
     location: 'town',
     open: hour(9),
     close: hour(16),
+    keeperNpcId: 'a_qing',
+    keeperName: '阿青',
     buys: ['ore', 'gem', 'monster', 'weapon'],
     stock: (s) => [
       ...(['tool_hoe', 'tool_can', 'tool_pickaxe', 'tool_axe'] as const)
@@ -74,6 +81,8 @@ export const SHOPS: ShopDef[] = [
     location: 'beach',
     open: hour(9),
     close: hour(17),
+    keeperNpcId: 'lu_yuan',
+    keeperName: '陆远',
     buys: ['fish'],
     stock: (s) => [
       ...(s.tools.rod < 0 ? [{ itemId: 'rod_bamboo', price: 300 }] : []),

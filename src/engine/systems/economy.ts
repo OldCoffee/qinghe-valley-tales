@@ -4,9 +4,10 @@ import { WEAPONS } from '../../data/mine.js';
 import { SHOPS, type ShopDef } from '../../data/shops.js';
 import { shopClosedReason } from '../calendar.js';
 import { sellPrice, skillLevel } from '../skills.js';
+import { shopUnavailableReason } from './social.js';
 import { toolMaxDurability, weaponMaxDurability } from './equipment.js';
 import type { GameEvent, GameState, ItemCategory, Quantity } from '../types.js';
-import { addItem, good, info, removeItem, warn } from '../util.js';
+import { addItem, good, info, recordCollected, removeItem, warn } from '../util.js';
 
 /** 一键出货时包含的类别；矿石宝石留给升级和收集包，需要单独出货 */
 export const SHIP_ALL_CATEGORIES: ItemCategory[] = ['crop', 'forage', 'fish'];
@@ -26,7 +27,7 @@ export function buy(s: GameState, events: GameEvent[], itemId: string, qty: numb
     events.push(warn('这里的商店不卖这个。'));
     return false;
   }
-  const closed = shopClosedReason(s, shop);
+  const closed = shopUnavailableReason(s, shop);
   if (closed) {
     events.push(warn(closed));
     return false;
@@ -60,6 +61,7 @@ export function buy(s: GameState, events: GameEvent[], itemId: string, qty: numb
   s.gold -= total;
   if (item.toolGrant) {
     const tool = item.toolGrant.tool;
+    recordCollected(s, item.id);
     s.tools[tool] = item.toolGrant.level;
     s.durability[tool] = toolMaxDurability(item.toolGrant.level);
     s.equippedTools[tool] = true;
@@ -106,9 +108,9 @@ export function sell(s: GameState, events: GameEvent[], itemId: string, qty: Qua
     events.push(warn('这里没有商店收这个东西。'));
     return false;
   }
-  const shop = buyers.find((sh) => !shopClosedReason(s, sh));
+  const shop = buyers.find((sh) => !shopUnavailableReason(s, sh));
   if (!shop) {
-    events.push(warn(shopClosedReason(s, buyers[0])!));
+    events.push(warn(shopUnavailableReason(s, buyers[0])!));
     return false;
   }
   if (sellPrice(s, itemId) <= 0) {

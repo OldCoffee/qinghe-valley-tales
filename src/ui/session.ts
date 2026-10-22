@@ -4,6 +4,7 @@ import { activityView } from '../engine/activity.js';
 import { absoluteDay } from '../engine/calendar.js';
 import { createNewGame } from '../engine/state.js';
 import { ensureEquipment } from '../engine/systems/equipment.js';
+import { ensureCollection } from '../engine/util.js';
 import type { GameState } from '../engine/types.js';
 import { color } from './color.js';
 import type { GameIO, SaveStore } from './io.js';
@@ -48,6 +49,8 @@ export function loadState(store: SaveStore): GameState | null {
     const data = JSON.parse(raw) as GameState;
     if (data.version !== SAVE_VERSION) return null;
     ensureEquipment(data);
+    if (data.playerGender !== 'female' && data.playerGender !== 'male') data.playerGender = 'male';
+    ensureCollection(data);
     return data;
   } catch {
     return null;

@@ -24,17 +24,28 @@ import {
 import { EVENT_BY_ID, HEART_EVENTS } from '../../data/events.js';
 import { ITEMS } from '../../data/items.js';
 import { NPC_BY_ID, NPCS, type NpcDef, type Taste } from '../../data/npcs.js';
-import { absoluteDay, isRaining, todayFestival, weekday } from '../calendar.js';
+import { absoluteDay, isRaining, shopClosedReason, todayFestival, weekday } from '../calendar.js';
 import { allTiles } from '../farm.js';
 import { pick, random } from '../rng.js';
-import type { Activity, GameEvent, GameState, LocationId } from '../types.js';
+import type { Activity, GameEvent, GameState, Gender, LocationId } from '../types.js';
 import { addItem, info, love, removeItem, warn } from '../util.js';
+import type { ShopDef } from '../../data/shops.js';
 import type { ActivityView } from './activityView.js';
 
 const TALK_MINUTES = 10;
 
 export function heartsOf(s: GameState, npcId: string): number {
   return Math.floor(s.npcs[npcId].friendship / POINTS_PER_HEART);
+}
+
+/** 主角性别 (老存档缺失时按 male 兜底) */
+export function playerGenderOf(s: GameState): Gender {
+  return s.playerGender === 'female' ? 'female' : 'male';
+}
+
+/** 恋爱/交往/求婚仅限异性: 可恋爱 = 单身可婚且与主角性别相异 */
+export function canRomance(s: GameState, npc: NpcDef): boolean {
+  return npc.marriageable && npc.gender !== playerGenderOf(s);
 }
 
 export function isBirthday(s: GameState, npc: NpcDef): boolean {
@@ -61,7 +72,7 @@ export function npcsHere(s: GameState): NpcDef[] {
 }
 
 function capFor(s: GameState, npc: NpcDef): number {
-  return npc.marriageable && s.npcs[npc.id].status === 'friend' ? FRIENDSHIP_CAP.friendMarriageable : FRIENDSHIP_CAP.max;
+  return canRomance(s, npc) && s.npcs[npc.id].status === 'friend' ? FRIENDSHIP_CAP.friendMarriageable : FRIENDSHIP_CAP.max;
 }
 
 export function addFriendship(s: GameState, npcId: string, delta: number): void {
@@ -225,6 +236,10 @@ export function gift(s: GameState, events: GameEvent[], npcId: string, itemId: s
       events.push(warn(`${npc.name}笑着摆摆手："这个呀，还是送给你心上人吧。"`));
       return false;
     }
+    if (!canRomance(s, npc)) {
+      events.push(warn(`${npc.name}笑着把花束推了回来："我们是好朋友呀，这份心意留给你的心上人吧。"（只有异性之间可以交往）`));
+      return false;
+    }
     if (state.status !== 'friend') {
       events.push(warn(`你们已经在交往了。`));
       return false;
@@ -242,6 +257,10 @@ export function gift(s: GameState, events: GameEvent[], npcId: string, itemId: s
   if (itemId === 'pendant') {
     if (Object.values(s.npcs).some((n) => n.status === 'married' || n.status === 'engaged')) {
       events.push(warn('你已经有伴侣了。'));
+      return false;
+    }
+    if (!canRomance(s, npc)) {
+      events.push(warn(`只有异性之间可以求婚。`));
       return false;
     }
     if (state.status !== 'dating') {
@@ -358,4 +377,17 @@ export function morningSocial(s: GameState, events: GameEvent[]): void {
   for (const npc of NPCS) {
     if (isBirthday(s, npc)) events.push(info(`🎂 今天是${npc.name}的生日。`));
   }
+}
+
+/** 店主/看店人不在店里时的不可交易原因 (诊所白芷同理, 见 clinic.ts 的 clinicOpen) */
+export function shopKeeperReason(s: GameState, shop: ShopDef): string | null {
+  if (!shop.keeperNpcId) return null;
+  const keeper = NPC_BY_ID[shop.keeperNpcId];
+  if (!keeper) return null;
+  return npcLocation(s, keeper) === shop.location ? null : `${shop.keeperName ?? keeper.name}不在店里，等人回来再来交易。`;
+}
+
+/** 店铺不可交易完整原因: 节日/休息日/营业时间 + 店主在场 */
+export function shopUnavailableReason(s: GameState, shop: ShopDef): string | null {
+  return shopClosedReason(s, shop) ?? shopKeeperReason(s, shop);
 }

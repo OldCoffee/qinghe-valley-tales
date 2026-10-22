@@ -1,4 +1,4 @@
-import type { ItemCategory, LocationId, Season } from '../engine/types.js';
+import type { Gender, ItemCategory, LocationId, Season } from '../engine/types.js';
 
 export type Taste = 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated';
 
@@ -6,6 +6,7 @@ export interface NpcDef {
   id: string;
   name: string;
   intro: string;
+  gender: Gender;
   marriageable: boolean;
   birthday: { season: Season; day: number };
   /** [开始小时, 地点]；按时间顺序排列 */
@@ -26,6 +27,7 @@ export const NPCS: NpcDef[] = [
     id: 'su_he',
     name: '苏禾',
     intro: '杂货铺老板的女儿，喜欢花草，梦想开一家花店。',
+    gender: 'female',
     marriageable: true,
     birthday: { season: 'spring', day: 18 },
     schedule: [[6, 'town'], [13, 'forest'], [17, 'town']],
@@ -47,6 +49,7 @@ export const NPCS: NpcDef[] = [
     id: 'lu_yuan',
     name: '陆远',
     intro: '老渔夫的孙子，话不多，在海边一坐就是一整天。',
+    gender: 'male',
     marriageable: true,
     birthday: { season: 'summer', day: 9 },
     schedule: [[6, 'beach'], [16, 'mountain'], [20, 'town']],
@@ -68,6 +71,7 @@ export const NPCS: NpcDef[] = [
     id: 'a_qing',
     name: '阿青',
     intro: '铁匠铺的学徒，嗓门大、力气大，最爱矿洞探险。',
+    gender: 'male',
     marriageable: true,
     birthday: { season: 'fall', day: 5 },
     schedule: [[6, 'town'], [18, 'mountain']],
@@ -89,6 +93,7 @@ export const NPCS: NpcDef[] = [
     id: 'bai_zhi',
     name: '白芷',
     intro: '镇上的草药医生，温柔安静，常在森林里采药。',
+    gender: 'female',
     marriageable: true,
     birthday: { season: 'winter', day: 14 },
     schedule: [[6, 'forest'], [10, 'town'], [18, 'forest']],
@@ -110,6 +115,7 @@ export const NPCS: NpcDef[] = [
     id: 'zhou_bo',
     name: '周伯',
     intro: '白鹭杂货铺的老板，苏禾的父亲，精明又热心。',
+    gender: 'male',
     marriageable: false,
     birthday: { season: 'spring', day: 26 },
     schedule: [[6, 'town']],
@@ -130,6 +136,7 @@ export const NPCS: NpcDef[] = [
     id: 'qin_popo',
     name: '秦婆婆',
     intro: '镇上最年长的老人，喜欢织毛衣，也认识你爷爷。',
+    gender: 'female',
     marriageable: false,
     birthday: { season: 'fall', day: 22 },
     schedule: [[6, 'town'], [10, 'forest'], [15, 'town']],

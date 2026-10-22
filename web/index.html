@@ -918,6 +918,23 @@
       .tile.debuff-wilted { filter: saturate(.35) brightness(.82); box-shadow: inset 0 0 0 2px #6D4C41; }
       @keyframes thirstyPulse { 50% { box-shadow: inset 0 0 0 2px #FFB300, inset 0 -8px 0 rgba(255,179,0,.15); } }
       .tile.weedy::before { content: ''; position: absolute; inset: auto 0 0 0; height: 9px; background: repeating-linear-gradient(90deg, #33691E 0 3px, transparent 3px 7px, #558B2F 7px 10px, transparent 10px 14px); pointer-events: none; }
+
+      /* --- 稀有度像素徽章 --- */
+      .rarity-badge { display: inline-flex; align-items: center; gap: 3px; flex: none; }
+      .rarity-badge svg { width: 17px; height: 17px; display: block; }
+      .rarity-badge small { font-size: 12px; font-weight: bold; }
+      .rarity-0 { color: #8D6E63; } .rarity-1 { color: #43A047; } .rarity-2 { color: #1E88E5; }
+      .rarity-3 { color: #8E24AA; } .rarity-4 { color: #E65100; }
+      .item .rarity-badge svg, .bag-item .rarity-badge svg { width: 15px; height: 15px; }
+      /* --- 图鉴 --- */
+      .codex-progress { margin: 6px 0 14px; }
+      .codex-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; margin-bottom: 18px; }
+      .codex-card { background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark); padding: 8px 6px; display: flex; flex-direction: column; align-items: center; gap: 3px; text-align: center; }
+      .codex-card .bag-item-icon svg { width: 40px; height: 40px; }
+      .codex-card.uncollected { background: #d8cfc0; color: #8a7a66; }
+      .codex-card.uncollected .bag-item-icon { filter: grayscale(1) brightness(0.62) contrast(0.9); opacity: 0.75; }
+      .codex-card b { font-size: 14px; line-height: 1.15; }
+      .codex-card small { font-size: 12px; }
     </style>
   </head>
   <body>
@@ -928,6 +945,7 @@
       <span id="hud-gold"></span>
       <div id="hud-bars"></div>
       <button class="pix-btn sleep" data-act="sleep">睡觉</button>
+      <button class="pix-btn ghost" data-act="cycle-gender" id="hud-gender" title="切换主角性别（恋爱仅限异性）">主角：男</button>
       <button class="pix-btn ghost" data-act="new-game">新游戏</button>
     </header>
 

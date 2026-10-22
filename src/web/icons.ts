@@ -363,6 +363,24 @@ export function stumpSvg(): string {
   return render(g, 'qh-tree-svg qh-pixel');
 }
 
+/* ---------------- 稀有度像素徽章 (5 档: 普通/优良/稀有/史诗/传说) ---------------- */
+const RARITY_PIXEL = ['#A1887F', '#66BB6A', '#42A5F5', '#AB47BC', '#FFB300'];
+/** 稀有度像素奖章: 档位越高宝石越大、两侧羽翼与顶部王冠逐级增加; 下方双色绶带 */
+export function rarityBadgeSvg(tier: number): string {
+  const t = Math.min(4, Math.max(0, tier));
+  const g = grid(16, 16); const c = RARITY_PIXEL[t]; const dark = shade(c, 0.55); const light = shade(c, 1.45);
+  // 绶带
+  rect(g, 5, 11, 2, 4, t >= 2 ? '#5C6BC0' : '#8D6E63'); rect(g, 9, 11, 2, 4, t >= 2 ? '#EF5350' : '#A1887F');
+  // 奖章主体 (随档位增大)
+  const r = 2 + Math.ceil(t / 2);
+  blob(g, 8, 7, r, r, c);
+  px(g, 7, 5, '#FFFFFF'); if (t >= 1) px(g, 8, 5, light);
+  if (t >= 2) { px(g, 3, 6, dark); px(g, 12, 6, dark); px(g, 3, 7, c); px(g, 12, 7, c); } // 羽翼
+  if (t >= 3) { px(g, 2, 5, light); px(g, 13, 5, light); px(g, 8, 2, light); }
+  if (t >= 4) { rect(g, 6, 0, 1, 2, '#FFD54F'); rect(g, 9, 0, 1, 2, '#FFD54F'); rect(g, 7, 1, 2, 1, '#FFD54F'); px(g, 8, 0, '#FFF9C4'); } // 王冠
+  return render(g, 'qh-rarity-icon qh-pixel');
+}
+
 /* ---------------- UI 像素图标 (替代 Emoji) ---------------- */
 export type UiIconName = string;
 export function uiIconSvg(name: UiIconName): string {

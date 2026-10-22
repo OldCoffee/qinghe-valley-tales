@@ -6,6 +6,7 @@ import { TOOL_NAMES } from '../../data/skills.js';
 import { shopClosedReason } from '../calendar.js';
 import type { GameEvent, GameState, ToolId } from '../types.js';
 import { addItem, bad, good, info, removeItem, warn } from '../util.js';
+import { shopUnavailableReason } from './social.js';
 
 const TOOLS: ToolId[] = ['hoe', 'can', 'pickaxe', 'rod', 'axe'];
 export const FISTS = 'fists';
@@ -136,7 +137,7 @@ export function repair(s: GameState, events: GameEvent[], target: string): boole
     events.push(warn(`修${isTool ? TOOL_NAMES[target as ToolId] : itemName(target)}要去${shop.name}。`));
     return false;
   }
-  const closed = shopClosedReason(s, shop);
+  const closed = shopUnavailableReason(s, shop);
   if (closed) {
     events.push(warn(closed));
     return false;

@@ -10,8 +10,22 @@ export const love = (text: string): GameEvent => ({ level: 'love', text });
 /** 体力等允许小数的数值统一保留一位小数，避免浮点误差累积 */
 export const round1 = (n: number): number => Math.round(n * 10) / 10;
 
+/** 图鉴记录: 获得过即入册 (卖掉/用掉不移除); 顺带补齐老存档缺失的 collection 字段 */
+export function recordCollected(s: GameState, id: string): void {
+  if (!Array.isArray(s.collection)) s.collection = [];
+  if (!s.collection.includes(id)) s.collection.push(id);
+}
+
+/** 老存档兜底: 用当前背包与已钓物种补齐图鉴收集记录 */
+export function ensureCollection(s: GameState): void {
+  if (!Array.isArray(s.collection)) s.collection = [];
+  for (const id of Object.keys(s.inventory ?? {})) recordCollected(s, id);
+  for (const id of s.stats?.fishSpecies ?? []) recordCollected(s, id);
+}
+
 export function addItem(s: GameState, id: string, qty: number): void {
   s.inventory[id] = (s.inventory[id] ?? 0) + qty;
+  if (qty > 0) recordCollected(s, id);
 }
 
 export function removeItem(s: GameState, id: string, qty: number): boolean {

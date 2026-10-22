@@ -16,11 +16,13 @@ import { rollWeather } from './day.js';
 import { random } from './rng.js';
 import { spawnForage } from './systems/foraging.js';
 import { freshForest } from './systems/forest.js';
-import type { GameState, Ground, NpcState, Tile } from './types.js';
+import type { GameState, Gender, Ground, NpcState, Tile } from './types.js';
 
-export function createNewGame(seed: number): GameState {
+export function createNewGame(seed: number, playerGender: Gender = 'male'): GameState {
   const s: GameState = {
     version: SAVE_VERSION,
+    playerGender,
+    collection: [...Object.keys(START_INVENTORY), START_WEAPON],
     year: 1,
     season: 'spring',
     day: 1,
