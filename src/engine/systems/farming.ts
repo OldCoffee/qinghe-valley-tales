@@ -26,6 +26,8 @@ interface TileOp {
   /** 资源耗尽等需要提前停下的原因 */
   blocker?(): string | null;
   summary?(): string;
+  /** 没有可操作格子时的提示（缺省用通用文案） */
+  emptyMessage?: string;
 }
 
 const MAX_SKIP_REASONS = 5;
@@ -43,7 +45,7 @@ function runTileOp(s: GameState, events: GameEvent[], target: Target, op: TileOp
 
   const cells = target === 'all' ? allCells().filter((c) => op.check(tileAt(s, c)) === null) : target;
   if (cells.length === 0) {
-    events.push(info(`没有可以${op.verb}的格子。`));
+    events.push(info(op.emptyMessage ?? `没有可以${op.verb}的格子。`));
     return false;
   }
 
@@ -276,6 +278,7 @@ export function plant(s: GameState, events: GameEvent[], cropId: string, target:
   }
   return runTileOp(s, events, target, {
     verb: `播种${def.name}`,
+    emptyMessage: '没有可以种的农田。',
     check: (tile) => {
       if (tile.ground === 'locked') return LOCKED_REASON;
       if (tile.ground !== 'tilled') return '还没开垦';

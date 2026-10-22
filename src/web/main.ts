@@ -2612,10 +2612,7 @@ function seedBagModalHtml(): string {
   const seedIds = Object.keys(state.inventory).filter((id) => (state.inventory[id] ?? 0) > 0 && ITEMS[id]?.category === 'seed' && !!ITEMS[id].cropId);
   const grid = seedIds.length
     ? `<div class="bag-grid">${seedIds
-        .map((id) => {
-          const crop = CROPS[ITEMS[id].cropId!];
-          return `<button class="item" data-act="bulk-plant-seed" data-crop="${ITEMS[id].cropId}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}${crop ? ` · ${crop.name}` : ''} · 点选播满全场</small></button>`;
-        })
+        .map((id) => `<button class="item" data-act="bulk-plant-seed" data-crop="${ITEMS[id].cropId}"><b>${itemIconSvg(id)}</b><span>${ITEMS[id].name}</span><small>×${state.inventory[id]}</small></button>`)
         .join('')}</div>`
     : '<p class="dim">背包里没有种子，先去商店买点种子吧。</p>';
   return `
@@ -2623,7 +2620,6 @@ function seedBagModalHtml(): string {
       <h2>${uiIconSvg('bag')} 背包 · 选择种子</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
-    <p class="dim">点选一种种子，就会把开垦好的空地全部播上（已选种子会同步为每日自动播种）。</p>
     ${grid}
     <div class="detail-actions">
       <button class="pix-btn ghost" data-act="close-ui-modal">取消</button>
@@ -3004,6 +3000,15 @@ document.addEventListener('click', (e) => {
       break;
     case 'bulk-plant-seed': {
       const cropId = el.dataset.crop!;
+      const def = CROPS[cropId];
+      const inSeason = !!def?.seasons.includes(state.season);
+      // 只种可种植的地块：已开垦、无作物、无杂草，且当季（或温室地块）；未开垦/异常/已播种的都跳过
+      const hasPlantable = state.farm.flat().some((tile) => tile.ground === 'tilled' && !tile.crop && !tile.weeds && (inSeason || !!tile.greenhouse));
+      if (!hasPlantable) {
+        pushToast('没有可以种的农田', 'bad');
+        render();
+        break;
+      }
       uiModal = null;
       state.autoPlantCropId = cropId; // 同步为每日自动播种的种子
       doAction({ type: 'plant', cropId, target: 'all' });
