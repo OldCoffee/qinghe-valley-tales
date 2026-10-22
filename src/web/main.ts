@@ -1383,7 +1383,6 @@ function codexSection(): string {
   }).join('');
   return `<h3>物品图鉴 <small class="dim">已收集 ${totalGot}/${allIds.length}（${pct}%）</small></h3>
     <div class="codex-progress">${bar(totalGot, allIds.length, 'xp')}</div>
-    <p class="dim">通过收获、采集、钓鱼、挖矿、购买或获赠第一次得到一件物品时自动入册；卖掉或用掉不会取消收集记录。</p>
     ${cats}`;
 }
 
