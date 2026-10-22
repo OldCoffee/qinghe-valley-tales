@@ -1875,7 +1875,6 @@ function createModalHtml(): string {
       <h2>${uiIconSvg('sparkle')} ${title}</h2>
       ${isFirst ? '' : '<button class="pix-btn" data-act="close-ui-modal">取消</button>'}
     </div>
-    <p class="dim">设定主角的姓名与性别，确认后开始游戏；<b>姓名与性别设定后不可修改</b>。不同性别拥有不同的像素形象。</p>
     <label style="display:block;margin:10px 0;"><b>人物名称</b><br>
       <input id="create-name" type="text" maxlength="12" placeholder="请输入名称（默认：农场主）" value="${esc(createNameDraft)}" style="width:100%;box-sizing:border-box;padding:10px;font-size:18px;margin-top:6px;">
     </label>
