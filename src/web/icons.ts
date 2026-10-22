@@ -298,6 +298,71 @@ export function tileStatusSvg(kind: 'weed' | 'stone' | 'withered' | 'sprout'): s
   return cropGrowthSvg('parsnip', 30, { watered: true });
 }
 
+/* ---------------- 林间伐木: 8 种像素树 + 像素树桩 (24x24) ---------------- */
+type TreeShape = 'pine' | 'round' | 'oval' | 'column' | 'vase';
+const TREE_SPECIES: { crown: string; trunk: string; shape: TreeShape }[] = [
+  { crown: '#2E7D32', trunk: '#6D4C41', shape: 'pine' },   // 青松
+  { crown: '#43A047', trunk: '#5D4037', shape: 'round' },  // 古橡
+  { crown: '#9CCC65', trunk: '#ECEFF1', shape: 'oval' },   // 白桦
+  { crown: '#E64A19', trunk: '#6D4C41', shape: 'round' },  // 枫香
+  { crown: '#00695C', trunk: '#4E342E', shape: 'pine' },   // 冷杉
+  { crown: '#33691E', trunk: '#6D4C41', shape: 'round' },  // 板栗
+  { crown: '#00897B', trunk: '#5D4037', shape: 'column' }, // 翠柏
+  { crown: '#AED581', trunk: '#795548', shape: 'vase' },   // 山榆
+];
+
+/** 像素树: speciesIdx 对应 TREE_NAMES 顺序; hits=已挨斧数 (树干斧痕裂纹 + 泛黄落叶, 越砍越明显) */
+export function treeSvg(speciesIdx: number, hits = 0): string {
+  const sp = TREE_SPECIES[speciesIdx % TREE_SPECIES.length];
+  const g = grid(24, 24);
+  const light = shade(sp.crown, 1.4); const dark = shade(sp.crown, 0.6);
+  // 地面草丛与投影
+  rect(g, 4, 22, 16, 1, '#689F38'); px(g, 3, 21, '#558B2F'); px(g, 20, 21, '#558B2F'); px(g, 6, 21, '#7CB342'); px(g, 17, 21, '#7CB342');
+  // 树干 (白桦为白干黑斑)
+  rect(g, 11, 15, 3, 7, sp.trunk); rect(g, 13, 15, 1, 7, shade(sp.trunk === '#ECEFF1' ? '#B0BEC5' : sp.trunk, 0.65));
+  px(g, 10, 21, sp.trunk); px(g, 14, 21, sp.trunk); // 根脚
+  if (sp.trunk === '#ECEFF1') { px(g, 11, 17, D); px(g, 13, 19, D); px(g, 11, 20, D); }
+  // 树冠 (按树形)
+  if (sp.shape === 'pine') {
+    const tiers: [number, number, number][] = [[11, 2, 2], [9, 6, 6], [7, 10, 10], [5, 13, 14]];
+    for (const [x, y, w] of tiers) { rect(g, x, y, w, 3, sp.crown); rect(g, x, y, w, 1, light); rect(g, x, y + 2, w, 1, dark); }
+    px(g, 11, 1, light); px(g, 12, 1, sp.crown);
+  } else if (sp.shape === 'column') {
+    rect(g, 9, 3, 6, 14, sp.crown); rect(g, 10, 2, 4, 2, sp.crown); rect(g, 9, 3, 2, 14, light); rect(g, 13, 5, 2, 12, dark); px(g, 11, 1, light);
+  } else if (sp.shape === 'oval') {
+    blob(g, 12, 8, 6, 7, sp.crown);
+  } else if (sp.shape === 'vase') {
+    blob(g, 8, 7, 4, 5, sp.crown); blob(g, 16, 7, 4, 5, sp.crown); blob(g, 12, 5, 4, 4, light);
+  } else { // round
+    blob(g, 12, 8, 8, 6, sp.crown); px(g, 7, 5, light); px(g, 16, 11, dark);
+    if (speciesIdx === 5) { px(g, 8, 9, '#D7A86E'); px(g, 15, 7, '#D7A86E'); px(g, 12, 11, '#D7A86E'); } // 板栗果点
+    if (speciesIdx === 3) { px(g, 8, 10, '#FFAB91'); px(g, 17, 8, '#FF7043'); } // 枫香亮叶
+  }
+  // 受损: 斧痕裂纹 + 泛黄叶 + 落叶 (hits 1~2)
+  if (hits >= 1) {
+    px(g, 10, 18, '#EFEBE9'); px(g, 11, 19, '#D7CCC8'); px(g, 10, 19, '#8D6E63'); // 斧口白茬
+    px(g, 8, 6, '#FFD54F'); px(g, 15, 9, '#FFCA28'); px(g, 5, 19, '#FFD54F');
+  }
+  if (hits >= 2) {
+    px(g, 10, 17, '#EFEBE9'); px(g, 12, 20, '#D7CCC8'); px(g, 11, 18, D);
+    px(g, 7, 10, '#FFB300'); px(g, 16, 6, '#FFB300'); px(g, 13, 12, '#FFCA28'); px(g, 18, 18, '#FFD54F'); px(g, 4, 20, '#FFCA28');
+  }
+  return render(g, 'qh-tree-svg qh-pixel');
+}
+
+/** 像素树桩: 年轮切面 + 根脚 + 旁生新芽 */
+export function stumpSvg(): string {
+  const g = grid(24, 24);
+  rect(g, 4, 22, 16, 1, '#689F38'); px(g, 3, 21, '#558B2F'); px(g, 20, 21, '#558B2F'); px(g, 6, 21, '#7CB342'); px(g, 17, 21, '#7CB342');
+  rect(g, 8, 13, 8, 8, '#8D5524'); rect(g, 8, 13, 8, 2, '#A1662F'); rect(g, 14, 15, 2, 6, '#6D3410');
+  rect(g, 7, 20, 3, 2, '#8D5524'); rect(g, 14, 20, 3, 2, '#8D5524'); // 根脚
+  // 年轮切面
+  rect(g, 8, 10, 8, 3, '#E8C88F'); rect(g, 9, 9, 6, 1, '#E8C88F'); rect(g, 10, 10, 4, 2, '#D7A86E'); px(g, 11, 10, '#8D5524'); px(g, 12, 11, '#B08954');
+  // 旁生新芽
+  px(g, 17, 18, '#558B2F'); px(g, 18, 17, '#7CB342'); px(g, 17, 19, '#33691E'); rect(g, 17, 19, 1, 3, '#558B2F');
+  return render(g, 'qh-tree-svg qh-pixel');
+}
+
 /* ---------------- UI 像素图标 (替代 Emoji) ---------------- */
 export type UiIconName = string;
 export function uiIconSvg(name: UiIconName): string {

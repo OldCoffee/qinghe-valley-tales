@@ -23,7 +23,7 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, type GiftTier } from '../engine/systems/social.js';
 import { upgradeCost } from '../engine/systems/tools.js';
 import type { Action, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
-import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, uiIconSvg } from './icons.js';
+import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const $ = (id: string) => document.getElementById(id)!;
 const esc = (t: string) => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -811,7 +811,7 @@ function forestScene(): string {
         const fxCls = slot.fx === 'fall' ? ' fx-tree-fall' : '';
         return `<button class="tree-slot stump${fxCls}" disabled>
           ${floatHtml}
-          <span class="tree-crown">┻</span>
+          <span class="tree-crown stump-crown">${stumpSvg()}</span>
           <b>${name} #${idx + 1}</b>
         </button>`;
       }
@@ -823,7 +823,7 @@ function forestScene(): string {
         .join('');
       return `<button class="tree-slot${dmgCls}${fxCls}" data-act="tree-hit" data-idx="${idx}" ${canChop ? '' : 'disabled'}>
         ${floatHtml}
-        <span class="tree-crown">木</span>
+        <span class="tree-crown">${treeSvg(idx, slot.hits)}</span>
         <b>${name} #${idx + 1}</b>
         <div class="tree-hp-dots" aria-label="树木耐久">${dots}</div>
       </button>`;
@@ -856,7 +856,7 @@ function forestScene(): string {
         <small>${esc(mysteryState.resultText || '你已在林间探索过，收获了一份奇遇。')}</small>
       </div>`
     : `<button class="mystery-card" data-act="forest-explore">
-        <span class="mystery-glyph">？</span>
+        <span class="mystery-glyph">${uiIconSvg('question')}</span>
         <b>深林秘境</b>
         <small>林间古树洞、灌木丛深处、溪畔小空地……走进去才知道会遇见什么</small>
         <span class="badge ok">走进深林秘境（每天一次）</span>

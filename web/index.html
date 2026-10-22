@@ -362,12 +362,13 @@
         box-shadow: inset 3px 3px 0 rgba(0,0,0,0.2);
       }
       .tree-crown {
-        font-size: 30px; line-height: 1; padding: 4px 10px;
-        background: var(--grass); color: #fff; border: 3px solid var(--wood-dark);
-        box-shadow: 0 3px 0 var(--wood-dark);
+        line-height: 0; padding: 2px;
+        filter: drop-shadow(2px 3px 0 rgba(61,36,16,0.35));
       }
-      .tree-slot.damaged .tree-crown { background: #4e9b2a; }
-      .tree-slot.stump .tree-crown { background: var(--soil); color: #ffe9c4; }
+      .tree-crown svg { width: 62px; height: 62px; display: block; }
+      .tree-crown.stump-crown svg { width: 52px; height: 52px; margin-top: 10px; }
+      .tree-slot:hover:not(:disabled) .tree-crown { transform: translateY(-2px); }
+      .mystery-glyph svg { width: 30px; height: 30px; }
       .tree-hp-dots {
         display: inline-flex; gap: 4px; margin-top: 2px;
       }
