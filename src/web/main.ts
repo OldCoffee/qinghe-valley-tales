@@ -28,7 +28,7 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, relationTier, shopKeeperReason, shopUnavailableReason, summonKeeperChance, type GiftTier } from '../engine/systems/social.js';
 import { settlePendingUpgrade, upgradeCost } from '../engine/systems/tools.js';
 import type { Action, Evaluation, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
-import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg, weedTuftSvg } from './icons.js';
+import { cropGrowthSvg, fishKingTheaterSvg, itemIconSvg, medalIconSvg, npcAvatarSvg, playerAvatarSvg, playerMapWalkerSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg, weedTuftSvg, WORLD_MAP_PINS, worldMapPixelSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const SAVES_KEY = 'qinghe-valley-saves-v2';
 const MAX_SAVES = 5;
@@ -53,6 +53,7 @@ type UiModalState =
   | { kind: 'saves' }
   | { kind: 'profile' }
   | { kind: 'codex'; itemId: string }
+  | { kind: 'fishKing'; fishId: string }
   | { kind: 'craft'; bench?: WorkbenchId }
   | { kind: 'create' }
   | { kind: 'seedBag' }
@@ -954,6 +955,260 @@ const rarityBadgeHtml = (id: string, withName = false) => {
   const r = rarityOf(id);
   return `<span class="rarity-badge rarity-${r.tier}" title="稀有度：${r.name}">${rarityBadgeSvg(r.tier)}${withName ? `<small>${r.name}</small>` : ''}</span>`;
 };
+
+/** 四大太古鱼王（Unique Legendary）的世界观风物志、专属配色类与老渔夫手记 */
+interface FishKingMeta {
+  id: string;
+  title: string;
+  veinTitle: string;
+  spotId: LocationId;
+  cls: string;
+  timeNote: string;
+  gearNote: string;
+  lore: string;
+  fishermanQuote: string;
+}
+
+const FISH_KING_META: Record<string, FishKingMeta> = {
+  legend: {
+    id: 'legend',
+    title: '山谷鱼王 · 星脉春霖之主',
+    veinTitle: '高山湖脉 T4 · 星陨湖',
+    spotId: 'starfall_lake',
+    cls: 'king-legend',
+    timeNote: '春季 · 雨天/暴风雨 · 06:00–20:00',
+    gearNote: '星河神话竿 / 铱金鱼竿 + 传说饵',
+    lore: '千年前紫金陨星坠入北山形成星陨母湖，山谷鱼王自那时尚存至今。背脊生有如皇冠般的翡翠金鳍，唯有每年春雨唤醒地脉灵气时，才会浮上星陨湖表层巡游。',
+    fishermanQuote: '「我年轻时在春雨里的星陨湖见过它一次——那一抹翡翠金光跃出水面时，连雨声都停了。」',
+  },
+  ancient_sturgeon: {
+    id: 'ancient_sturgeon',
+    title: '古木鲟 · 千岁神木守脉者',
+    veinTitle: '森林河脉 T4 · 古木秘河',
+    spotId: 'ancient_river',
+    cls: 'king-ancient',
+    timeNote: '秋季 · 雨天/暴风雨 · 18:00–次日 02:00',
+    gearNote: '星河神话竿 / 雷鸣暴风竿 + 传说饵 / 荧光饵',
+    lore: '盘踞在古木秘河参天树根下的活化石巨鲟。骨质背甲上共生着发光的森林菌丝与古铜青苔，平时深藏于水下树洞，只在秋雨涨水的暗夜顺着灵木根系游出。',
+    fishermanQuote: '「古木秘河的水底全是千年树根，普通鱼线一扯就断。看见水面泛起幽绿菌光时，握稳你的竿！」',
+  },
+  mirror_dragonfish: {
+    id: 'mirror_dragonfish',
+    title: '镜月龙鱼 · 银河倒影之灵',
+    veinTitle: '高山湖脉 T4 · 星陨湖',
+    spotId: 'starfall_lake',
+    cls: 'king-mirror',
+    timeNote: '夏季 · 任意天气 · 20:00–次日 02:00',
+    gearNote: '星河神话竿 / 铱金鱼竿 + 传说饵 / 荧光饵',
+    lore: '星陨湖底汲取陨星光辉蜕变而成的银白紫金龙鱼。当盛夏深夜银河横跨北山、湖面平滑如镜时，它会游至水面与漫天星斗交相辉映，长须摆动间如星尘流淌。',
+    fishermanQuote: '「夏夜去星陨湖千万别点灯，分不清哪颗星在天上、哪颗星是龙鱼的鳞片。」',
+  },
+  abyss_oarfish: {
+    id: 'abyss_oarfish',
+    title: '无光皇带鱼 · 深渊雷霆古皇',
+    veinTitle: '南洋海脉 T4 · 无光深海',
+    spotId: 'abyssal_sea',
+    cls: 'king-abyss',
+    timeNote: '冬季 · 暴风雨 · 20:00–次日 02:00',
+    gearNote: '星河神话竿 / 深海竿 + 传说饵 / 虚空深渊饵',
+    lore: '栖息在阳光永不可及的海沟裂隙、吸食海底陨星支脉微光长成的巨型皇带鱼。唯有隆冬暴风雨掀翻外洋海流之夜，它才会顶着赤红皇冠缨、伴随幽蓝电弧浮上海面。',
+    fishermanQuote: '「当年折断我鱼竿的就是这条深海古皇……如果你真能把它拉上甲板，全白鹭镇都会记住你的名字。」',
+  },
+};
+
+function fishKingClassOf(itemId: string): string {
+  return FISH_KING_META[itemId] ? `fishking-card ${FISH_KING_META[itemId].cls}` : '';
+}
+
+let fishKingLeapActive = false;
+
+/** 跨界配方材料的世界观产地指引（工作台与图鉴通用） */
+const MATERIAL_ORIGINS: Record<string, string> = {
+  wood: '青禾森林砍伐古树',
+  scrap: '工具/武器耗尽或矿洞回收',
+  copper_ore: '矿洞 1–19 层浅表铜脉',
+  iron_ore: '矿洞 20–39 层寒铁岩骨层',
+  gold_ore: '矿洞 40–60 层曜金深渊',
+  amethyst: '矿洞 1–30 层伴生晶石',
+  topaz: '矿洞 1–30 层伴生晶石',
+  aquamarine: '矿洞 20–60 层中深矿脉',
+  jade: '矿洞 20–60 层中深矿脉',
+  ruby: '矿洞 40–60 层深渊晶石',
+  emerald: '矿洞 40–60 层深渊晶石',
+  diamond: '矿洞 50–60 层陨星深渊',
+  slime: '矿洞 1–25 层绿史莱姆掉落',
+  bat_wing: '矿洞 10–45 层夜行蝙蝠掉落',
+  bone_fragment: '矿洞 25–60 层骷髅掉落',
+  golem_core: '矿洞 35–60 层石魔掉落',
+  void_essence: '矿洞 50–60 层暗影人掉落',
+  daffodil: '春季 · 青禾森林野花丛/地面采集',
+  wild_horseradish: '春季 · 青禾森林地面采集',
+  sweet_pea: '夏季 · 青禾森林野花丛/城镇采集',
+  spice_berry: '夏季 · 青禾森林地面采集',
+  common_mushroom: '春/夏/秋 · 青禾森林大橡树蘑菇圈',
+  winter_root: '冬季 · 森林/山区地面采集',
+  crystal_fruit: '冬季 · 森林/山区地面采集',
+  clam: '四季 · 白鹭海滩潮间带拾取',
+  mussel: '四季 · 白鹭海滩潮间带拾取',
+  cockle: '四季 · 白鹭海滩潮间带拾取',
+  coral: '夏/冬 · 白鹭海滩潮间带拾取',
+  parsnip: '春季 · 青禾农场种植（4 天成熟）',
+  corn: '夏/秋季 · 青禾农场种植',
+  sardine: '春/秋/冬晴昼 · 白鹭海滩垂钓',
+};
+
+/** 八大「水脉与山谷试炼」勋章定义与达成判定 */
+interface MedalDef {
+  id: string;
+  name: string;
+  line: string;
+  desc: string;
+  check: (s: GameState) => boolean;
+  progress: (s: GameState) => string;
+}
+
+const SPOT_FISH_MAP = (waterType: 'river' | 'lake' | 'ocean') => {
+  const spotIds = FISHING_SPOT_DEFS.filter((sp) => sp.waterType === waterType).map((sp) => sp.id);
+  return FISH.filter((f) => f.waters.some((w) => spotIds.includes(w))).map((f) => f.id);
+};
+
+const MEDAL_DEFS: MedalDef[] = [
+  {
+    id: 'medal_creek',
+    name: '青溪初钓徽章',
+    line: '水脉入门试炼',
+    desc: '累计解锁 8 种不同鱼类图鉴',
+    check: (s) => s.stats.fishSpecies.length >= 8,
+    progress: (s) => `已钓获 ${Math.min(8, s.stats.fishSpecies.length)}/8 种鱼`,
+  },
+  {
+    id: 'medal_river',
+    name: '翠谷破浪勋章',
+    line: '森林河脉制霸',
+    desc: '在森林河脉钓获至少 6 种河鱼，并成功钓起森林鱼王【古木鲟】',
+    check: (s) => {
+      const riverGot = SPOT_FISH_MAP('river').filter((id) => s.stats.fishSpecies.includes(id)).length;
+      return riverGot >= 6 && s.stats.fishSpecies.includes('ancient_sturgeon');
+    },
+    progress: (s) => {
+      const riverGot = SPOT_FISH_MAP('river').filter((id) => s.stats.fishSpecies.includes(id)).length;
+      const king = s.stats.fishSpecies.includes('ancient_sturgeon');
+      return `河鱼 ${Math.min(6, riverGot)}/6 · 古木鲟 ${king ? '已捕获' : '未捕获'}`;
+    },
+  },
+  {
+    id: 'medal_lake',
+    name: '星陨映月勋章',
+    line: '高山湖脉制霸',
+    desc: '在高山湖脉钓获至少 5 种湖鱼，并钓起【山谷鱼王】或【镜月龙鱼】',
+    check: (s) => {
+      const lakeGot = SPOT_FISH_MAP('lake').filter((id) => s.stats.fishSpecies.includes(id)).length;
+      const hasKing = s.stats.fishSpecies.includes('legend') || s.stats.fishSpecies.includes('mirror_dragonfish');
+      return lakeGot >= 5 && hasKing;
+    },
+    progress: (s) => {
+      const lakeGot = SPOT_FISH_MAP('lake').filter((id) => s.stats.fishSpecies.includes(id)).length;
+      const k1 = s.stats.fishSpecies.includes('legend');
+      const k2 = s.stats.fishSpecies.includes('mirror_dragonfish');
+      return `湖鱼 ${Math.min(5, lakeGot)}/5 · 星陨双王 ${(k1 ? 1 : 0) + (k2 ? 1 : 0)}/2`;
+    },
+  },
+  {
+    id: 'medal_ocean',
+    name: '深渊镇海勋章',
+    line: '南洋海脉制霸',
+    desc: '在南洋海脉钓获至少 6 种海鱼，并在冬夜暴风雨钓起【无光皇带鱼】',
+    check: (s) => {
+      const oceanGot = SPOT_FISH_MAP('ocean').filter((id) => s.stats.fishSpecies.includes(id)).length;
+      return oceanGot >= 6 && s.stats.fishSpecies.includes('abyss_oarfish');
+    },
+    progress: (s) => {
+      const oceanGot = SPOT_FISH_MAP('ocean').filter((id) => s.stats.fishSpecies.includes(id)).length;
+      const king = s.stats.fishSpecies.includes('abyss_oarfish');
+      return `海鱼 ${Math.min(6, oceanGot)}/6 · 无光皇带鱼 ${king ? '已捕获' : '未捕获'}`;
+    },
+  },
+  {
+    id: 'medal_fish_god',
+    name: '四海星脉钓神冕',
+    line: '垂钓终极试炼',
+    desc: '集齐四大太古鱼王 + 解锁 32 种以上鱼类图鉴',
+    check: (s) => {
+      const kings = ['legend', 'ancient_sturgeon', 'mirror_dragonfish', 'abyss_oarfish'].every((k) => s.stats.fishSpecies.includes(k));
+      return kings && s.stats.fishSpecies.length >= 32;
+    },
+    progress: (s) => {
+      const kingCnt = ['legend', 'ancient_sturgeon', 'mirror_dragonfish', 'abyss_oarfish'].filter((k) => s.stats.fishSpecies.includes(k)).length;
+      return `四王 ${kingCnt}/4 · 鱼图鉴 ${s.stats.fishSpecies.length}/32`;
+    },
+  },
+  {
+    id: 'medal_harvest',
+    name: '青禾丰饶金穗章',
+    line: '农耕与工坊试炼',
+    desc: '修复四季温室 + 解锁任意自动农具 + 累计收获 100 株作物',
+    check: (s) => {
+      const gh = s.unlocks.includes('greenhouse');
+      const auto = ['auto_clear', 'auto_clear_daily', 'auto_plant', 'auto_plant_daily', 'auto_harvest', 'auto_harvest_daily'].some((u) => s.unlocks.includes(u));
+      return gh && auto && s.stats.cropsHarvested >= 100;
+    },
+    progress: (s) => {
+      const gh = s.unlocks.includes('greenhouse') ? '已修' : '未修';
+      return `温室 ${gh} · 收获 ${Math.min(100, s.stats.cropsHarvested)}/100 株`;
+    },
+  },
+  {
+    id: 'medal_galaxy',
+    name: '地心陨星斩暗章',
+    line: '矿洞深渊试炼',
+    desc: '探索至矿洞第 60 层底，取得陨星神兵【银河剑】',
+    check: (s) => s.mine.deepest >= 60 || (s.collection ?? []).includes('galaxy_sword') || (s.inventory.galaxy_sword ?? 0) > 0,
+    progress: (s) => `矿洞最深 ${s.mine.deepest}/60 层`,
+  },
+  {
+    id: 'medal_guardian',
+    name: '白鹭守谷人金章',
+    line: '社区与人情试炼',
+    desc: '修复社区中心全部 7 个房间，且与至少 3 位镇民达到 8 心挚友',
+    check: (s) => {
+      const allRooms = ROOMS.every((r) => s.unlocks.includes(r.unlock));
+      const friends = NPCS.filter((n) => heartsOf(s, n.id) >= 8).length;
+      return allRooms && friends >= 3;
+    },
+    progress: (s) => {
+      const rooms = ROOMS.filter((r) => s.unlocks.includes(r.unlock)).length;
+      const friends = NPCS.filter((n) => heartsOf(s, n.id) >= 8).length;
+      return `社区房间 ${rooms}/7 · 8心挚友 ${Math.min(3, friends)}/3 人`;
+    },
+  },
+];
+
+const PINNED_MEDALS_KEY = 'qinghe-pinned-medals-v1';
+let pinnedMedals: string[] = (() => {
+  try {
+    const raw = localStorage.getItem(PINNED_MEDALS_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+})();
+
+function savePinnedMedals(): void {
+  try {
+    localStorage.setItem(PINNED_MEDALS_KEY, JSON.stringify(pinnedMedals));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function activePinnedMedals(): MedalDef[] {
+  const unlocked = MEDAL_DEFS.filter((m) => m.check(state));
+  const validPinned = pinnedMedals.filter((id) => unlocked.some((m) => m.id === id));
+  if (validPinned.length > 0) {
+    return validPinned.slice(0, 3).map((id) => MEDAL_DEFS.find((m) => m.id === id)!);
+  }
+  return unlocked.slice(0, 3);
+}
 const heartRow = (n: number, max = 5) =>
   Array.from({ length: max }, (_, i) => uiIconSvg(i < n ? 'heart' : 'heart_empty')).join('');
 const starRow = (n: number) => Array.from({ length: Math.max(1, n) }, () => uiIconSvg('star')).join('');
@@ -1124,6 +1379,66 @@ function tileActionFxHtml(fx: { kind: TileFxKind; cropId?: string; sub?: TileFxS
   return `${weedTuft}${actionLayer}${tapLayer}`;
 }
 
+/** 手册「生涯记录」中的守谷人荣誉陈列架与四大鱼王拓片长廊 */
+function honorShowcaseHtml(): string {
+  const unlockedCount = MEDAL_DEFS.filter((m) => m.check(state)).length;
+  const activePinIds = activePinnedMedals().map((m) => m.id);
+  const kingIds = ['legend', 'ancient_sturgeon', 'mirror_dragonfish', 'abyss_oarfish'];
+  const kingCount = kingIds.filter((id) => state.stats.fishSpecies.includes(id)).length;
+
+  const medalCards = MEDAL_DEFS.map((m) => {
+    const ok = m.check(state);
+    const pinned = activePinIds.includes(m.id);
+    return `<div class="medal-slot-card ${ok ? 'unlocked' : 'locked'} ${pinned ? 'pinned' : ''}">
+      <div class="medal-slot-icon">${medalIconSvg(m.id)}</div>
+      <div class="medal-slot-info">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+          <b>${m.name}</b>
+          <span class="badge ${ok ? 'ok' : ''}">${ok ? (pinned ? '铭牌佩戴中' : '已达成') : '未达成'}</span>
+        </div>
+        <small class="dim">${m.line} · ${m.desc}</small>
+        <small class="medal-prog">${m.progress(state)}</small>
+        ${
+          ok
+            ? `<button class="chip ${pinned ? 'on' : ''}" data-act="toggle-pin-medal" data-medal="${m.id}">
+                ${pinned ? '卸下铭牌徽章' : '佩戴到右上角铭牌'}
+              </button>`
+            : ''
+        }
+      </div>
+    </div>`;
+  }).join('');
+
+  const kingCards = kingIds
+    .map((id) => {
+      const got = state.stats.fishSpecies.includes(id);
+      const meta = FISH_KING_META[id];
+      return `<button class="fishking-trophy-card fishking-card ${meta.cls} ${got ? 'caught' : 'uncaught'}" data-act="open-fish-king" data-fish="${id}">
+        <span class="bag-item-icon">${itemIconSvg(id)}</span>
+        <div style="text-align:left;flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:6px;">
+            <b>${itemName(id)}</b>
+            <span class="badge ${got ? 'ok' : ''}">${got ? '已拓印入册' : '未钓获 · 点击预览生境'}</span>
+          </div>
+          <small style="display:block;opacity:0.92;">${meta.veinTitle} · ${meta.timeNote}</small>
+          <small style="display:block;color:#ffd23f;">点击开启全屏生态预览剧场 →</small>
+        </div>
+      </button>`;
+    })
+    .join('');
+
+  return `<section class="honor-showcase-panel">
+    <div class="honor-showcase-head">
+      <div>
+        <b>${uiIconSvg('sparkle')} 守谷人荣誉陈列架 & 四大鱼王拓片长廊</b>
+        <small class="dim" style="margin-left:8px;">已解锁勋章 ${unlockedCount}/${MEDAL_DEFS.length}（最多勾选 3 枚佩戴到右上角主角铭牌） · 太古鱼王 ${kingCount}/4</small>
+      </div>
+    </div>
+    <div class="medal-showcase-grid">${medalCards}</div>
+    <div class="fishking-trophy-grid">${kingCards}</div>
+  </section>`;
+}
+
 function farmScene(): string {
   const fieldStat = farmCounts([0, 1, 2, 3, 4, 5]);
   const ghStat = farmCounts([6, 7]);
@@ -1167,21 +1482,34 @@ function farmScene(): string {
     )
     .join('')}</div>`;
 
+  const wiltedTotal = fieldStat.wiltedCount + ghStat.wiltedCount;
+  const festival = todayFestival(state);
+  const festivalBtn =
+    festival && festival.location === 'farm'
+      ? `<button class="pix-btn gold" data-act="festival">参加${festival.name}</button>`
+      : '';
+
   return `
-  <div class="sub-tabs" role="tablist" aria-label="农场区域切换">
-    <button class="sub-tab ${farmSubTab === 'field' ? 'on' : ''}" data-act="farm-subtab" data-sub="field" role="tab" aria-selected="${farmSubTab === 'field'}">
-      露天农田 <small>${fieldBadge}</small>
-    </button>
-    <button class="sub-tab ${farmSubTab === 'greenhouse' ? 'on' : ''}" data-act="farm-subtab" data-sub="greenhouse" role="tab" aria-selected="${farmSubTab === 'greenhouse'}">
-      温室大棚 <small>${ghBadge}</small>
-    </button>
-    <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:8px;">
-      <button class="pix-btn" data-act="bulk-water">全部浇水</button>
-      <button class="pix-btn gold" data-act="bulk-plant" ${seedIds.length ? '' : 'disabled'}>一键播种</button>
-      <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
-      <button class="pix-btn gold" data-act="bulk-harvest">全部收获</button>
-      <button class="pix-btn" data-act="ship-all">出货全部</button>
-      <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${fieldStat.wiltedCount + ghStat.wiltedCount ? '' : 'disabled'}>一键铲除枯萎株${fieldStat.wiltedCount + ghStat.wiltedCount ? `（${fieldStat.wiltedCount + ghStat.wiltedCount} 株）` : ''}</button>
+  <div class="farm-chrome">
+    <div class="farm-region-tabs" role="tablist" aria-label="农场区域切换">
+      <button class="sub-tab ${farmSubTab === 'field' ? 'on' : ''}" data-act="farm-subtab" data-sub="field" role="tab" aria-selected="${farmSubTab === 'field'}">
+        露天农田 <small>${fieldBadge}</small>
+      </button>
+      <button class="sub-tab ${farmSubTab === 'greenhouse' ? 'on' : ''}" data-act="farm-subtab" data-sub="greenhouse" role="tab" aria-selected="${farmSubTab === 'greenhouse'}">
+        温室大棚 <small>${ghBadge}</small>
+      </button>
+    </div>
+    <div class="farm-bulk-bar" aria-label="农事快捷操作">
+      <span class="farm-bulk-label">农事快捷</span>
+      <div class="farm-bulk-ops">
+        <button class="pix-btn" data-act="bulk-water">全部浇水</button>
+        <button class="pix-btn gold" data-act="bulk-plant" ${seedIds.length ? '' : 'disabled'}>一键播种</button>
+        <button class="pix-btn" data-act="bulk-deweed">全部除草</button>
+        <button class="pix-btn gold" data-act="bulk-harvest">全部收获</button>
+        <button class="pix-btn" data-act="ship-all">出货全部</button>
+        <button class="pix-btn danger" data-act="bulk-uproot-wilted" ${wiltedTotal ? '' : 'disabled'}>铲除枯萎${wiltedTotal ? `（${wiltedTotal}）` : ''}</button>
+        ${festivalBtn}
+      </div>
     </div>
   </div>
   ${tilePopover()}
@@ -1324,12 +1652,30 @@ function fishingDockSection(): string {
           const weatherText = { any: '任意天气', sunny: '晴天', rain: '雨天（含暴风雨）', snow: '雪天', storm: '暴风雨' }[f.weather];
           const seasonText = f.seasons.length === 4 ? '全年' : f.seasons.map((x) => SEASON_NAMES[x]).join('/');
           const hourText = `${f.hours[0]}–${f.hours[1] > 24 ? `次日 ${f.hours[1] - 24}` : f.hours[1]} 点`;
+          const kingMeta = FISH_KING_META[f.id];
+          if (kingMeta) {
+            return `<button class="chip ${caught ? 'ok' : ''} ${fishKingClassOf(f.id)}" data-act="open-fish-king" data-fish="${f.id}" title="太古鱼王 · 点击开启生态预览剧场（${hourText} · ${weatherText}）">${uiIconSvg('sparkle')} ${caught ? f.name : `${f.name}（鱼王鱼影）`} <small>${stars}</small></button>`;
+          }
           return `<span class="chip ${caught ? 'ok' : ''}" title="出没：${hourText} · ${weatherText} · ${seasonText}">${caught ? f.name : '未知鱼影'} <small>${stars}</small></span>`;
         })
         .join('')
     : '<span class="dim">当前时段或天气下水面很安静，换个时段或雨天来看看吧。</span>';
 
   const spot = FISHING_SPOT_DEFS.find((x) => x.id === state.location);
+  const veinName = spot?.waterType === 'river' ? '森林河脉' : spot?.waterType === 'lake' ? '高山湖脉' : '南洋海脉';
+  const veinChain = spot
+    ? FISHING_SPOT_DEFS.filter((x) => x.waterType === spot.waterType)
+        .sort((a, b) => a.tier - b.tier)
+        .map((sp) => {
+          const isCur = sp.id === state.location;
+          const isBase = ['forest', 'mountain', 'beach'].includes(sp.id);
+          const lock = isBase ? null : fishingSpotAccessReason(state, sp.id);
+          return `<button class="vein-step ${isCur ? 'current' : ''} ${lock ? 'locked' : 'unlocked'}" data-act="${isCur || lock ? 'open-map' : 'move'}" data-to="${sp.id}" title="${lock ? `未解锁：${lock}` : isCur ? '当前所在水域' : `点击前往${sp.name}`}">
+            <small>T${sp.tier}</small><b>${sp.name}</b><span>${isCur ? '当前' : lock ? `Lv.${sp.minLevel}` : '可前往'}</span>
+          </button>`;
+        })
+        .join('<span class="vein-arrow">→</span>')
+    : '';
   const tagNames: Record<string, string> = { river: '河流', lake: '湖泊', ocean: '海域', deep: '深水', small: '小型鱼', large: '大型鱼', predator: '掠食鱼', carp: '鲤科', coral: '珊瑚鱼', night: '夜行鱼', rain: '雨天鱼', legendary: '传奇鱼' };
   const tagName = (tag: string) => tagNames[tag] ?? tag;
   const rodChoices = RODS.filter((r) => state.ownedRods.includes(r.id))
@@ -1346,7 +1692,8 @@ function fishingDockSection(): string {
     bait ? `鱼饵目标：${bait.tags.map(tagName).join('、')}${baitFishNames ? `（针对 ${baitFishNames}）` : ''}` : '未装鱼饵',
   ].filter(Boolean).join(' · ');
 
-  return `<h3>${spot?.name ?? '水域'}钓鱼台（${spot?.waterType === 'river' ? '河流' : spot?.waterType === 'lake' ? '湖泊' : '海域'} ${spot?.tier ?? 1} 阶）</h3>
+  return `<h3>${spot?.name ?? '水域'}钓鱼台（${veinName} · T${spot?.tier ?? 1} 阶）</h3>
+    ${veinChain ? `<div class="water-vein-bar"><span class="farm-bulk-label">${veinName}航路</span><div class="water-vein-steps">${veinChain}</div></div>` : ''}
     <div class="fishing-dock">
       <button class="water-pond" data-act="fish" ${canCast ? '' : 'disabled'}>
         <div class="water-waves">〰 〰 〰 〰 〰 〰</div>
@@ -1526,33 +1873,43 @@ function mineScene(): string {
 }
 
 function scenePage(): string {
-  const loc = LOCATIONS[state.location];
-  const forage = state.forage[state.location] ?? [];
   const festival = todayFestival(state);
   const hereNpcs = npcsHere(state);
+  const isFarm = state.location === 'farm';
 
-  const npcBar = hereNpcs.length
-    ? `<div class="scene-npcs">
-        <span>在场居民（点击互动/送礼）：</span>
-        ${hereNpcs
-          .map(
-            (npc) => {
-              const fx = npcFxState?.npcId === npc.id ? npcFxState : null;
-              return `<button class="npc-pill ${fx ? `fx-${fx.tone}` : ''}" data-act="open-npc" data-npc="${npc.id}">
+  const npcPills = hereNpcs
+    .map((npc) => {
+      const fx = npcFxState?.npcId === npc.id ? npcFxState : null;
+      return `<button class="npc-pill ${fx ? `fx-${fx.tone}` : ''}" data-act="open-npc" data-npc="${npc.id}">
               <span class="mini-ava">${npcAvatarSvg(npc.id)}</span>
               <b>${npc.name}</b>
               <span class="hearts">${heartRow(Math.min(5, heartsOf(state, npc.id)))}</span>
               <small>${state.npcs[npc.id].talkedToday ? '已聊' : '可聊天'}</small>
               ${fx ? `<span class="npc-pill-fx tone-${fx.tone}">${NPC_FX_PARTICLES[fx.tone].slice(0, 3).map((p, i) => `<span style="--i:${i}">${fxParticle(p)}</span>`).join('')}</span>` : ''}
             </button>`;
-            },
-          )
-          .join('')}
+    })
+    .join('');
+  const npcBar = hereNpcs.length
+    ? `<div class="scene-npcs">
+        <span class="scene-npcs-label">在场居民</span>
+        ${npcPills}
       </div>`
     : '';
 
+  // 各地均不再展示地点名/归来介绍文案；只保留可点操作与在场居民
+  const actionBtns = [
+    !isFarm && FISHING_SPOTS.includes(state.location) ? '<button class="pix-btn" data-act="fish">抛竿钓鱼</button>' : '',
+    !isFarm && festival && festival.location === state.location
+      ? `<button class="pix-btn gold" data-act="festival">参加${festival.name}</button>`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('');
+  const actionBar = actionBtns ? `<div class="scene-actions">${actionBtns}</div>` : '';
+  const sceneChrome = actionBar || npcBar ? `<div class="scene-chrome">${actionBar}${npcBar}</div>` : '';
+
   let body = '';
-  if (state.location === 'farm') body = farmScene();
+  if (isFarm) body = farmScene();
   else if (state.location === 'forest') body = forestScene();
   else if (state.location === 'mine' || state.location === 'mountain') {
     body = `
@@ -1569,16 +1926,7 @@ function scenePage(): string {
   }
 
   return `<div class="${pageViewCls()}">
-    <div class="scene-head">
-      <div class="scene-head-top">
-        <div><h2>${loc.name}</h2><p>${loc.arrival}</p></div>
-        <div class="toolbar">
-          ${FISHING_SPOTS.includes(state.location) ? '<button class="pix-btn" data-act="fish">抛竿钓鱼</button>' : ''}
-          ${festival && festival.location === state.location ? `<button class="pix-btn gold" data-act="festival">参加${festival.name}</button>` : ''}
-        </div>
-      </div>
-      ${npcBar}
-    </div>
+    ${sceneChrome}
     ${body}
   </div>`;
 }
@@ -1756,7 +2104,7 @@ function bagPage(): string {
         ids.length
           ? `<div class="bag-items-grid">${ids
               .map(
-                (id) => `<button class="bag-item ${selectedItem === id ? 'on' : ''}" data-act="item" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
+                (id) => `<button class="bag-item ${selectedItem === id ? 'on' : ''} ${fishKingClassOf(id)}" data-act="item" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
                   <span class="bag-item-icon">${itemIconSvg(id)}</span>
                   <span class="bag-item-main"><b>${ITEMS[id].name}</b><small>${bagItemMeta(id)}</small></span>
                   ${rarityBadgeHtml(id)}
@@ -1882,11 +2230,12 @@ function codexSection(): string {
       .map((id) => {
         const owned = codexCollected(id);
         const qty = state.inventory[id] ?? 0;
-        return `<button class="codex-card ${owned ? '' : 'uncollected'}" data-act="view-codex" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
+        const kingCls = fishKingClassOf(id);
+        return `<button class="codex-card ${owned ? '' : 'uncollected'} ${kingCls}" data-act="view-codex" data-item="${id}" aria-label="查看${ITEMS[id].name}详情">
           <span class="bag-item-icon">${itemIconSvg(id)}</span>
           <b>${ITEMS[id].name}</b>
           ${rarityBadgeHtml(id, true)}
-          <small>${owned ? (qty > 0 ? `持有 ×${qty}` : '已收集') : '尚未获得'}</small>
+          <small>${kingCls ? '★ 点击看鱼王剧场' : owned ? (qty > 0 ? `持有 ×${qty}` : '已收集') : '尚未获得'}</small>
         </button>`;
       })
       .join('');
@@ -2021,8 +2370,10 @@ function codexModalHtml(id: string): string {
     </div>
     <dl class="detail-list">
       ${rows.map(([k, v]) => `<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}
+      ${MATERIAL_ORIGINS[id] ? `<div><dt>山谷产地指引</dt><dd>${MATERIAL_ORIGINS[id]}</dd></div>` : ''}
     </dl>
     <div class="detail-actions">
+      ${FISH_KING_META[id] ? `<button class="pix-btn gold" data-act="open-fish-king" data-fish="${id}">${uiIconSvg('sparkle')} 开启鱼王全屏生态预览剧场</button>` : ''}
       ${qty > 0 && item.category !== 'tool' ? `<button class="pix-btn gold" data-act="codex-open-bag" data-item="${id}">在背包中查看</button>` : ''}
       <button class="pix-btn ghost" data-act="close-ui-modal">返回图鉴</button>
     </div>`;
@@ -2097,6 +2448,7 @@ function journalPage(): string {
       </div>`;
   } else {
     content = `
+      ${honorShowcaseHtml()}
       <h3>农场主生涯统计</h3>
       <dl class="detail-list">
         <div><dt>主角性别</dt><dd>${playerGenderOf(state) === 'female' ? '女' : '男'}</dd></div>
@@ -2138,31 +2490,348 @@ function journalPage(): string {
 
 /* ---------- 多样化交互弹窗 (Modals) ---------- */
 
-function mapModalHtml(): string {
-  const cards = TRAVEL_DESTINATIONS.map((id) => {
-    const here = state.location === id || (id === 'mountain' && state.location === 'mine');
-    const npcsAtLoc = NPCS.filter((n) => npcLocation(state, n) === id);
-    const mins = here ? 0 : travelTime(state, id);
-    const spot = FISHING_SPOT_DEFS.find((x) => x.id === id);
-    const isDedicatedSpot = !!spot && !['forest', 'mountain', 'beach'].includes(id);
-    const lockReason = isDedicatedSpot ? fishingSpotAccessReason(state, id) : null;
-    return `<button class="card place ${here ? 'on' : ''} ${lockReason ? 'uncollected' : ''}" data-act="move" data-to="${id}" ${here || lockReason ? 'disabled' : ''}>
-      <div>
-        <b>${LOCATIONS[id].name}</b>
-        <div class="dim" style="font-size:17px;">
-          ${spot ? `${spot.waterType === 'river' ? '河流' : spot.waterType === 'lake' ? '湖泊' : '海域'} ${spot.tier} 阶 · 钓鱼 Lv.${spot.minLevel}` : npcsAtLoc.length ? `在场居民：${npcsAtLoc.map((n) => n.name).join('、')}` : '当前无居民在场'}
-        </div>
-      </div>
-      <span>${here ? uiIconSvg('pin') + ' 当前所在' : lockReason ? `未开放 · ${lockReason}` : `前往 · 耗时 ${mins} 分钟${state.unlocks.includes('minecart') ? '（矿车加速）' : ''}`}</span>
-    </button>`;
-  }).join('');
+/** 判定某处水域在今日/当前时段是否有太古鱼王苏醒预警 */
+function spotKingOmen(locId: LocationId): string | null {
+  const hour = state.minutes / 60;
+  for (const f of FISH.filter((x) => x.unique && x.waters.includes(locId))) {
+    if (state.stats.fishSpecies.includes(f.id)) continue;
+    const seasonOk = f.seasons.includes(state.season);
+    const weatherOk = f.weather === 'any' || f.weather === state.weather || (f.weather === 'rain' && state.weather === 'storm');
+    const hourOk = hour >= f.hours[0] && hour < f.hours[1];
+    if (seasonOk && weatherOk && hourOk) return `★ ${f.name}正在水下出没！`;
+    if (seasonOk && weatherOk) return `✦ 今日 ${f.hours[0]}:00 起【${f.name}】将苏醒`;
+  }
+  return null;
+}
+
+function fishKingModalHtml(fishId: string): string {
+  const meta = FISH_KING_META[fishId] ?? FISH_KING_META.legend;
+  const fish = FISH.find((f) => f.id === fishId);
+  const caught = state.stats.fishSpecies.includes(fishId);
+  const held = state.inventory[fishId] ?? 0;
+  const spotAccess = fishingSpotAccessReason(state, meta.spotId);
+  const canGoSpot = state.location !== meta.spotId && !spotAccess;
 
   return `
     <div class="modal-head">
-      <h2>${uiIconSvg('map')} 青禾谷世界地图（点击目的地立即出发）</h2>
+      <h2>${uiIconSvg('sparkle')} 太古鱼王生态预览剧场 · ${itemName(fishId)}</h2>
       <button class="pix-btn" data-act="close-ui-modal">关闭</button>
     </div>
-    <div class="cards">${cards}</div>`;
+    <div class="fishking-theater-shell ${meta.cls} ${fishKingLeapActive ? 'leaping' : ''}">
+      <div class="fishking-stage-wrap">
+        ${fishKingTheaterSvg(fishId)}
+        <div class="fishking-stage-overlay">
+          <span class="fishking-vein-tag">${meta.veinTitle}</span>
+          <span class="fishking-status-tag ${caught ? 'ok' : ''}">${caught ? `已拓印入册${held > 0 ? ` · 持有 ×${held}` : ''}` : '尚未钓获 · 传奇唯一种'}</span>
+        </div>
+        <div class="fishking-stage-controls">
+          <button class="pix-btn gold" data-act="trigger-fish-king-leap" data-fish="${fishId}">
+            ${uiIconSvg('sparkle')} 唤醒灵韵 / 跃水展示
+          </button>
+          <div class="fishking-switch-row">
+            ${Object.keys(FISH_KING_META)
+              .map(
+                (kid) => `<button class="chip ${kid === fishId ? 'on' : ''}" data-act="open-fish-king" data-fish="${kid}">
+                  ${itemName(kid)}
+                </button>`,
+              )
+              .join('')}
+          </div>
+        </div>
+      </div>
+      <div class="fishking-lore-box">
+        <div class="fishking-title-row">
+          <span class="bag-item-icon">${itemIconSvg(fishId)}</span>
+          <div>
+            <b>${meta.title}</b>
+            <small class="dim" style="display:block;">捕获难度：${starRow(fish?.difficulty ?? 6)} · 售价 ${fish ? sellPrice(state, fishId) : 5000} 金</small>
+          </div>
+        </div>
+        <p class="fishking-lore-text">${meta.lore}</p>
+        <blockquote class="fishking-quote">${meta.fishermanQuote} —— 海滩老渔夫</blockquote>
+        <dl class="detail-list">
+          <div><dt>所属水脉阶梯</dt><dd>${meta.veinTitle}</dd></div>
+          <div><dt>苏醒天时窗口</dt><dd>${meta.timeNote}</dd></div>
+          <div><dt>推荐神竿秘饵</dt><dd>${meta.gearNote}</dd></div>
+          <div><dt>当前秘境准入</dt><dd>${spotAccess ? `未开放（${spotAccess}）` : '已开放，可随时前往挑战'}</dd></div>
+        </dl>
+      </div>
+    </div>
+    <div class="detail-actions">
+      ${canGoSpot ? `<button class="pix-btn gold" data-act="move" data-to="${meta.spotId}">立即前往${LOCATIONS[meta.spotId].name}（耗时 ${travelTime(state, meta.spotId)} 分钟）</button>` : ''}
+      <button class="pix-btn" data-act="view-codex" data-item="${fishId}">查看图鉴卡片</button>
+      <button class="pix-btn ghost" data-act="close-ui-modal">关闭剧场</button>
+    </div>`;
+}
+
+/** 世界地图缩放/平移与主角行走状态 */
+let mapZoom = 1;
+let mapPanX = 0;
+let mapPanY = 0;
+let mapWalkingTo: LocationId | null = null;
+let mapWalkTimer: number | null = null;
+
+/** 世界地图拓扑邻接表（用于计算主角沿道路/水脉行走的真实折线路径） */
+const WORLD_MAP_ADJ: Record<string, string[]> = {
+  farm: ['town', 'forest', 'mountain'],
+  town: ['farm', 'mountain', 'beach', 'forest', 'egret_river'],
+  mountain: ['town', 'farm', 'mirror_lake'],
+  mirror_lake: ['mountain', 'mist_lake'],
+  mist_lake: ['mirror_lake', 'starfall_lake'],
+  starfall_lake: ['mist_lake'],
+  forest: ['farm', 'town', 'egret_river', 'emerald_rapids'],
+  egret_river: ['forest', 'town', 'emerald_rapids'],
+  emerald_rapids: ['forest', 'egret_river', 'ancient_river'],
+  ancient_river: ['emerald_rapids'],
+  beach: ['town', 'crescent_bay'],
+  crescent_bay: ['beach', 'coral_reef'],
+  coral_reef: ['crescent_bay', 'abyssal_sea'],
+  abyssal_sea: ['coral_reef'],
+};
+
+function findMapWalkRoute(fromLoc: LocationId, toLoc: LocationId): string[] {
+  const start = fromLoc === 'mine' ? 'mountain' : fromLoc;
+  const goal = toLoc === 'mine' ? 'mountain' : toLoc;
+  if (start === goal) return [start];
+  const queue: string[][] = [[start]];
+  const visited = new Set<string>([start]);
+  while (queue.length > 0) {
+    const path = queue.shift()!;
+    const cur = path[path.length - 1];
+    for (const next of WORLD_MAP_ADJ[cur] ?? []) {
+      if (next === goal) return [...path, next];
+      if (!visited.has(next)) {
+        visited.add(next);
+        queue.push([...path, next]);
+      }
+    }
+  }
+  return [start, goal];
+}
+
+function applyMapViewportTransform(): void {
+  const inner = document.getElementById('wm-zoom-inner');
+  const label = document.getElementById('wm-zoom-val');
+  if (inner) {
+    inner.style.transform = `translate(${mapPanX}px, ${mapPanY}px) scale(${mapZoom})`;
+  }
+  if (label) {
+    label.textContent = `${Math.round(mapZoom * 100)}%`;
+  }
+}
+
+function clampMapPan(): void {
+  const maxPan = (mapZoom - 1) * 260;
+  mapPanX = Math.max(-maxPan, Math.min(maxPan, mapPanX));
+  mapPanY = Math.max(-maxPan * 0.65, Math.min(maxPan * 0.65, mapPanY));
+}
+
+function startMapCharacterWalk(to: LocationId): void {
+  if (mapWalkingTo) return;
+  const startId = (state.location === 'mine' ? 'mountain' : state.location) as LocationId;
+  if (startId === to) return;
+
+  const route = findMapWalkRoute(startId, to);
+  const pts = route.map((id) => WORLD_MAP_PINS[id] ?? WORLD_MAP_PINS.farm);
+  const walker = document.getElementById('wm-player-walker');
+  const trailPoly = document.getElementById('wm-walk-trail-line');
+  const statusHint = document.getElementById('wm-walk-status');
+
+  if (!walker || pts.length < 2) {
+    uiModal = null;
+    page = 'scene';
+    doAction({ type: 'move', to });
+    return;
+  }
+
+  mapWalkingTo = to;
+  walker.classList.add('is-walking');
+  if (statusHint) {
+    statusHint.hidden = false;
+    statusHint.textContent = `正在前往「${LOCATIONS[to].name}」…`;
+    statusHint.classList.add('active');
+  }
+  if (trailPoly) {
+    trailPoly.setAttribute('points', pts.map((p) => `${p.x},${p.y}`).join(' '));
+  }
+
+  // 计算每段折线长度与总时长（约 950ms ~ 1450ms）
+  const segLens: number[] = [];
+  let totalLen = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const dx = pts[i + 1].x - pts[i].x;
+    const dy = pts[i + 1].y - pts[i].y;
+    const d = Math.hypot(dx, dy);
+    segLens.push(d);
+    totalLen += d;
+  }
+  const duration = Math.min(1450, Math.max(850, totalLen * 9.5));
+  const t0 = performance.now();
+
+  const step = (now: number) => {
+    const elapsed = now - t0;
+    const progress = Math.min(1, elapsed / duration);
+    // 缓入缓出但中段匀速迈步
+    const eased = progress < 0.12
+      ? (progress / 0.12) * 0.12
+      : progress > 0.88
+        ? 0.88 + ((progress - 0.88) / 0.12) * 0.12
+        : progress;
+
+    let distTarget = eased * totalLen;
+    let segIdx = 0;
+    while (segIdx < segLens.length - 1 && distTarget > segLens[segIdx]) {
+      distTarget -= segLens[segIdx];
+      segIdx++;
+    }
+    const segLen = Math.max(0.001, segLens[segIdx]);
+    const localT = Math.min(1, Math.max(0, distTarget / segLen));
+    const pA = pts[segIdx];
+    const pB = pts[segIdx + 1];
+    const cx = pA.x + (pB.x - pA.x) * localT;
+    const cy = pA.y + (pB.y - pA.y) * localT;
+    const facingLeft = pB.x < pA.x - 0.5;
+
+    walker.style.left = `${((cx / 256) * 100).toFixed(2)}%`;
+    walker.style.top = `${((cy / 144) * 100).toFixed(2)}%`;
+    walker.classList.toggle('face-left', facingLeft);
+
+    if (progress < 1) {
+      mapWalkTimer = requestAnimationFrame(step);
+    } else {
+      walker.classList.remove('is-walking');
+      walker.classList.add('arrived-pop');
+      mapWalkTimer = window.setTimeout(() => {
+        mapWalkingTo = null;
+        mapWalkTimer = null;
+        openShopId = null;
+        uiModal = null;
+        page = 'scene';
+        doAction({ type: 'move', to });
+      }, 180);
+    }
+  };
+
+  mapWalkTimer = requestAnimationFrame(step);
+}
+
+function mapModalHtml(): string {
+  const hasMinecart = state.unlocks.includes('minecart');
+  const mapSvg = worldMapPixelSvg({
+    hasMinecart,
+    hasGreenhouse: state.unlocks.includes('greenhouse'),
+  });
+
+  const curLocId = (state.location === 'mine' ? 'mountain' : state.location) as LocationId;
+  const curPin = WORLD_MAP_PINS[curLocId] ?? WORLD_MAP_PINS.farm;
+  const gender = playerGenderOf(state);
+
+  const pinMarkers = (Object.keys(WORLD_MAP_PINS) as LocationId[])
+    .map((id) => {
+      const pin = WORLD_MAP_PINS[id];
+      const here = state.location === id || (id === 'mountain' && state.location === 'mine');
+      const spot = FISHING_SPOT_DEFS.find((x) => x.id === id);
+      const isDedicatedSpot = !!spot && !['forest', 'mountain', 'beach'].includes(id);
+      const lockReason = isDedicatedSpot ? fishingSpotAccessReason(state, id) : null;
+      const omen = spotKingOmen(id);
+      const npcsAtLoc = NPCS.filter((n) => npcLocation(state, n) === id);
+      const mins = here ? 0 : travelTime(state, id);
+      const leftPct = ((pin.x / 256) * 100).toFixed(2);
+      const topPct = ((pin.y / 144) * 100).toFixed(2);
+      const edgeClass = pin.x > 195 ? 'tip-left' : pin.x < 55 ? 'tip-right' : '';
+      const edgeYClass = pin.y < 38 ? 'tip-below' : '';
+
+      const extraFacility =
+        id === 'farm'
+          ? `6×8 农田 · ${state.unlocks.includes('greenhouse') ? '四季温室已修' : '旧温室待修'}`
+          : id === 'town'
+            ? '杂货铺 · 铁匠铺(渔具台) · 白芷诊所 · 社区中心'
+            : id === 'mountain'
+              ? `山麓湖岸(T1) · 矿洞入口（最深 ${state.mine.deepest}/60 层）`
+              : id === 'forest'
+                ? '八株古树 · 蘑菇/野花/果树 · 青禾溪(T1)'
+                : id === 'beach'
+                  ? '老渔夫小屋(鱼饵台) · 白鹭海滩海钓(T1)'
+                  : spot?.description ?? '';
+
+      const veinBadge =
+        pin.vein === 'core'
+          ? '山谷核心区'
+          : pin.vein === 'river'
+            ? `森林河脉 T${pin.tier ?? 1} · Lv.${spot?.minLevel ?? 0}`
+            : pin.vein === 'lake'
+              ? `高山湖脉 T${pin.tier ?? 1} · Lv.${spot?.minLevel ?? 0}`
+              : `南洋海脉 T${pin.tier ?? 1} · Lv.${spot?.minLevel ?? 0}`;
+
+      const npcHtml = npcsAtLoc.length
+        ? `<div class="wm-tip-npcs">${npcsAtLoc
+            .map((n) => `<span class="wm-tip-npc">${npcAvatarSvg(n.id)}<small>${n.name}</small></span>`)
+            .join('')}</div>`
+        : '';
+
+      const footText = here
+        ? `当前所在${state.location === 'mine' ? `（矿洞 ${state.mine.floor} 层）` : ''}`
+        : lockReason
+          ? `未开放 · ${lockReason}`
+          : `点击前往 · 约 ${mins} 分钟${hasMinecart ? '（矿车加速）' : ''}`;
+
+      return `<div class="wm-pin-wrap ${edgeClass} ${edgeYClass}" style="left:${leftPct}%;top:${topPct}%">
+        <button class="wm-pin vein-${pin.vein} ${here ? 'is-here' : ''} ${lockReason ? 'is-locked' : ''} ${omen ? 'has-omen' : ''}" data-act="map-walk-to" data-to="${id}" ${here || lockReason ? 'disabled' : ''}>
+          <span class="wm-pin-dot">${pin.tier ? `T${pin.tier}` : '★'}</span>
+          <span class="wm-pin-label">${LOCATIONS[id].name}</span>
+          ${npcsAtLoc.length ? `<span class="wm-pin-npc-count">${npcsAtLoc.length}</span>` : ''}
+        </button>
+        <div class="wm-hover-card" role="tooltip">
+          <div class="wm-tip-head">
+            <b>${LOCATIONS[id].name}</b>
+            <span class="wm-tip-pill">${veinBadge}</span>
+          </div>
+          <p class="wm-tip-desc">${extraFacility}</p>
+          ${omen ? `<div class="wm-tip-omen">${omen}</div>` : ''}
+          ${npcHtml}
+          <div class="wm-tip-foot ${here ? 'here' : lockReason ? 'locked' : 'go'}">${footText}</div>
+        </div>
+      </div>`;
+    })
+    .join('');
+
+  const walkerLeft = ((curPin.x / 256) * 100).toFixed(2);
+  const walkerTop = ((curPin.y / 144) * 100).toFixed(2);
+
+  return `
+    <div class="modal-head wm-map-head">
+      <h2 class="wm-map-title">${uiIconSvg('map')} 青禾谷星脉全图</h2>
+      <div class="wm-head-actions">
+        <div class="wm-zoom-controls" aria-label="地图缩放">
+          <button class="pix-btn sm" data-act="map-zoom-out" title="缩小地图" aria-label="缩小">－</button>
+          <span id="wm-zoom-val" class="wm-zoom-val">${Math.round(mapZoom * 100)}%</span>
+          <button class="pix-btn sm" data-act="map-zoom-in" title="放大地图" aria-label="放大">＋</button>
+        </div>
+        <button class="pix-btn sm" data-act="map-zoom-reset" title="重置视野">重置</button>
+        <button class="pix-btn sm" data-act="close-ui-modal">关闭</button>
+      </div>
+    </div>
+    <div class="world-map-parchment">
+      <div class="world-map-status-bar">
+        <span><b>当前所在：</b>${LOCATIONS[state.location].name}</span>
+        <span><b>天时：</b>${formatDate(state)} ${formatTime(state.minutes)} · ${WEATHER_NAMES[state.weather]}</span>
+        <span><b>蒸汽矿车：</b>${hasMinecart ? '已修通（全谷移动耗时减半）' : '未修通（修复社区中心工艺室开启）'}</span>
+      </div>
+      <div class="world-map-stage-wrap" id="wm-viewport">
+        <div id="wm-walk-status" class="wm-walk-status" hidden></div>
+        <div class="wm-zoom-inner" id="wm-zoom-inner" style="transform:translate(${mapPanX}px,${mapPanY}px) scale(${mapZoom})">
+          ${mapSvg}
+          <svg class="wm-walk-trail-svg" viewBox="0 0 256 144" preserveAspectRatio="none" aria-hidden="true">
+            <polyline id="wm-walk-trail-line" points="" fill="none" stroke="#ffd23f" stroke-width="1.6" stroke-dasharray="2.5 2" stroke-linecap="square" />
+          </svg>
+          <div class="world-map-pins-layer">${pinMarkers}</div>
+          <div id="wm-player-walker" class="wm-player-walker" style="left:${walkerLeft}%;top:${walkerTop}%" title="主角：${state.playerName || '守谷人'}">
+            <div class="wm-walker-sprite">${playerMapWalkerSvg(gender)}</div>
+            <span class="wm-walker-tag">${esc(state.playerName || '我')}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function clinicModalHtml(): string {
@@ -2264,6 +2933,7 @@ function itemModalHtml(id: string): string {
       ${([1, 5, 'all'] as const).map((q) => `<button class="chip ${qty === q ? 'on' : ''}" data-act="qty" data-q="${q}">${q === 'all' ? '全部' : q}</button>`).join('')}
     </div>
     <div class="detail-actions">
+      ${FISH_KING_META[detail.id] ? `<button class="pix-btn gold" data-act="open-fish-king" data-fish="${detail.id}">${uiIconSvg('sparkle')} 开启鱼王生态预览剧场</button>` : ''}
       ${weaponDef ? (state.weapon === detail.id ? `<button class="pix-btn" data-act="unequip-weapon">卸下武器</button>` : `<button class="pix-btn gold" data-act="equip-weapon" data-item="${detail.id}">装备武器</button>`) : ''}
       ${detail.energy ? `<button class="pix-btn gold" data-act="eat" data-item="${detail.id}">吃掉 (+${detail.energy} 体力)</button>` : ''}
       ${sellPrice(state, detail.id) > 0 && detail.category !== 'tool' && !(weaponDef && state.weapon === detail.id) ? `<button class="pix-btn" data-act="sell-bag" data-item="${detail.id}">直接出售（八折 ${Math.floor(sellPrice(state, detail.id) * BAG_SELL_RATE)} 金/件）</button>` : ''}
@@ -2585,7 +3255,8 @@ function craftModalHtml(focusBench?: WorkbenchId): string {
       .map(([id, need]) => {
         const have = state.inventory[id] ?? 0;
         const ok = have >= need;
-        return `<span class="chip ${ok ? 'ok' : ''}">${itemName(id)} ${have}/${need}</span>`;
+        const origin = MATERIAL_ORIGINS[id];
+        return `<span class="chip ${ok ? 'ok' : ''}" title="${origin ? `产地：${origin}` : ''}">${itemName(id)} ${have}/${need}${origin && !ok ? ` <small class="dim">（${origin}）</small>` : ''}</span>`;
       })
       .join('');
   const benchUsable = (benchId: WorkbenchId) => state.unlocks.includes(WORKBENCHES[benchId].unlockId) && state.location === WORKBENCHES[benchId].location;
@@ -2681,6 +3352,8 @@ function uiModalContent(): string {
       return itemModalHtml(uiModal.itemId);
     case 'codex':
       return codexModalHtml(uiModal.itemId);
+    case 'fishKing':
+      return fishKingModalHtml(uiModal.fishId);
     case 'craft':
       return craftModalHtml(uiModal.bench);
     case 'npc':
@@ -2890,15 +3563,24 @@ function renderFishingDuelModal(): string {
 function render(): void {
   const hpMax = maxHp(state);
   const hudLogo = document.getElementById('hud-logo');
-  if (hudLogo && !hudLogo.querySelector('.brand-logo-crest')) {
-    hudLogo.innerHTML = `${brandCrestSvg()}<span class="brand-logo-text"><span class="brand-logo-title">青禾谷物语</span><small class="brand-logo-sub">★ QINGHE VALLEY ★</small></span>`;
+  if (hudLogo && hudLogo.dataset.crest !== '1') {
+    hudLogo.innerHTML = brandCrestSvg();
+    hudLogo.dataset.crest = '1';
+    hudLogo.setAttribute('aria-label', '青禾谷物语');
+    hudLogo.setAttribute('title', '青禾谷物语');
   }
   $('hud-loc').innerHTML = `${uiIconSvg('pin')} <b>${LOCATIONS[state.location].name}</b> <small>[切换地点]</small>`;
   $('hud-date').textContent = `${formatDate(state)} ${formatTime(state.minutes)} · ${WEATHER_NAMES[state.weather]}（明日 ${WEATHER_NAMES[state.tomorrowWeather]}）`;
   $('hud-gold').textContent = `${state.gold} 金`;
   const playerChip = document.getElementById('hud-player');
   if (playerChip) {
-    playerChip.innerHTML = `${playerAvatarSvg(playerGenderOf(state))}<span>${esc(state.playerName || '农场主')}</span>`;
+    const pinned = activePinnedMedals();
+    const medalsHtml = pinned.length
+      ? `<span class="hud-medals">${pinned
+          .map((m) => `<span class="hud-medal-pin" title="佩戴勋章：${m.name}（${m.desc}）">${medalIconSvg(m.id)}</span>`)
+          .join('')}</span>`
+      : '';
+    playerChip.innerHTML = `${playerAvatarSvg(playerGenderOf(state))}<span>${esc(state.playerName || '农场主')}</span>${medalsHtml}`;
   }
   const hpCls = `hp${mineFxState.playerHit ? ' fx-hit' : ''}`;
   $('hud-bars').innerHTML =
@@ -2999,9 +3681,71 @@ document.addEventListener('click', (e) => {
       render();
       break;
     case 'open-map':
+      if (mapWalkTimer) {
+        cancelAnimationFrame(mapWalkTimer);
+        clearTimeout(mapWalkTimer);
+        mapWalkTimer = null;
+      }
+      mapWalkingTo = null;
       uiModal = { kind: 'map' };
       render();
       break;
+    case 'map-zoom-in':
+      mapZoom = Math.min(2.6, Math.round((mapZoom + 0.25) * 100) / 100);
+      clampMapPan();
+      applyMapViewportTransform();
+      break;
+    case 'map-zoom-out':
+      mapZoom = Math.max(1, Math.round((mapZoom - 0.25) * 100) / 100);
+      if (mapZoom === 1) {
+        mapPanX = 0;
+        mapPanY = 0;
+      } else {
+        clampMapPan();
+      }
+      applyMapViewportTransform();
+      break;
+    case 'map-zoom-reset':
+      mapZoom = 1;
+      mapPanX = 0;
+      mapPanY = 0;
+      applyMapViewportTransform();
+      break;
+    case 'map-walk-to': {
+      const to = el.dataset.to as LocationId;
+      startMapCharacterWalk(to);
+      break;
+    }
+    case 'toggle-pin-medal': {
+      const mid = el.dataset.medal!;
+      const cur = activePinnedMedals().map((m) => m.id);
+      if (cur.includes(mid)) {
+        pinnedMedals = cur.filter((x) => x !== mid);
+      } else {
+        pinnedMedals = [...cur.slice(0, 2), mid];
+      }
+      savePinnedMedals();
+      render();
+      break;
+    }
+    case 'open-fish-king': {
+      const fid = el.dataset.fish!;
+      fishKingLeapActive = false;
+      uiModal = { kind: 'fishKing', fishId: fid };
+      render();
+      break;
+    }
+    case 'trigger-fish-king-leap': {
+      const fid = el.dataset.fish!;
+      fishKingLeapActive = false;
+      uiModal = { kind: 'fishKing', fishId: fid };
+      render();
+      requestAnimationFrame(() => {
+        fishKingLeapActive = true;
+        render();
+      });
+      break;
+    }
     case 'open-npc':
       uiModal = { kind: 'npc', npcId: el.dataset.npc! };
       render();
@@ -3504,9 +4248,68 @@ $('shop-modal').addEventListener('click', (e) => {
 $('ui-modal').addEventListener('click', (e) => {
   if (e.target === $('ui-modal')) {
     if (needsCharacterSetup) return; // 角色创建完成前不可关闭
+    if (mapWalkTimer) {
+      cancelAnimationFrame(mapWalkTimer);
+      clearTimeout(mapWalkTimer);
+      mapWalkTimer = null;
+      mapWalkingTo = null;
+    }
     uiModal = null;
     render();
   }
+});
+
+// 世界地图鼠标滚轮缩放与画布按住拖拽平移
+let mapDragging = false;
+let mapDragStartX = 0;
+let mapDragStartY = 0;
+let mapPanOriginX = 0;
+let mapPanOriginY = 0;
+
+document.addEventListener(
+  'wheel',
+  (e) => {
+    const vp = (e.target as HTMLElement | null)?.closest?.('#wm-viewport');
+    if (!vp || uiModal?.kind !== 'map') return;
+    e.preventDefault();
+    const delta = e.deltaY < 0 ? 0.2 : -0.2;
+    mapZoom = Math.min(2.6, Math.max(1, Math.round((mapZoom + delta) * 100) / 100));
+    if (mapZoom === 1) {
+      mapPanX = 0;
+      mapPanY = 0;
+    } else {
+      clampMapPan();
+    }
+    applyMapViewportTransform();
+  },
+  { passive: false },
+);
+
+document.addEventListener('mousedown', (e) => {
+  if (uiModal?.kind !== 'map') return;
+  const target = e.target as HTMLElement | null;
+  if (!target?.closest('#wm-viewport') || target.closest('.wm-pin-wrap')) return;
+  if (mapZoom <= 1) return;
+  mapDragging = true;
+  mapDragStartX = e.clientX;
+  mapDragStartY = e.clientY;
+  mapPanOriginX = mapPanX;
+  mapPanOriginY = mapPanY;
+  document.getElementById('wm-viewport')?.classList.add('is-dragging');
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!mapDragging) return;
+  mapPanX = mapPanOriginX + (e.clientX - mapDragStartX);
+  mapPanY = mapPanOriginY + (e.clientY - mapDragStartY);
+  clampMapPan();
+  applyMapViewportTransform();
+});
+
+document.addEventListener('mouseup', () => {
+  if (!mapDragging) return;
+  mapDragging = false;
+  document.getElementById('wm-viewport')?.classList.remove('is-dragging');
 });
 document.addEventListener('keydown', (e) => {
   if (state.activity?.kind === 'fishing') {

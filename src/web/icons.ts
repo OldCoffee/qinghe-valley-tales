@@ -191,15 +191,353 @@ function paintSword(g: Grid, main: string): void {
   px(g, 13, 1, '#FFFFFF'); rect(g, 3, 11, 3, 2, '#FFD54F'); rect(g, 2, 12, 2, 2, '#6D4C41'); px(g, 4, 11, D);
 }
 
+const FISH_MAP = Object.fromEntries(FISH.map((f) => [f.id, f]));
+const FISH_PALETTE: Record<string, string> = {
+  carp: '#E67E22', largemouth_bass: '#558B2F', sturgeon: '#546E7A', legend: '#2ECC71',
+  sunfish: '#FFD54F', chub: '#90A4AE', rainbow_trout: '#66BB6A', catfish: '#6D4C41',
+  salmon: '#FF7043', pike: '#7CB342', anchovy: '#64B5F6', sardine: '#29B6F6',
+  herring: '#90CAF9', halibut: '#A1887F', tuna: '#1E88E5', red_snapper: '#EF5350',
+  eel: '#795548', pufferfish: '#FFCA28', creek_goby: '#8D6E63', stone_minnow: '#4DB6AC',
+  bitterling: '#F06292', loach: '#795548', yellow_catfish: '#FFB300', topmouth_culter: '#B0BEC5',
+  mandarin_fish: '#FFA726', ayu: '#81C784', taimen: '#D84315', ancient_sturgeon: '#16A085',
+  silver_crucian: '#CFD8DC', brook_trout: '#EF5350', lake_trout: '#5C6BC0', freshwater_eel: '#5D4037',
+  bluegill: '#42A5F5', paddlefish: '#78909C', mist_fish: '#80DEEA', mirror_dragonfish: '#9B59B6',
+  mackerel: '#26A69A', horse_mackerel: '#78909C', sea_bream: '#EC407A', grouper: '#8D6E63',
+  sea_bass: '#546E7A', bonito: '#1565C0', swordfish: '#0288D1', mahi_mahi: '#26C6DA',
+  lobster: '#D32F2F', octopus: '#C2185B', squid: '#F48FB1', parrotfish: '#00BFA5',
+  anglerfish: '#311B92', abyss_oarfish: '#1565C0', firefly_minnow: '#69F0AE', rapids_shadowfish: '#455A64',
+  reef_night_snapper: '#AD1457', snow_mirror_trout: '#B3E5FC', frost_mist_perch: '#4DD0E1',
+  storm_bay_marlin: '#1976D2', dawn_silver_carp: '#FFE082', dusk_river_perch: '#FF8A65',
+};
+
+/** 鱼王解剖部位标签（图标与剧场关节切片同源） */
+type FishKingPart =
+  | 'head' | 'barbel-u' | 'barbel-d' | 'dorsal'
+  | 'pectoral' | 'pelvic' | 'torso-f' | 'torso-r' | 'tail';
+
+type FishKingMaster = { colors: Grid; parts: (FishKingPart | null)[][] };
+
+const FISH_KING_IDS = new Set(['legend', 'ancient_sturgeon', 'mirror_dragonfish', 'abyss_oarfish']);
+
+function emptyParts(): (FishKingPart | null)[][] {
+  return Array.from({ length: 24 }, () => Array<FishKingPart | null>(24).fill(null));
+}
+
+function setPart(parts: (FishKingPart | null)[][], x: number, y: number, part: FishKingPart): void {
+  if (y >= 0 && y < 24 && x >= 0 && x < 24) parts[y][x] = part;
+}
+
+function paintPart(g: Grid, parts: (FishKingPart | null)[][], x: number, y: number, c: string, part: FishKingPart): void {
+  px(g, x, y, c);
+  if (g[y]?.[x]) setPart(parts, x, y, part);
+}
+
+function rectPart(
+  g: Grid, parts: (FishKingPart | null)[][],
+  x: number, y: number, w: number, h: number, c: string, part: FishKingPart,
+): void {
+  for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) paintPart(g, parts, i, j, c, part);
+}
+
+/** 四大鱼王 24×24 母本：颜色网格 + 每像素解剖部位（图标与剧场唯一视觉源） */
+function fishKing24Master(fishId: string): FishKingMaster | null {
+  if (!FISH_KING_IDS.has(fishId)) return null;
+  const g = grid(24, 24);
+  const parts = emptyParts();
+
+  if (fishId === 'legend') {
+    // 山谷鱼王：五裂金冠 + 翡翠金鳞流线躯干 + 双叶金边尾
+    for (const cx of [7, 9, 11, 13, 15]) {
+      paintPart(g, parts, cx, 3, '#FFF9C4', 'dorsal');
+      rectPart(g, parts, cx, 4, 1, 2, '#FFD23F', 'dorsal');
+    }
+    rectPart(g, parts, 7, 6, 9, 2, '#FFD23F', 'dorsal');
+    const rows: [number, number, number][] = [
+      [7, 6, 10], [8, 4, 13], [9, 3, 15], [10, 2, 16], [11, 2, 16],
+      [12, 2, 16], [13, 3, 15], [14, 4, 13], [15, 6, 10], [16, 8, 6],
+    ];
+    for (const [y, x0, w] of rows) {
+      const body = y <= 9 ? '#1E8449' : y >= 14 ? '#A3E4D7' : '#2ECC71';
+      for (let i = 0; i < w; i++) {
+        const x = x0 + i;
+        const part: FishKingPart = x <= 7 ? 'head' : x <= 12 ? 'torso-f' : x <= 17 ? 'torso-r' : 'tail';
+        paintPart(g, parts, x, y, (i === 0 || i === w - 1) ? D : body, part);
+      }
+    }
+    for (let y = 9; y <= 13; y++) for (let x = 6; x <= 15; x++) {
+      if ((x + y) % 2 === 0) {
+        const part: FishKingPart = x <= 7 ? 'head' : x <= 12 ? 'torso-f' : 'torso-r';
+        paintPart(g, parts, x, y, y === 11 ? '#FFF9C4' : '#F1C40F', part);
+      }
+    }
+    paintPart(g, parts, 6, 10, '#145A32', 'head');
+    paintPart(g, parts, 7, 11, '#145A32', 'head');
+    paintPart(g, parts, 6, 12, '#145A32', 'head');
+    rectPart(g, parts, 4, 10, 2, 2, '#FFF9C4', 'head');
+    paintPart(g, parts, 4, 10, D, 'head');
+    paintPart(g, parts, 1, 11, '#FFD23F', 'barbel-u');
+    paintPart(g, parts, 2, 12, '#FFD23F', 'barbel-d');
+    rectPart(g, parts, 7, 15, 4, 3, '#F39C12', 'pectoral');
+    paintPart(g, parts, 6, 17, '#FFF9C4', 'pectoral');
+    rectPart(g, parts, 18, 9, 3, 2, '#2ECC71', 'tail');
+    rectPart(g, parts, 20, 7, 3, 3, '#FFD23F', 'tail');
+    rectPart(g, parts, 18, 12, 3, 2, '#2ECC71', 'tail');
+    rectPart(g, parts, 20, 13, 3, 3, '#FFD23F', 'tail');
+  } else if (fishId === 'ancient_sturgeon') {
+    for (const bx of [7, 10, 13, 16]) {
+      rectPart(g, parts, bx, 6, 2, 2, '#D4AC0D', bx <= 10 ? 'torso-f' : 'torso-r');
+      paintPart(g, parts, bx, 5, '#FFF9C4', 'dorsal');
+    }
+    const rows: [number, number, number][] = [
+      [8, 6, 11], [9, 4, 14], [10, 2, 16], [11, 1, 17], [12, 2, 16], [13, 4, 14], [14, 6, 10],
+    ];
+    for (const [y, x0, w] of rows) {
+      const body = y <= 9 ? '#117864' : y >= 13 ? '#A3E4D7' : '#16A085';
+      for (let i = 0; i < w; i++) {
+        const x = x0 + i;
+        const part: FishKingPart = x <= 6 ? 'head' : x <= 12 ? 'torso-f' : x <= 17 ? 'torso-r' : 'tail';
+        paintPart(g, parts, x, y, i === 0 ? D : body, part);
+      }
+    }
+    for (let x = 7; x <= 16; x += 3) {
+      const part: FishKingPart = x <= 12 ? 'torso-f' : 'torso-r';
+      paintPart(g, parts, x, 10, '#69F0AE', part);
+      paintPart(g, parts, x + 1, 11, '#FFD23F', part);
+    }
+    rectPart(g, parts, 4, 9, 2, 2, '#FFD23F', 'head');
+    paintPart(g, parts, 4, 9, D, 'head');
+    paintPart(g, parts, 2, 12, '#69F0AE', 'barbel-u');
+    paintPart(g, parts, 2, 13, '#A3E4D7', 'barbel-u');
+    paintPart(g, parts, 4, 13, '#69F0AE', 'barbel-d');
+    paintPart(g, parts, 4, 14, '#FFD23F', 'barbel-d');
+    rectPart(g, parts, 7, 14, 4, 3, '#0E6251', 'pectoral');
+    paintPart(g, parts, 7, 16, '#FFD23F', 'pectoral');
+    rectPart(g, parts, 18, 8, 3, 3, '#16A085', 'tail');
+    rectPart(g, parts, 20, 5, 3, 4, '#69F0AE', 'tail');
+    rectPart(g, parts, 18, 12, 3, 3, '#117864', 'tail');
+    paintPart(g, parts, 20, 14, '#FFD23F', 'tail');
+  } else if (fishId === 'mirror_dragonfish') {
+    rectPart(g, parts, 7, 4, 10, 3, '#FFD23F', 'dorsal');
+    rectPart(g, parts, 8, 3, 7, 1, '#00E5FF', 'dorsal');
+    const rows: [number, number, number][] = [
+      [7, 6, 11], [8, 4, 13], [9, 3, 15], [10, 3, 15], [11, 3, 15], [12, 4, 14], [13, 6, 11], [14, 8, 8],
+    ];
+    for (const [y, x0, w] of rows) {
+      const body = y <= 8 ? '#8E44AD' : y >= 13 ? '#CE93D8' : '#F3E5F5';
+      for (let i = 0; i < w; i++) {
+        const x = x0 + i;
+        const part: FishKingPart = x <= 7 ? 'head' : x <= 12 ? 'torso-f' : x <= 17 ? 'torso-r' : 'tail';
+        paintPart(g, parts, x, y, i === 0 ? '#4A148C' : body, part);
+      }
+    }
+    for (let x = 6; x <= 15; x += 2) {
+      const part: FishKingPart = x <= 7 ? 'head' : x <= 12 ? 'torso-f' : 'torso-r';
+      paintPart(g, parts, x, 9, '#AB47BC', part);
+      paintPart(g, parts, x + 1, 10, '#FFD23F', part);
+      paintPart(g, parts, x, 11, '#00E5FF', part);
+    }
+    rectPart(g, parts, 4, 9, 2, 2, '#00E5FF', 'head');
+    paintPart(g, parts, 4, 9, '#FFFFFF', 'head');
+    rectPart(g, parts, 1, 8, 3, 1, '#00E5FF', 'barbel-u');
+    paintPart(g, parts, 0, 7, '#FFD23F', 'barbel-u');
+    rectPart(g, parts, 1, 12, 3, 1, '#E1BEE7', 'barbel-d');
+    paintPart(g, parts, 0, 13, '#00E5FF', 'barbel-d');
+    rectPart(g, parts, 6, 14, 4, 4, '#AB47BC', 'pectoral');
+    rectPart(g, parts, 5, 17, 3, 2, '#FFD23F', 'pelvic');
+    rectPart(g, parts, 18, 7, 4, 4, '#E1BEE7', 'tail');
+    rectPart(g, parts, 20, 5, 3, 3, '#FFD23F', 'tail');
+    rectPart(g, parts, 18, 11, 4, 4, '#9B59B6', 'tail');
+    rectPart(g, parts, 20, 14, 3, 3, '#00E5FF', 'tail');
+  } else {
+    // abyss_oarfish
+    rectPart(g, parts, 3, 2, 1, 5, '#FF1744', 'dorsal');
+    paintPart(g, parts, 2, 1, '#FFD23F', 'dorsal');
+    rectPart(g, parts, 5, 3, 1, 4, '#FF5252', 'dorsal');
+    paintPart(g, parts, 5, 2, '#FFD23F', 'dorsal');
+    rectPart(g, parts, 7, 4, 1, 3, '#FF1744', 'dorsal');
+    for (let x = 2; x <= 21; x++) {
+      const cy = 11 + Math.round(Math.sin((x / 19) * Math.PI * 2) * 2.4);
+      const part: FishKingPart = x <= 5 ? 'head' : x <= 12 ? 'torso-f' : x <= 18 ? 'torso-r' : 'tail';
+      paintPart(g, parts, x, cy - 3, '#FF1744', 'dorsal');
+      paintPart(g, parts, x, cy - 2, '#1565C0', part);
+      paintPart(g, parts, x, cy - 1, (x % 2 === 0) ? '#E1F5FE' : '#80D8FF', part);
+      paintPart(g, parts, x, cy, '#B3E5FC', part);
+      paintPart(g, parts, x, cy + 1, '#0D47A1', part);
+    }
+    rectPart(g, parts, 3, 9, 2, 2, '#FFD23F', 'head');
+    paintPart(g, parts, 3, 9, '#FF1744', 'head');
+    rectPart(g, parts, 4, 13, 1, 5, '#FF1744', 'pectoral');
+    paintPart(g, parts, 4, 18, '#00E5FF', 'pelvic');
+    rectPart(g, parts, 20, 9, 3, 4, '#00E5FF', 'tail');
+    paintPart(g, parts, 22, 8, '#FFD23F', 'tail');
+    paintPart(g, parts, 22, 13, '#FF1744', 'tail');
+  }
+
+  return { colors: g, parts };
+}
+
+/** 24x24 高密差异化鱼类像素图标（按四大鱼王、奇鱼甲壳、比目、鳗鳅、宽体鲤鲷、纺锤掠食六大形态逐像素精绘） */
+function fishIcon24Svg(fishId: string): string {
+  const king = fishKing24Master(fishId);
+  if (king) return render(king.colors, 'qh-svg-icon qh-pixel');
+
+  const g = grid(24, 24);
+  const main = FISH_PALETTE[fishId] ?? hashColor(fishId);
+  const dark = shade(main, 0.58);
+  const mid = shade(main, 0.82);
+  const light = shade(main, 1.32);
+  const belly = shade(main, 1.55);
+
+  // 2) 奇形海产与甲壳型（章鱼、乌贼、龙虾、河豚、鮟鱇鱼、剑鱼/枪鱼）
+  if (fishId === 'octopus') {
+    blob(g, 12, 8, 6, 5, main);
+    px(g, 9, 6, light); px(g, 10, 6, light);
+    rect(g, 9, 9, 2, 2, '#FFF9C4'); px(g, 9, 9, D);
+    rect(g, 14, 9, 2, 2, '#FFF9C4'); px(g, 14, 9, D);
+    for (const tx of [5, 8, 11, 14, 17]) {
+      rect(g, tx, 13, 2, 6, main);
+      px(g, tx - 1, 18, dark); px(g, tx + 1, 16, '#F8BBD0'); px(g, tx + 1, 19, '#F8BBD0');
+    }
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+  if (fishId === 'squid') {
+    // 菱形尾翼外套膜 + 触腕群
+    for (let i = 0; i < 6; i++) rect(g, 12 - i, 2 + i, i * 2, 1, i < 2 ? dark : main);
+    rect(g, 8, 8, 8, 7, main); rect(g, 9, 8, 2, 6, light);
+    rect(g, 8, 13, 2, 2, '#FFFFFF'); px(g, 8, 14, D);
+    rect(g, 14, 13, 2, 2, '#FFFFFF'); px(g, 14, 14, D);
+    for (const tx of [7, 9, 11, 13, 15]) { rect(g, tx, 15, 1, 6, dark); px(g, tx, 21, light); }
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+  if (fishId === 'lobster') {
+    // 双巨螯 + 分节虾身 + 尾扇
+    rect(g, 3, 5, 5, 3, main); rect(g, 2, 7, 3, 2, dark);
+    rect(g, 3, 15, 5, 3, main); rect(g, 2, 14, 3, 2, dark);
+    rect(g, 7, 9, 11, 6, main);
+    for (let x = 9; x <= 16; x += 2) rect(g, x, 9, 1, 6, dark);
+    rect(g, 10, 10, 6, 1, light);
+    px(g, 7, 10, D); px(g, 7, 13, D);
+    rect(g, 18, 8, 4, 8, dark); rect(g, 19, 9, 2, 6, main);
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+  if (fishId === 'pufferfish') {
+    // 鼓腹棘刺河豚
+    blob(g, 11, 12, 7, 6, '#FFD54F');
+    rect(g, 6, 13, 10, 4, '#FFF9C4');
+    for (const [sx, sy] of [[7, 5], [11, 4], [15, 5], [4, 9], [4, 14], [7, 18], [11, 19], [15, 18]]) {
+      px(g, sx, sy, '#8D6E63');
+    }
+    rect(g, 7, 9, 2, 2, '#FFFFFF'); px(g, 7, 9, D);
+    rect(g, 18, 10, 3, 4, '#FFB300');
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+  if (fishId === 'anglerfish') {
+    // 头顶发光灯笼 + 巨口利齿深海鮟鱇
+    rect(g, 6, 3, 6, 1, '#7E57C2'); rect(g, 4, 4, 2, 2, '#00E5FF'); px(g, 4, 4, '#FFFFFF');
+    blob(g, 12, 13, 7, 6, '#311B92');
+    rect(g, 5, 12, 6, 4, '#12002B');
+    for (const tx of [5, 7, 9]) { px(g, tx, 12, '#FFF9C4'); px(g, tx + 1, 15, '#FFF9C4'); }
+    rect(g, 8, 9, 2, 2, '#FFD23F');
+    rect(g, 19, 11, 3, 4, '#512DA8');
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+  if (fishId === 'swordfish' || fishId === 'storm_bay_marlin') {
+    // 超长吻剑 + 高耸背帆 + 新月尾
+    rect(g, 1, 11, 6, 1, D); rect(g, 2, 12, 5, 1, light);
+    rect(g, 8, 5, 7, 4, dark); rect(g, 9, 6, 5, 2, main);
+    const rows: [number, number, number][] = [
+      [9, 7, 10], [10, 6, 12], [11, 5, 13], [12, 6, 12], [13, 7, 10], [14, 9, 7],
+    ];
+    for (const [y, x0, w] of rows) rect(g, x0, y, w, 1, y <= 11 ? main : belly);
+    rect(g, 7, 10, 2, 2, '#FFF9C4'); px(g, 7, 10, D);
+    rect(g, 18, 8, 3, 3, dark); rect(g, 20, 6, 2, 3, main);
+    rect(g, 18, 12, 3, 3, dark); rect(g, 20, 14, 2, 3, main);
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+  if (fishId === 'halibut') {
+    // 宽菱扁平大比目鱼（双目同侧）
+    const rows: [number, number, number][] = [
+      [5, 10, 4], [6, 8, 8], [7, 6, 11], [8, 5, 13], [9, 4, 14], [10, 3, 15],
+      [11, 3, 15], [12, 3, 15], [13, 4, 14], [14, 5, 13], [15, 6, 11], [16, 8, 8], [17, 10, 4],
+    ];
+    for (const [y, x0, w] of rows) {
+      rect(g, x0, y, w, 1, (y === 5 || y === 17) ? dark : main);
+      if (y >= 8 && y <= 14) for (let x = x0 + 2; x < x0 + w - 2; x += 3) px(g, x, y, (x + y) % 2 ? light : dark);
+    }
+    px(g, 6, 9, '#FFFFFF'); px(g, 6, 10, D);
+    px(g, 6, 12, '#FFFFFF'); px(g, 6, 13, D);
+    rect(g, 18, 9, 4, 5, dark);
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+  if (fishId === 'eel' || fishId === 'freshwater_eel' || fishId === 'loach') {
+    // 蜿蜒 S 型鳗鳅
+    for (let x = 3; x <= 20; x++) {
+      const cy = 12 + Math.round(Math.sin((x / 16) * Math.PI * 2) * 2.5);
+      px(g, x, cy - 2, dark);
+      px(g, x, cy - 1, main);
+      px(g, x, cy, (x % 2 === 0) ? light : main);
+      px(g, x, cy + 1, belly);
+    }
+    px(g, 4, 11, '#FFF9C4'); px(g, 4, 12, D);
+    if (fishId === 'loach') { px(g, 2, 12, dark); px(g, 2, 14, dark); }
+    return render(g, 'qh-svg-icon qh-pixel');
+  }
+
+  // 3) 宽体高背鲤鲫/太阳鱼/海鲷型 vs 流线纺锤掠食/鲑鳟型
+  const isDeepBody = ['carp', 'silver_crucian', 'dawn_silver_carp', 'sunfish', 'bluegill', 'bitterling', 'sea_bream', 'red_snapper', 'reef_night_snapper', 'parrotfish', 'grouper', 'mahi_mahi'].includes(fishId);
+  const bodyRows: [number, number, number][] = isDeepBody
+    ? [
+        [6, 8, 8], [7, 6, 11], [8, 5, 13], [9, 4, 14], [10, 3, 15],
+        [11, 3, 15], [12, 3, 15], [13, 4, 14], [14, 5, 13], [15, 6, 11], [16, 8, 8],
+      ]
+    : [
+        [8, 7, 9], [9, 5, 12], [10, 3, 15], [11, 2, 16],
+        [12, 3, 15], [13, 5, 12], [14, 7, 9],
+      ];
+
+  // 背鳍与臀鳍
+  if (isDeepBody) {
+    rect(g, 9, 4, 6, 2, dark); rect(g, 10, 5, 4, 1, light);
+    rect(g, 12, 17, 4, 2, dark);
+  } else {
+    rect(g, 9, 6, 5, 2, dark); rect(g, 10, 7, 3, 1, light);
+    rect(g, 15, 7, 2, 1, mid); // 脂鳍
+    rect(g, 13, 15, 3, 2, dark);
+  }
+
+  // 鱼身逐行像素阶梯 + 交错鱼鳞 + 肚白
+  for (const [y, x0, w] of bodyRows) {
+    const isTop = y <= (isDeepBody ? 7 : 9);
+    const isBot = y >= (isDeepBody ? 15 : 13);
+    rect(g, x0, y, w, 1, isTop ? dark : isBot ? belly : main);
+    px(g, x0, y, D); px(g, x0 + w - 1, y, D);
+    if (!isTop && !isBot) {
+      for (let x = x0 + 4; x < x0 + w - 2; x += 2) {
+        if ((x + y) % 2 === 0) px(g, x, y, light);
+        else if ((x + y) % 3 === 0) px(g, x, y, mid);
+      }
+    }
+  }
+
+  // 鳃盖弧线 + 亮眼 + 胸鳍 + 分叉尾鳍
+  const eyeY = isDeepBody ? 10 : 10;
+  rect(g, 5, eyeY, 2, 2, '#FFFFFF'); px(g, 5, eyeY, D);
+  px(g, 8, eyeY, dark); px(g, 8, eyeY + 1, dark); px(g, 7, eyeY + 2, dark);
+  rect(g, 8, isDeepBody ? 14 : 13, 4, 2, dark); px(g, 9, isDeepBody ? 15 : 14, light);
+  if (['catfish', 'yellow_catfish', 'carp', 'dawn_silver_carp', 'sturgeon'].includes(fishId)) {
+    px(g, 2, 12, dark); px(g, 1, 13, dark); px(g, 2, 14, dark);
+  }
+  rect(g, 18, 8, 3, 3, dark); rect(g, 20, 6, 2, 3, main); px(g, 21, 6, light);
+  rect(g, 18, 12, 3, 3, dark); rect(g, 20, 14, 2, 3, main); px(g, 21, 16, light);
+
+  return render(g, 'qh-svg-icon qh-pixel');
+}
+
 const ITEM_PAINT: Record<string, (g: Grid) => void> = {};
 function defItem(id: string, main: string, kind: 'fruit' | 'fish' | 'gem' | 'sword'): void {
   ITEM_PAINT[id] = (g) => kind === 'fruit' ? paintFruit(g, main) : kind === 'fish' ? paintFish(g, main, hash(id)) : kind === 'gem' ? paintGem(g, main) : paintSword(g, main);
 }
 Object.entries(CROP_PALETTE).forEach(([id, p]) => defItem(id, p.main, 'fruit'));
-[['carp', '#E67E22'], ['largemouth_bass', '#558B2F'], ['sturgeon', '#607D8B'], ['legend', '#26A69A'], ['sunfish', '#FFD54F'], ['chub', '#B0BEC5'], ['rainbow_trout', '#81C784'], ['catfish', '#5D4037'], ['salmon', '#FF8A65'], ['pike', '#9CCC65'], ['anchovy', '#64B5F6'], ['sardine', '#4FC3F7'], ['herring', '#90CAF9'], ['halibut', '#A1887F'], ['tuna', '#1E88E5'], ['red_snapper', '#EF5350'], ['eel', '#795548'], ['pufferfish', '#FFD54F']].forEach(([id, c]) => defItem(id, c, 'fish'));
-FISH.forEach((fish) => {
-  if (!ITEM_PAINT[fish.id]) defItem(fish.id, hashColor(fish.id), 'fish');
-});
 [['amethyst', '#AB47BC'], ['topaz', '#FFCA28'], ['aquamarine', '#26C6DA'], ['jade', '#66BB6A'], ['ruby', '#E53935'], ['emerald', '#2ECC71'], ['diamond', '#80DEEA'], ['crystal_fruit', '#4FC3F7']].forEach(([id, c]) => defItem(id, c, 'gem'));
 [['wild_horseradish', '#D7CCC8'], ['leek', '#A5D6A7'], ['spice_berry', '#FF7043'], ['grape', '#8E24AA'], ['wild_plum', '#7B1FA2'], ['hazelnut', '#A1662F'], ['blackberry', '#37474F'], ['winter_root', '#D7B889'], ['snow_yam', '#E1F5FE']].forEach(([id, c]) => defItem(id, c, 'fruit'));
 [['rusty_sword', '#A1887F'], ['steel_sword', '#B0BEC5'], ['silver_blade', '#E1F5FE'], ['obsidian_sword', '#7E57C2'], ['galaxy_sword', '#CE93D8']].forEach(([id, c]) => defItem(id, c, 'sword'));
@@ -273,6 +611,7 @@ function paintSpecial(g: Grid, id: string): boolean {
 }
 
 export function itemIconSvg(itemId: string): string {
+  if (FISH_MAP[itemId]) return fishIcon24Svg(itemId);
   const g = grid(16, 16);
   if (itemId === 'tool_hoe') return toolIconSvg('hoe', 0);
   if (itemId === 'tool_can') return toolIconSvg('can', 0);
@@ -776,4 +1115,830 @@ export function uiIconSvg(name: UiIconName): string {
     default: blob(g, 8, 8, 5, 5, '#FFCA28'); px(g, 6, 6, '#FFFFFF'); break;
   }
   return render(g, 'qh-ui-icon qh-pixel');
+}
+
+/** 将任意像素网格压缩为 <g class="..."> 内的整数 <rect> 序列（用于多图层像素动画） */
+function renderGroup(g: Grid, cls: string): string {
+  const h = g.length;
+  const w = g[0]?.length ?? 16;
+  let out = '';
+  for (let y = 0; y < h; y++) {
+    let x = 0;
+    while (x < w) {
+      const c = g[y][x];
+      if (!c) {
+        x++;
+        continue;
+      }
+      let len = 1;
+      while (x + len < w && g[y][x + len] === c) len++;
+      out += `<rect x="${x}" y="${y}" width="${len}" height="1" fill="${c}"/>`;
+      x += len;
+    }
+  }
+  return `<g class="${cls}">${out}</g>`;
+}
+
+/** 八大「水脉与山谷试炼」24x24 高密像素勋章图标（绶带褶皱 + 双层阶梯金属斜切高光） */
+export function medalIconSvg(medalId: string): string {
+  const g = grid(24, 24);
+  const paintMedalFrame = (ribbon: string, rim: string, core: string) => {
+    // 顶部像素绶带褶皱
+    rect(g, 7, 0, 10, 1, D);
+    rect(g, 8, 1, 8, 4, ribbon);
+    px(g, 7, 1, D); px(g, 16, 1, D);
+    px(g, 8, 2, shade(ribbon, 1.3)); px(g, 9, 2, shade(ribbon, 1.15));
+    px(g, 14, 2, shade(ribbon, 0.78)); px(g, 15, 2, shade(ribbon, 0.65));
+    px(g, 8, 3, shade(ribbon, 0.85)); px(g, 15, 3, shade(ribbon, 1.2));
+    rect(g, 10, 5, 4, 1, '#FFD54F'); px(g, 9, 5, '#FFF9C4'); px(g, 14, 5, '#C9A227');
+    // 八角像素章体双层描边
+    rect(g, 8, 6, 8, 1, D);
+    rect(g, 5, 7, 14, 1, rim); px(g, 4, 7, D); px(g, 19, 7, D);
+    rect(g, 4, 8, 16, 1, rim); px(g, 3, 8, D); px(g, 20, 8, D);
+    rect(g, 3, 9, 18, 8, rim);
+    rect(g, 2, 10, 1, 6, D); rect(g, 21, 10, 1, 6, D);
+    rect(g, 4, 17, 16, 1, rim); px(g, 3, 17, D); px(g, 20, 17, D);
+    rect(g, 5, 18, 14, 1, rim); px(g, 4, 18, D); px(g, 19, 18, D);
+    rect(g, 8, 19, 8, 1, D);
+    // 内盘 + 左上双层斜切高光
+    rect(g, 6, 9, 12, 8, core);
+    rect(g, 5, 10, 14, 6, core);
+    px(g, 5, 8, '#FFFDE7'); px(g, 6, 8, '#FFF9C4'); px(g, 7, 8, '#FFF59D');
+    px(g, 4, 9, '#FFFDE7'); px(g, 5, 9, '#FFF9C4');
+    px(g, 4, 10, '#FFF59D');
+    // 右下暗角
+    px(g, 18, 15, shade(rim, 0.55)); px(g, 19, 14, shade(rim, 0.55));
+    px(g, 17, 16, shade(core, 0.7));
+  };
+
+  switch (medalId) {
+    case 'medal_creek':
+      paintMedalFrame('#2E7D32', '#CD7F32', '#3E2723');
+      rect(g, 8, 12, 7, 3, '#80DEEA');
+      px(g, 7, 12, '#FFF9C4'); px(g, 15, 11, '#4DD0E1'); px(g, 15, 15, '#4DD0E1');
+      px(g, 16, 12, '#80DEEA'); px(g, 16, 13, '#80DEEA'); px(g, 16, 14, '#80DEEA');
+      px(g, 9, 12, D); px(g, 11, 10, '#69F0AE'); px(g, 12, 11, '#A5D6A7');
+      break;
+    case 'medal_river':
+      paintMedalFrame('#1B5E20', '#2ECC71', '#0D3B26');
+      rect(g, 7, 12, 8, 3, '#16A085');
+      px(g, 8, 11, '#FFD23F'); px(g, 10, 11, '#FFD23F'); px(g, 12, 11, '#FFD23F');
+      px(g, 15, 12, '#A3E4D7'); px(g, 16, 11, '#A3E4D7'); px(g, 16, 15, '#A3E4D7');
+      rect(g, 7, 16, 4, 1, '#69F0AE'); rect(g, 13, 16, 4, 1, '#69F0AE');
+      break;
+    case 'medal_lake':
+      paintMedalFrame('#4A148C', '#AB47BC', '#1A0933');
+      rect(g, 8, 11, 3, 5, '#FFF59D'); px(g, 9, 10, '#FFF59D'); px(g, 9, 16, '#FFF59D');
+      px(g, 14, 11, '#FFD23F'); rect(g, 13, 12, 4, 1, '#FFD23F'); px(g, 14, 13, '#FFD23F');
+      px(g, 12, 14, '#00E5FF'); px(g, 15, 14, '#E1BEE7'); px(g, 11, 15, '#CE93D8');
+      break;
+    case 'medal_abyss':
+      paintMedalFrame('#B71C1C', '#C0392B', '#1A0505');
+      rect(g, 10, 10, 3, 7, '#E74C3C');
+      px(g, 9, 11, '#FF8A80'); px(g, 13, 11, '#FF8A80');
+      px(g, 8, 13, '#FF5252'); px(g, 14, 13, '#FF5252');
+      px(g, 9, 15, '#FF8A80'); px(g, 13, 15, '#FF8A80');
+      px(g, 11, 12, '#FFF9C4'); px(g, 11, 14, '#FFD23F');
+      break;
+    case 'medal_valley':
+      paintMedalFrame('#F9A825', '#FFD54F', '#3E2723');
+      rect(g, 10, 10, 4, 1, '#FFF9C4');
+      px(g, 9, 11, '#FFD23F'); px(g, 14, 11, '#FFD23F');
+      rect(g, 8, 12, 8, 1, '#FFC107');
+      px(g, 9, 13, '#FFD23F'); px(g, 14, 13, '#FFD23F');
+      rect(g, 10, 14, 4, 1, '#FFF9C4');
+      px(g, 11, 15, '#69F0AE'); px(g, 12, 16, '#80DEEA');
+      break;
+    case 'medal_allkings':
+      paintMedalFrame('#6A1B9A', '#FFD54F', '#1A0933');
+      px(g, 8, 12, '#2ECC71'); px(g, 10, 11, '#16A085');
+      px(g, 12, 12, '#AB47BC'); px(g, 14, 11, '#E74C3C');
+      px(g, 9, 14, '#FFD23F'); px(g, 11, 15, '#FFF9C4'); px(g, 13, 14, '#FFD23F');
+      px(g, 11, 13, '#00E5FF');
+      break;
+    case 'medal_season':
+      paintMedalFrame('#1565C0', '#42A5F5', '#0D2137');
+      rect(g, 8, 11, 2, 2, '#81C784');
+      rect(g, 14, 11, 2, 2, '#FF8A65');
+      rect(g, 8, 15, 2, 2, '#FFF176');
+      rect(g, 14, 15, 2, 2, '#80DEEA');
+      px(g, 11, 13, '#FFD23F'); px(g, 12, 14, '#FFF9C4');
+      break;
+    case 'medal_starvein':
+      paintMedalFrame('#0D47A1', '#00BCD4', '#011018');
+      px(g, 11, 10, '#FFF9C4');
+      rect(g, 10, 12, 4, 1, '#00E5FF');
+      px(g, 9, 13, '#4DD0E1'); px(g, 14, 13, '#4DD0E1');
+      px(g, 8, 14, '#26C6DA'); px(g, 15, 14, '#26C6DA');
+      px(g, 11, 15, '#80DEEA'); px(g, 12, 16, '#B2EBF2');
+      break;
+    default:
+      paintMedalFrame('#607D8B', '#90A4AE', '#263238');
+      rect(g, 10, 12, 4, 3, '#CFD8DC');
+  }
+
+  return render(g, 'qh-medal-svg');
+}
+
+/** 192x88 鱼王剧场分层像素网格（关节/环境），供 SVG 渲染与关节 PNG 导出同源使用 */
+export function fishKingTheaterLayers(fishId: string): { w: number; h: number; layers: Record<string, Grid> } {
+  const W = 192;
+  const H = 88;
+  const gBg = grid(W, H);
+  const gSky = grid(W, H);
+  const gFloraB = grid(W, H);
+  const gFloraF = grid(W, H);
+  const gCaustics = grid(W, H);
+  const gWaveFar = grid(W, H);
+  const gWaveMid = grid(W, H);
+  const gWaveNear = grid(W, H);
+  const gWakeU = grid(W, H);
+  const gWakeD = grid(W, H);
+  const gSplash = grid(W, H);
+  // 9 joints
+  const gHead = grid(W, H);
+  const gBarbelU = grid(W, H);
+  const gBarbelD = grid(W, H);
+  const gTorsoF = grid(W, H);
+  const gTorsoR = grid(W, H);
+  const gDorsal = grid(W, H);
+  const gPectoral = grid(W, H);
+  const gPelvic = grid(W, H);
+  const gTail = grid(W, H);
+
+  const jointOf = (part: FishKingPart): Grid => {
+    switch (part) {
+      case 'head': return gHead;
+      case 'barbel-u': return gBarbelU;
+      case 'barbel-d': return gBarbelD;
+      case 'torso-f': return gTorsoF;
+      case 'torso-r': return gTorsoR;
+      case 'dorsal': return gDorsal;
+      case 'pectoral': return gPectoral;
+      case 'pelvic': return gPelvic;
+      case 'tail': return gTail;
+    }
+  };
+
+  /** 将 24×24 鱼王母本 4×3 放大写入剧场关节层（接缝重叠 2px，阶梯补角） */
+  const paintFishFromMaster = (master: FishKingMaster) => {
+    const SX = 4;
+    const SY = 3;
+    const ox = 48;
+    const oy = 14;
+    const { colors, parts } = master;
+
+    const solid = (x: number, y: number) => !!(y >= 0 && y < 24 && x >= 0 && x < 24 && colors[y][x]);
+
+    for (let my = 0; my < 24; my++) {
+      for (let mx = 0; mx < 24; mx++) {
+        const c = colors[my][mx];
+        const part = parts[my][mx];
+        if (!c || !part) continue;
+        const tx0 = ox + mx * SX;
+        const ty0 = oy + my * SY;
+        const primary = jointOf(part);
+        // 主体块
+        for (let dy = 0; dy < SY; dy++) for (let dx = 0; dx < SX; dx++) {
+          px(primary, tx0 + dx, ty0 + dy, c);
+        }
+        // 躯干接缝重叠：torso-f 右缘写入 torso-r，head 右缘写入 torso-f，torso-r 右缘写入 tail
+        if (part === 'torso-f') {
+          for (let dy = 0; dy < SY; dy++) for (let dx = SX - 2; dx < SX; dx++) {
+            px(gTorsoR, tx0 + dx, ty0 + dy, c);
+          }
+        } else if (part === 'head' && mx >= 6) {
+          for (let dy = 0; dy < SY; dy++) for (let dx = SX - 2; dx < SX; dx++) {
+            px(gTorsoF, tx0 + dx, ty0 + dy, c);
+          }
+        } else if (part === 'torso-r' && mx >= 15) {
+          for (let dy = 0; dy < SY; dy++) for (let dx = SX - 2; dx < SX; dx++) {
+            px(gTail, tx0 + dx, ty0 + dy, c);
+          }
+        }
+        // 1px 阶梯补角：邻空对角时在放大块外侧补描边阶梯
+        const outline = c === D ? c : shade(c, 0.72);
+        if (!solid(mx - 1, my) && solid(mx, my - 1)) {
+          px(primary, tx0 - 1, ty0, outline);
+        }
+        if (!solid(mx + 1, my) && solid(mx, my - 1)) {
+          px(primary, tx0 + SX, ty0, outline);
+        }
+        if (!solid(mx - 1, my) && solid(mx, my + 1)) {
+          px(primary, tx0 - 1, ty0 + SY - 1, outline);
+        }
+        if (!solid(mx + 1, my) && solid(mx, my + 1)) {
+          px(primary, tx0 + SX, ty0 + SY - 1, outline);
+        }
+      }
+    }
+  };
+
+  // —— 环境层：远景水底 ——
+  rect(gBg, 0, 0, W, H, '#021018');
+  rect(gBg, 0, 48, W, 40, '#031A22');
+  for (let x = 0; x < W; x += 8) {
+    px(gBg, x + 2, 72, '#0A2A32');
+    px(gBg, x + 5, 78, '#0D3340');
+    px(gBg, x + 1, 84, '#082028');
+  }
+
+  // 天空/水面上方微光
+  for (let i = 0; i < 12; i++) {
+    px(gSky, 16 + i * 14, 4 + (i % 3), i % 2 ? '#1A3A4A' : '#0E2836');
+  }
+  px(gSky, 40, 8, '#FFF9C4'); px(gSky, 88, 6, '#80DEEA'); px(gSky, 140, 9, '#CE93D8');
+
+  // 远近三层水面波浪
+  for (let x = 0; x < W; x++) {
+    const yFar = 18 + ((x >> 3) % 2);
+    px(gWaveFar, x, yFar, '#0E4A5A');
+    if (x % 5 === 0) px(gWaveFar, x, yFar - 1, '#1A6A7A');
+  }
+  for (let x = 0; x < W; x++) {
+    const yMid = 22 + ((x >> 2) % 3 === 0 ? 1 : 0);
+    px(gWaveMid, x, yMid, '#1488A0');
+    if (x % 4 === 0) px(gWaveMid, x, yMid - 1, '#E0F7FA');
+  }
+  for (let x = 0; x < W; x++) {
+    const yNear = 26 + ((x >> 1) % 2);
+    px(gWaveNear, x, yNear, '#26C6DA');
+    if (x % 3 === 0) px(gWaveNear, x, yNear - 1, '#FFFFFF');
+    if (x % 7 === 0) px(gWaveNear, x, yNear + 1, '#B2EBF2');
+  }
+
+  // 水下焦散光斑
+  for (let i = 0; i < 18; i++) {
+    const cx = 10 + i * 10;
+    const cy = 52 + (i % 4) * 6;
+    px(gCaustics, cx, cy, '#1DE9B6');
+    px(gCaustics, cx + 1, cy, '#64FFDA');
+    px(gCaustics, cx + 2, cy + 1, '#A7FFEB');
+    if (i % 3 === 0) px(gCaustics, cx + 1, cy - 1, '#E0F2F1');
+  }
+
+  // 分层水草 / 气根 / 珊瑚
+  for (let i = 0; i < 8; i++) {
+    const bx = 8 + i * 24;
+    rect(gFloraB, bx, 60, 1, 20, '#1B5E20');
+    px(gFloraB, bx - 1, 62, '#2E7D32'); px(gFloraB, bx + 1, 66, '#388E3C');
+    px(gFloraB, bx - 1, 70, '#43A047'); px(gFloraB, bx + 1, 74, '#66BB6A');
+  }
+  for (let i = 0; i < 6; i++) {
+    const fx = 20 + i * 28;
+    rect(gFloraF, fx, 55, 1, 24, '#00695C');
+    px(gFloraF, fx + 1, 58, '#00897B'); px(gFloraF, fx - 1, 64, '#26A69A');
+    px(gFloraF, fx + 1, 70, '#4DB6AC'); px(gFloraF, fx - 1, 76, '#80CBC4');
+  }
+
+  // 尾流双排涡街气泡（跟在尾后）
+  for (let i = 0; i < 12; i++) {
+    const wx = 148 + i * 3;
+    px(gWakeU, wx, 34 + (i % 3), '#B2EBF2');
+    px(gWakeU, wx + 1, 33 + (i % 3), '#E0F7FA');
+    px(gWakeD, wx + 2, 52 - (i % 3), '#4DD0E1');
+    px(gWakeD, wx + 3, 53 - (i % 3), '#80DEEA');
+  }
+
+  // 破水卷浪与飞溅水珠
+  rect(gSplash, 70, 20, 20, 2, '#E0F7FA');
+  rect(gSplash, 72, 18, 16, 1, '#FFFFFF');
+  for (let i = 0; i < 16; i++) {
+    const dx = 60 + (i * 5) % 50;
+    const dy = 12 + (i * 3) % 14;
+    px(gSplash, dx, dy, i % 2 ? '#FFFFFF' : '#B2EBF2');
+  }
+  rect(gSplash, 55, 24, 8, 2, '#4DD0E1');
+  rect(gSplash, 100, 24, 8, 2, '#4DD0E1');
+  px(gSplash, 54, 23, '#FFFFFF'); px(gSplash, 108, 23, '#FFFFFF');
+
+  // 剧场鱼 = 24×24 图标母本放大（与下方详情图标同一条鱼）
+  const master = fishKing24Master(fishId) ?? fishKing24Master('legend');
+  if (master) paintFishFromMaster(master);
+
+  return {
+    w: W,
+    h: H,
+    layers: {
+      'fk-env-bg': gBg,
+      'fk-env-sky': gSky,
+      'fk-env-flora-b': gFloraB,
+      'fk-env-caustics': gCaustics,
+      'fk-env-wave-far': gWaveFar,
+      'fk-env-wave-mid': gWaveMid,
+      'fk-env-wave-near': gWaveNear,
+      'fk-env-flora-f': gFloraF,
+      'fk-env-wake-u': gWakeU,
+      'fk-env-wake-d': gWakeD,
+      'fk-part-tail': gTail,
+      'fk-part-torso-r': gTorsoR,
+      'fk-part-dorsal': gDorsal,
+      'fk-part-pelvic': gPelvic,
+      'fk-part-torso-f': gTorsoF,
+      'fk-part-pectoral': gPectoral,
+      'fk-part-head': gHead,
+      'fk-part-barbel-u': gBarbelU,
+      'fk-part-barbel-d': gBarbelD,
+      'fk-env-splash': gSplash,
+    },
+  };
+}
+
+/** 192x88 超高密鱼王剧场：9 关节像素骨骼链 + 四层水动力学环境（与 fishKingTheaterLayers 同源） */
+export function fishKingTheaterSvg(fishId: string): string {
+  const { w: W, h: H, layers } = fishKingTheaterLayers(fishId);
+  return `<svg class="fishking-stage-svg qh-pixel" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+    ${renderGroup(layers['fk-env-bg'], 'fk-env-bg')}
+    ${renderGroup(layers['fk-env-sky'], 'fk-env-sky')}
+    ${renderGroup(layers['fk-env-flora-b'], 'fk-env-flora-b')}
+    ${renderGroup(layers['fk-env-caustics'], 'fk-env-caustics')}
+    ${renderGroup(layers['fk-env-wave-far'], 'fk-env-wave-far')}
+    ${renderGroup(layers['fk-env-wave-mid'], 'fk-env-wave-mid')}
+    ${renderGroup(layers['fk-env-wave-near'], 'fk-env-wave-near')}
+    ${renderGroup(layers['fk-env-flora-f'], 'fk-env-flora-f')}
+    ${renderGroup(layers['fk-env-wake-u'], 'fk-env-wake-u')}
+    ${renderGroup(layers['fk-env-wake-d'], 'fk-env-wake-d')}
+    <g class="fk-fish-group">
+      ${renderGroup(layers['fk-part-tail'], 'fk-part-tail')}
+      ${renderGroup(layers['fk-part-torso-r'], 'fk-part-torso-r')}
+      ${renderGroup(layers['fk-part-dorsal'], 'fk-part-dorsal')}
+      ${renderGroup(layers['fk-part-pelvic'], 'fk-part-pelvic')}
+      ${renderGroup(layers['fk-part-torso-f'], 'fk-part-torso-f')}
+      ${renderGroup(layers['fk-part-pectoral'], 'fk-part-pectoral')}
+      ${renderGroup(layers['fk-part-head'], 'fk-part-head')}
+      ${renderGroup(layers['fk-part-barbel-u'], 'fk-part-barbel-u')}
+      ${renderGroup(layers['fk-part-barbel-d'], 'fk-part-barbel-d')}
+    </g>
+    ${renderGroup(layers['fk-env-splash'], 'fk-env-splash')}
+  </svg>`;
+}
+
+
+/** 世界地图 14 地点在 256×144 像素画布上的坐标（百分比用于 HTML 交互锚点） */
+export const WORLD_MAP_PINS: Record<string, { x: number; y: number; vein: 'core' | 'river' | 'lake' | 'ocean'; tier?: number }> = {
+  // 山谷核心圈
+  farm: { x: 46, y: 60, vein: 'core' },
+  town: { x: 118, y: 66, vein: 'core' },
+  mountain: { x: 118, y: 38, vein: 'lake', tier: 1 },
+  forest: { x: 48, y: 92, vein: 'river', tier: 1 },
+  beach: { x: 118, y: 100, vein: 'ocean', tier: 1 },
+  // 森林河脉 T2-T4
+  egret_river: { x: 82, y: 92, vein: 'river', tier: 2 },
+  emerald_rapids: { x: 46, y: 118, vein: 'river', tier: 3 },
+  ancient_river: { x: 18, y: 124, vein: 'river', tier: 4 },
+  // 高山湖脉 T2-T4
+  mirror_lake: { x: 158, y: 36, vein: 'lake', tier: 2 },
+  mist_lake: { x: 194, y: 28, vein: 'lake', tier: 3 },
+  starfall_lake: { x: 228, y: 20, vein: 'lake', tier: 4 },
+  // 南洋海脉 T2-T4
+  crescent_bay: { x: 156, y: 108, vein: 'ocean', tier: 2 },
+  coral_reef: { x: 196, y: 118, vein: 'ocean', tier: 3 },
+  abyssal_sea: { x: 234, y: 128, vein: 'ocean', tier: 4 },
+};
+
+/** 256×144《青禾谷星脉全图》精细像素底图分层（供游戏内 SVG 与 Craft 导出同源使用） */
+export function worldMapPixelLayers(opts?: { hasMinecart?: boolean; hasGreenhouse?: boolean }): {
+  w: number;
+  h: number;
+  layers: Record<string, Grid>;
+} {
+  const W = 256;
+  const H = 144;
+  const gTerrain = grid(W, H);
+  const gWater = grid(W, H);
+  const gFlora = grid(W, H);
+  const gRails = grid(W, H);
+  const gLandmarks = grid(W, H);
+  const gVeins = grid(W, H);
+  const gFrame = grid(W, H);
+
+  const hasMinecart = !!opts?.hasMinecart;
+  const hasGreenhouse = opts?.hasGreenhouse ?? true;
+
+  const pLine = (g: Grid, x0: number, y0: number, x1: number, y1: number, c: string, thick = 1) => {
+    const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+    for (let s = 0; s <= steps; s++) {
+      const x = Math.round(x0 + ((x1 - x0) * s) / steps);
+      const y = Math.round(y0 + ((y1 - y0) * s) / steps);
+      rect(g, x, y, thick, thick, c);
+    }
+  };
+
+  const pDisc = (g: Grid, cx: number, cy: number, rx: number, ry: number, c: string, edge?: string) => {
+    for (let dy = -ry; dy <= ry; dy++) {
+      for (let dx = -rx; dx <= rx; dx++) {
+        const d = (dx * dx) / Math.max(1, rx * rx) + (dy * dy) / Math.max(1, ry * ry);
+        if (d <= 1) {
+          px(g, cx + dx, cy + dy, edge && d > 0.72 ? edge : c);
+        }
+      }
+    }
+  };
+
+  // 1) 地形基底：北山岩脉 → 中部青禾草甸 → 西南深林 → 南岸沙滩 → 南洋三阶海域
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const coastY = 96 + Math.round(Math.sin(x * 0.045) * 4) + (x > 165 ? Math.round((x - 165) * 0.12) : 0);
+      const mtnY = 44 - (x > 140 ? Math.round((x - 140) * 0.08) : 0) + Math.round(Math.cos(x * 0.07) * 3);
+      if (y < mtnY) {
+        // 北山高地与玄武岩阶梯
+        const dither = (x + y) % 2 === 0;
+        const c = y < 16 ? (dither ? '#37474F' : '#455A64') : y < 30 ? (dither ? '#4E342E' : '#5D4037') : (dither ? '#6D4C41' : '#795548');
+        px(gTerrain, x, y, c);
+      } else if (y < coastY) {
+        // 陆地草甸：西林偏深翠，中谷偏嫩绿，农庄周边暖土
+        const inWestWoods = x < 78 && y > 74;
+        const dither = (x * 3 + y * 5) % 7 === 0;
+        if (inWestWoods) {
+          px(gTerrain, x, y, dither ? '#1B5E20' : '#2E7D32');
+        } else {
+          px(gTerrain, x, y, dither ? '#558B2F' : '#689F38');
+        }
+      } else if (y < coastY + 7) {
+        // 金色潮间带沙滩 + 像素贝壳点缀
+        px(gTerrain, x, y, (x + y) % 3 === 0 ? '#FFE082' : '#FFD54F');
+      } else {
+        // 南洋浅海 → 外礁 → 无光深海海沟
+        const depth = y - (coastY + 7) + (x > 170 ? (x - 170) >> 2 : 0);
+        const c = depth < 10 ? '#26C6DA' : depth < 22 ? '#0288D1' : depth < 34 ? '#1565C0' : '#0A192F';
+        px(gTerrain, x, y, c);
+      }
+    }
+  }
+
+  // 北山立体山峰群与雪顶/星陨紫晶山脊
+  const peaks: [number, number, number, boolean][] = [
+    [28, 34, 18, false], [62, 32, 20, false], [98, 30, 22, false],
+    [134, 28, 20, false], [172, 24, 22, true], [206, 20, 24, true], [236, 18, 20, true],
+  ];
+  for (const [px0, baseY, h, starTint] of peaks) {
+    for (let row = 0; row < h; row++) {
+      const y = baseY - row;
+      const half = Math.max(1, h - row);
+      for (let dx = -half; dx <= half; dx++) {
+        const isEdge = Math.abs(dx) === half;
+        const isSnow = row > h * 0.68;
+        const c = isEdge
+          ? D
+          : isSnow
+            ? (starTint ? '#E1BEE7' : '#ECEFF1')
+            : dx < 0
+              ? (starTint ? '#5E35B1' : '#78909C')
+              : (starTint ? '#4527A0' : '#546E7A');
+        px(gTerrain, px0 + dx, y, c);
+      }
+    }
+  }
+
+  // 2) 水系层：星陨天池 → 寒雾深湖 → 镜月湖 → 山麓湖岸 → 白鹭河 → 青禾溪 → 翠谷急流 → 古木秘河
+  // 高山湖脉四湖
+  pDisc(gWater, 228, 20, 14, 7, '#7B1FA2', '#CE93D8'); // 星陨湖（紫金陨星坑）
+  pDisc(gWater, 228, 20, 9, 4, '#AB47BC');
+  px(gWater, 225, 19, '#FFD23F'); px(gWater, 231, 21, '#00E5FF');
+  pDisc(gWater, 194, 28, 12, 6, '#1565C0', '#80DEEA'); // 寒雾深湖
+  pDisc(gWater, 158, 36, 11, 5, '#0288D1', '#B3E5FC'); // 镜月湖
+  pDisc(gWater, 118, 38, 10, 5, '#26C6DA', '#E0F7FA'); // 山麓湖岸
+  // 高山湖脉溪流连线
+  pLine(gWater, 216, 22, 204, 27, '#80DEEA', 2);
+  pLine(gWater, 182, 30, 168, 35, '#4FC3F7', 2);
+  pLine(gWater, 147, 37, 128, 38, '#29B6F6', 2);
+
+  // 森林河脉主河道（自山麓湖岸南下经白鹭河、青禾溪、翠谷急流至古木秘河）
+  const riverPts: [number, number][] = [
+    [114, 42], [102, 58], [92, 76], [82, 92], [48, 92], [46, 118], [18, 124],
+  ];
+  for (let i = 0; i < riverPts.length - 1; i++) {
+    const [x0, y0] = riverPts[i];
+    const [x1, y1] = riverPts[i + 1];
+    pLine(gWater, x0, y0, x1, y1, '#00ACC1', 4);
+    pLine(gWater, x0, y0, x1, y1, '#4DD0E1', 2);
+  }
+  // 翠谷急流白沫 & 古木秘河幽绿秘潭
+  for (let i = 0; i < 6; i++) px(gWater, 44 + i * 2, 114 + (i % 2), '#FFFFFF');
+  pDisc(gWater, 18, 124, 11, 6, '#004D40', '#2ECC71');
+  pDisc(gWater, 18, 124, 7, 3, '#00695C');
+  px(gWater, 16, 123, '#69F0AE'); px(gWater, 20, 125, '#FFD23F');
+
+  // 南洋海脉：月牙海湾、珊瑚外礁、无光深海海沟漩涡 + 白色浪花线
+  for (let x = 8; x < W - 8; x += 6) {
+    const wy = 104 + Math.round(Math.sin(x * 0.045) * 4) + (x > 165 ? Math.round((x - 165) * 0.12) : 0);
+    rect(gWater, x, wy, 3, 1, '#E0F7FA');
+  }
+  // 珊瑚外礁彩簇
+  for (const [cx, cy, col] of [[190, 116, '#FF7043'], [198, 120, '#EC407A'], [204, 117, '#AB47BC'], [194, 122, '#26A69A']] as [number, number, string][]) {
+    rect(gWater, cx, cy, 3, 2, col); px(gWater, cx + 1, cy - 1, '#FFF9C4');
+  }
+  // 无光深海暗渊漩涡
+  pDisc(gWater, 234, 128, 14, 7, '#040C18', '#1565C0');
+  pDisc(gWater, 234, 128, 8, 4, '#1A0933');
+  px(gWater, 231, 127, '#FF1744'); px(gWater, 237, 129, '#00E5FF');
+
+  // 农庄至小镇、森林、山区、海滩的乡间石板与木桥路径
+  pLine(gTerrain, 46, 60, 118, 66, '#D7CCC8', 3); // 农场 ↔ 小镇
+  pLine(gTerrain, 118, 66, 118, 38, '#BCAAA4', 2); // 小镇 ↔ 山区
+  pLine(gTerrain, 118, 66, 118, 100, '#D7CCC8', 2); // 小镇 ↔ 海滩
+  pLine(gTerrain, 46, 60, 48, 92, '#A1887F', 2); // 农场 ↔ 森林
+  // 跨河小木桥
+  rect(gLandmarks, 90, 62, 6, 4, '#8D6E63');
+  rect(gLandmarks, 90, 61, 6, 1, D); rect(gLandmarks, 90, 66, 6, 1, D);
+
+  // 3) 森林植被层：西南八株古树、古木秘河盘根巨木、各处像素松林
+  const paintPine = (tx: number, ty: number, crown: string, hi: string) => {
+    rect(gFlora, tx, ty + 4, 2, 3, '#5D4037');
+    rect(gFlora, tx - 3, ty + 2, 8, 2, crown);
+    rect(gFlora, tx - 2, ty, 6, 2, crown);
+    rect(gFlora, tx - 1, ty - 2, 4, 2, hi);
+    px(gFlora, tx, ty - 3, hi);
+  };
+  for (const [tx, ty] of [
+    [16, 78], [26, 82], [34, 76], [60, 82], [68, 88],
+    [14, 98], [28, 102], [62, 102], [30, 110], [60, 114],
+  ]) {
+    paintPine(tx, ty, '#1B5E20', '#43A047');
+  }
+  // 古木秘河千年巨树王
+  rect(gFlora, 12, 112, 4, 7, '#4E342E');
+  pDisc(gFlora, 14, 109, 7, 5, '#004D40', '#69F0AE');
+  // 山林松树
+  for (const [tx, ty] of [[84, 44], [142, 46], [174, 44], [208, 40]]) {
+    paintPine(tx, ty, '#2E7D32', '#81C784');
+  }
+
+  // 4) 蒸汽矿车铁轨层（农场 ↔ 小镇 ↔ 山区 ↔ 海滩）
+  const railColor = hasMinecart ? '#FFD23F' : '#6D4C41';
+  const railTie = hasMinecart ? '#FFF9C4' : '#3E2723';
+  const railPairs: [[number, number], [number, number]][] = [
+    [[54, 54], [112, 42]],
+    [[112, 42], [114, 64]],
+    [[114, 64], [114, 96]],
+  ];
+  for (const [[x0, y0], [x1, y1]] of railPairs) {
+    pLine(gRails, x0, y0, x1, y1, railColor, 1);
+    const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+    for (let s = 0; s <= steps; s += 4) {
+      const rx = Math.round(x0 + ((x1 - x0) * s) / steps);
+      const ry = Math.round(y0 + ((y1 - y0) * s) / steps);
+      px(gRails, rx, ry, railTie);
+    }
+  }
+
+  // 5) 五大核心地标像素建筑
+  // ① 西麓 · 你的农场（红顶木屋 + 6×4 像素农田畦 + 四季温室 + 荣誉架）
+  rect(gLandmarks, 32, 50, 10, 7, '#D7CCC8'); // 木屋墙
+  rect(gLandmarks, 30, 47, 14, 4, '#C62828'); // 红屋顶
+  rect(gLandmarks, 31, 46, 12, 1, '#E53935');
+  rect(gLandmarks, 36, 53, 3, 4, '#5D4037'); // 门
+  rect(gLandmarks, 39, 44, 2, 3, '#78909C'); // 烟囱 + 炊烟
+  px(gLandmarks, 40, 42, '#ECEFF1'); px(gLandmarks, 41, 40, '#FFFFFF');
+  // 耕地与金色向日葵点缀
+  rect(gLandmarks, 44, 54, 14, 9, '#6D4C41');
+  for (let fy = 55; fy <= 61; fy += 2) {
+    for (let fx = 45; fx <= 56; fx += 2) {
+      px(gLandmarks, fx, fy, (fx + fy) % 4 === 0 ? '#FFD23F' : '#66BB6A');
+    }
+  }
+  // 温室（已修亮蓝玻璃，未修暗木框）
+  rect(gLandmarks, 20, 52, 9, 6, hasGreenhouse ? '#80DEEA' : '#5D4037');
+  rect(gLandmarks, 20, 50, 9, 2, hasGreenhouse ? '#E0F7FA' : '#3E2723');
+
+  // ② 中枢 · 白鹭镇广场（老井、钟楼社区中心、铁匠铺、杂货铺、白芷诊所）
+  pDisc(gLandmarks, 118, 66, 14, 9, '#BCAAA4', '#8D6E63'); // 石板广场
+  // 社区中心（北侧金顶钟楼）
+  rect(gLandmarks, 113, 52, 10, 7, '#FFE082');
+  rect(gLandmarks, 112, 49, 12, 3, '#1565C0');
+  rect(gLandmarks, 117, 46, 2, 3, '#FFD23F');
+  // 杂货铺（西侧绿檐）
+  rect(gLandmarks, 102, 62, 8, 6, '#FFF8E1');
+  rect(gLandmarks, 101, 60, 10, 2, '#2E7D32');
+  // 铁匠铺（东侧暗红炉火）
+  rect(gLandmarks, 126, 62, 8, 6, '#546E7A');
+  rect(gLandmarks, 125, 60, 10, 2, '#BF360C');
+  px(gLandmarks, 132, 58, '#FF6D00');
+  // 白芷诊所（南侧青白十字）
+  rect(gLandmarks, 104, 71, 7, 5, '#ECEFF1');
+  rect(gLandmarks, 103, 69, 9, 2, '#26A69A');
+  // 中心老井
+  rect(gLandmarks, 117, 65, 3, 3, '#607D8B'); px(gLandmarks, 118, 66, '#29B6F6');
+
+  // ③ 北山矿洞升降梯入口
+  rect(gLandmarks, 104, 30, 8, 7, '#263238');
+  rect(gLandmarks, 103, 29, 10, 2, '#8D6E63');
+  rect(gLandmarks, 106, 32, 4, 5, '#091016');
+  px(gLandmarks, 103, 32, '#FFD23F'); // 矿灯
+
+  // ④ 南岸 · 白鹭海滩（老渔夫木屋、长栈桥码头、白色灯塔）
+  rect(gLandmarks, 104, 94, 8, 5, '#8D6E63');
+  rect(gLandmarks, 103, 92, 10, 2, '#0277BD'); // 老渔夫小屋
+  rect(gLandmarks, 117, 98, 4, 12, '#A1887F'); // 栈桥码头
+  for (let py = 99; py <= 109; py += 2) px(gLandmarks, 116, py, '#5D4037');
+  // 灯塔
+  rect(gLandmarks, 132, 90, 4, 10, '#ECEFF1');
+  rect(gLandmarks, 132, 93, 4, 2, '#E53935');
+  rect(gLandmarks, 132, 97, 4, 2, '#E53935');
+  rect(gLandmarks, 131, 88, 6, 2, '#FFD23F');
+
+  // 6) 三大星脉航路流光像素轨迹 & 14 节点底座像素环
+  const veinPaths: { pts: [number, number][]; c: string; hi: string }[] = [
+    { pts: [[48, 92], [82, 92], [46, 118], [18, 124]], c: '#2ECC71', hi: '#A5D6A7' },
+    { pts: [[118, 38], [158, 36], [194, 28], [228, 20]], c: '#AB47BC', hi: '#FFD23F' },
+    { pts: [[118, 100], [156, 108], [196, 118], [234, 128]], c: '#29B6F6', hi: '#80DEEA' },
+  ];
+  for (const vp of veinPaths) {
+    for (let i = 0; i < vp.pts.length - 1; i++) {
+      const [x0, y0] = vp.pts[i];
+      const [x1, y1] = vp.pts[i + 1];
+      const steps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1);
+      for (let s = 0; s <= steps; s += 2) {
+        const vx = Math.round(x0 + ((x1 - x0) * s) / steps);
+        const vy = Math.round(y0 + ((y1 - y0) * s) / steps);
+        px(gVeins, vx, vy, s % 4 === 0 ? vp.hi : vp.c);
+      }
+    }
+  }
+  for (const pin of Object.values(WORLD_MAP_PINS)) {
+    const col =
+      pin.vein === 'core' ? '#FFD23F' : pin.vein === 'river' ? '#2ECC71' : pin.vein === 'lake' ? '#CE93D8' : '#4FC3F7';
+    rect(gVeins, pin.x - 2, pin.y - 2, 5, 5, D);
+    rect(gVeins, pin.x - 1, pin.y - 1, 3, 3, col);
+    px(gVeins, pin.x, pin.y, '#FFF9C4');
+  }
+
+  // 7) 羊皮卷金木像素边框 + 右上角像素罗盘星芒
+  rect(gFrame, 0, 0, W, 2, D); rect(gFrame, 0, H - 2, W, 2, D);
+  rect(gFrame, 0, 0, 2, H, D); rect(gFrame, W - 2, 0, 2, H, D);
+  rect(gFrame, 2, 2, W - 4, 1, '#C9A227'); rect(gFrame, 2, H - 3, W - 4, 1, '#C9A227');
+  rect(gFrame, 2, 2, 1, H - 4, '#C9A227'); rect(gFrame, W - 3, 2, 1, H - 4, '#C9A227');
+  // 四角铆钉
+  for (const [cx, cy] of [[4, 4], [W - 6, 4], [4, H - 6], [W - 6, H - 6]]) {
+    rect(gFrame, cx, cy, 2, 2, '#FFD23F');
+  }
+  // 左上像素罗盘
+  const rcx = 16; const rcy = 16;
+  pDisc(gFrame, rcx, rcy, 7, 7, '#2B1B0E', '#C9A227');
+  rect(gFrame, rcx, rcy - 5, 1, 11, '#FFD23F');
+  rect(gFrame, rcx - 5, rcy, 11, 1, '#FFD23F');
+  px(gFrame, rcx, rcy - 5, '#FF5252'); // 北针
+  px(gFrame, rcx, rcy, '#FFF9C4');
+
+  return {
+    w: W,
+    h: H,
+    layers: {
+      'wm-terrain': gTerrain,
+      'wm-water': gWater,
+      'wm-flora': gFlora,
+      'wm-rails': gRails,
+      'wm-landmarks': gLandmarks,
+      'wm-veins': gVeins,
+      'wm-frame': gFrame,
+    },
+  };
+}
+
+/** 渲染 256×144《青禾谷星脉全图》纯像素 SVG */
+export function worldMapPixelSvg(opts?: { hasMinecart?: boolean; hasGreenhouse?: boolean }): string {
+  const { w: W, h: H, layers } = worldMapPixelLayers(opts);
+  return `<svg class="world-map-pixel-svg qh-pixel" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+    ${renderGroup(layers['wm-terrain'], 'wm-layer-terrain')}
+    ${renderGroup(layers['wm-water'], 'wm-layer-water')}
+    ${renderGroup(layers['wm-flora'], 'wm-layer-flora')}
+    ${renderGroup(layers['wm-rails'], 'wm-layer-rails')}
+    ${renderGroup(layers['wm-landmarks'], 'wm-layer-landmarks')}
+    ${renderGroup(layers['wm-veins'], 'wm-layer-veins')}
+    ${renderGroup(layers['wm-frame'], 'wm-layer-frame')}
+  </svg>`;
+}
+
+/**
+ * 24×24 主角全身多关节像素行者（与 playerAvatarSvg 形象完全一致）：
+ * - 男：黑褐短发 + 白衬衫 + 蓝色背带工装裤 + 金铜背带扣 + 农夫皮靴
+ * - 女：栗色双麻花辫 + 鬓角小黄花发饰 + 粉色上衣白领口 + 玫瑰裙裤 + 红色小皮靴
+ * 拆分为 7 个独立像素图层：脚底阴影、后手、后腿、躯干、头部（含发辫摆动）、前腿、前手、尘土粒子
+ */
+export function playerMapWalkerLayers(gender: 'male' | 'female'): { w: number; h: number; layers: Record<string, Grid> } {
+  const W = 24;
+  const H = 24;
+  const female = gender === 'female';
+  const gShadow = grid(W, H);
+  const gArmB = grid(W, H);
+  const gLegB = grid(W, H);
+  const gTorso = grid(W, H);
+  const gHead = grid(W, H);
+  const gLegF = grid(W, H);
+  const gArmF = grid(W, H);
+  const gDust = grid(W, H);
+
+  const skin = '#FFE2C4';
+  const hair = female ? '#8A4B23' : '#2A2018';
+  const hairL = shade(hair, 1.45);
+  const hairD = shade(hair, 0.72);
+
+  // 1) 脚底像素地面阴影
+  rect(gShadow, 7, 22, 10, 1, '#1A0F07');
+  rect(gShadow, 6, 23, 12, 1, '#2B1B0E');
+
+  // 2) 头部 + 发型（与头像同款，朝右行走侧三分之二视角）
+  rect(gHead, 8, 4, 8, 7, skin);
+  rect(gHead, 9, 3, 6, 1, skin);
+  px(gHead, 8, 4, D); px(gHead, 15, 4, D);
+  // 双眼与腮红、嘴巴
+  px(gHead, 11, 7, D); px(gHead, 14, 7, D);
+  px(gHead, 10, 8, '#FF9EB0'); px(gHead, 15, 8, '#FF9EB0');
+  px(gHead, 12, 9, female ? '#D81B60' : '#8D5524');
+  if (female) {
+    // 栗色长发 + 麻花辫 + 鬓角黄花发饰
+    rect(gHead, 7, 2, 10, 3, hair);
+    rect(gHead, 8, 2, 8, 1, hairL);
+    rect(gHead, 7, 5, 2, 6, hair);
+    rect(gHead, 6, 9, 2, 4, hairD); // 脑后飘动麻花辫
+    px(gHead, 5, 11, hair); px(gHead, 5, 12, '#FFD54F'); // 发绳
+    // 黄花发饰
+    px(gHead, 9, 3, '#FFD54F'); px(gHead, 10, 3, '#FB8C00'); px(gHead, 9, 4, '#FFF9C4');
+  } else {
+    // 利落黑褐短发 + 粗眉
+    rect(gHead, 7, 2, 10, 3, hair);
+    rect(gHead, 8, 2, 8, 1, hairL);
+    rect(gHead, 7, 5, 2, 3, hair);
+    px(gHead, 11, 6, D); px(gHead, 14, 6, D);
+  }
+
+  // 3) 躯干与服装（y = 11..16）
+  if (female) {
+    // 粉色上衣 + 白领口 + 束腰裙摆
+    rect(gTorso, 8, 11, 8, 6, '#E75480');
+    px(gTorso, 11, 11, '#FFFFFF'); px(gTorso, 12, 11, '#FFFFFF');
+    px(gTorso, 10, 11, '#F8BBD0'); px(gTorso, 13, 11, '#F8BBD0');
+    rect(gTorso, 8, 15, 8, 1, '#AD1457'); // 腰带
+    px(gTorso, 12, 15, '#FFD54F');
+    rect(gTorso, 7, 16, 10, 1, '#C2185B');
+  } else {
+    // 白衬衫 + 蓝色背带工装裤 + 金扣
+    rect(gTorso, 8, 11, 8, 2, '#E8E4DA');
+    rect(gTorso, 8, 13, 8, 4, '#2B5B84');
+    rect(gTorso, 9, 11, 2, 3, '#2B5B84');
+    rect(gTorso, 13, 11, 2, 3, '#2B5B84');
+    px(gTorso, 10, 13, '#FFD54F'); px(gTorso, 13, 13, '#FFD54F'); // 背带金扣
+    rect(gTorso, 8, 16, 8, 1, '#1B3B58');
+  }
+  // 背包侧影（身后小行囊）
+  rect(gTorso, 6, 12, 2, 4, '#8D6E63');
+  px(gTorso, 6, 12, '#FFD54F');
+
+  // 4) 后手臂（gArmB）与前手臂（gArmF）—— 摆臂自然弯曲
+  const sleeve = female ? '#F06292' : '#E8E4DA';
+  const sleeveD = shade(sleeve, 0.8);
+  // 后臂（偏右前伸）
+  rect(gArmB, 14, 11, 2, 3, sleeveD);
+  rect(gArmB, 15, 14, 2, 2, skin);
+  // 前臂（偏左后摆）
+  rect(gArmF, 7, 11, 2, 3, sleeve);
+  rect(gArmF, 7, 14, 2, 2, skin);
+
+  // 5) 后腿（gLegB）与前腿（gLegF）—— 膝踝分层 + 皮靴
+  const pants = female ? '#5D4037' : '#1F4568';
+  const pantsD = shade(pants, 0.78);
+  const boot = female ? '#8E24AA' : '#4E342E';
+  // 后腿（跨步在后）
+  rect(gLegB, 9, 17, 3, 3, pantsD);
+  rect(gLegB, 8, 20, 4, 2, shade(boot, 0.85));
+  // 前腿（迈步在前）
+  rect(gLegF, 12, 17, 3, 3, pants);
+  rect(gLegF, 12, 20, 4, 2, boot);
+  px(gLegF, 15, 21, '#FFD54F'); // 靴尖高光
+
+  // 6) 脚后跟扬起的像素尘土与星尘颗粒
+  rect(gDust, 3, 20, 2, 2, '#FFF3C4');
+  px(gDust, 1, 19, '#FFE082');
+  px(gDust, 4, 18, '#FFD23F');
+
+  return {
+    w: W,
+    h: H,
+    layers: {
+      'pw-shadow': gShadow,
+      'pw-arm-b': gArmB,
+      'pw-leg-b': gLegB,
+      'pw-torso': gTorso,
+      'pw-head': gHead,
+      'pw-leg-f': gLegF,
+      'pw-arm-f': gArmF,
+      'pw-dust': gDust,
+    },
+  };
+}
+
+export function playerMapWalkerSvg(gender: 'male' | 'female'): string {
+  const { w: W, h: H, layers } = playerMapWalkerLayers(gender);
+  return `<svg class="wm-walker-svg qh-pixel" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+    ${renderGroup(layers['pw-shadow'], 'pw-part-shadow')}
+    ${renderGroup(layers['pw-dust'], 'pw-part-dust')}
+    <g class="pw-body-core">
+      ${renderGroup(layers['pw-arm-b'], 'pw-part-arm-b')}
+      ${renderGroup(layers['pw-leg-b'], 'pw-part-leg-b')}
+      ${renderGroup(layers['pw-torso'], 'pw-part-torso')}
+      ${renderGroup(layers['pw-head'], 'pw-part-head')}
+      ${renderGroup(layers['pw-leg-f'], 'pw-part-leg-f')}
+      ${renderGroup(layers['pw-arm-f'], 'pw-part-arm-f')}
+    </g>
+  </svg>`;
 }

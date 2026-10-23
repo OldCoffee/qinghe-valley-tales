@@ -127,19 +127,26 @@
         to { opacity: 1; transform: translateY(0); }
       }
 
-      /* 场景头与在场人物芯片条 */
-      .scene-head {
-        background: linear-gradient(var(--sky), #cdeac0);
-        border: 3px solid var(--wood-dark);
-        padding: 14px; margin: -4px -4px 14px;
+      /* 场景顶栏：各地均无地点名/介绍文案，仅保留操作与在场居民 */
+      .scene-chrome {
+        display: flex; flex-direction: column; gap: 10px;
+        margin: 0 0 12px;
       }
-      .scene-head-top {
-        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px;
+      .scene-actions {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+        background: #cdeac0; border: 3px solid var(--wood-dark); border-radius: 6px;
+        box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 8px 10px;
       }
-      .scene-head p { margin: 6px 0 10px; }
       .scene-npcs {
         display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-        margin-top: 10px; padding-top: 10px; border-top: 2px dashed rgba(61,36,16,0.35);
+        background: #fff8dc; border: 3px solid var(--wood-dark); border-radius: 6px;
+        box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 8px 10px;
+      }
+      .scene-npcs-label {
+        background: var(--wood-dark); color: var(--gold);
+        padding: 2px 8px; font-size: 15px; font-weight: bold; white-space: nowrap;
       }
       .npc-pill {
         background: #fff8dc; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
@@ -167,6 +174,32 @@
         background: rgba(43,27,14,0.14); border: 2px solid var(--wood-dark);
         padding: 0 6px; font-size: 16px;
       }
+      /* 农场顶栏：区域切换与农事快捷分行，不再与地点卡挤在一起 */
+      .farm-chrome {
+        display: flex; flex-direction: column; gap: 10px;
+        background: #fff3c4; border: 3px solid var(--wood-dark); border-radius: 6px;
+        box-shadow: 0 4px 0 var(--wood-dark);
+        padding: 12px; margin: 0 0 12px;
+      }
+      .farm-region-tabs {
+        display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+        padding-bottom: 10px; border-bottom: 2px dashed rgba(43, 27, 14, 0.28);
+      }
+      .farm-region-tabs .sub-tab { margin: 0; }
+      .farm-bulk-bar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px;
+        background: #cdeac0; border: 3px solid var(--wood-dark); border-radius: 4px;
+        box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 8px 10px; margin: 0;
+      }
+      .farm-bulk-label {
+        background: var(--wood-dark); color: var(--gold);
+        padding: 2px 8px; font-size: 16px; font-weight: bold; white-space: nowrap;
+      }
+      .farm-bulk-ops {
+        display: flex; flex-wrap: wrap; gap: 8px; align-items: center; flex: 1;
+      }
+      .farm-bulk-ops .pix-btn { margin: 0; }
       .hint, .dim { color: #6b5636; }
       .hint { font-size: 18px; }
 
@@ -271,11 +304,6 @@
         box-shadow: inset 0 0 0 2px rgba(255, 213, 79, 0.65), inset -3px -4px 0 rgba(0,0,0,0.28), 0 2px 0 rgba(43,27,14,0.45);
       }
       .tile.weedy { box-shadow: inset 0 0 0 3px #4e9b2a, inset -4px -4px 0 rgba(0,0,0,0.18); }
-      .farm-bulk-bar {
-        display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-        background: #fff3c4; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
-        padding: 8px 10px; margin: 0 0 10px;
-      }
       .tile.selected { outline: 4px solid #4fc3f7; outline-offset: -5px; z-index: 3; box-shadow: 0 0 12px rgba(79, 195, 247, 0.75); }
       .tile .grow {
         position: absolute; left: 5px; right: 5px; bottom: 3px; height: 6px;
@@ -1068,7 +1096,7 @@
       }
     
       /* --- 像素风: 图标锐化 + 农田 Debuff 无文字视觉 --- */
-      .qh-pixel, .qh-svg-icon, .qh-svg-avatar, .qh-tile-svg, .qh-ui-icon { shape-rendering: crispEdges; image-rendering: pixelated; }
+      .qh-pixel, .qh-svg-icon, .qh-svg-avatar, .qh-tile-svg, .qh-ui-icon, .qh-medal-svg, .fishking-stage-svg { shape-rendering: crispEdges; image-rendering: pixelated; }
       .qh-ui-icon { width: 1.05em; height: 1.05em; vertical-align: -0.18em; display: inline-block; }
       .hearts .qh-ui-icon { width: 14px; height: 14px; vertical-align: -2px; }
       .badge svg, .chip svg { width: 14px; height: 14px; vertical-align: -2px; }
@@ -1323,27 +1351,17 @@
         45% { transform: scale(1.09); background: #ffe082; box-shadow: 0 0 18px #ffd54f; }
       }
 
-      /* VectorCraft 设计的徽章 Logo 与 EffectCraft 页面刷新开幕动效 */
+      /* 顶栏左上角只保留圆形徽章 Logo，不占宽文案位 */
       .brand-logo {
-        display: inline-flex; align-items: center; gap: 10px;
+        display: inline-grid; place-items: center;
+        width: 44px; height: 44px; margin: 0; padding: 2px;
         background: linear-gradient(180deg, #fff6d6 0%, #f3e5be 100%);
         color: var(--ink); border: 3px solid var(--wood-dark);
         outline: 2px solid var(--gold); outline-offset: -5px;
         box-shadow: 0 3px 0 rgba(0,0,0,0.45);
-        padding: 3px 12px 3px 6px;
+        border-radius: 10px; flex: none;
       }
-      .brand-logo-crest { width: 38px; height: 38px; display: block; flex: none; }
-      .brand-logo-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
-      .brand-logo-title {
-        font-family: 'Press Start 2P', 'PingFang SC', monospace;
-        font-size: 14px; font-weight: bold; color: #5b3312;
-        text-shadow: 1px 1px 0 #ffd23f;
-      }
-      .brand-logo-sub {
-        margin-top: 2px; padding: 1px 6px;
-        background: #2b1b0e; color: var(--gold); border: 1px solid var(--gold);
-        font-size: 11px; letter-spacing: 0.5px;
-      }
+      .brand-logo-crest { width: 34px; height: 34px; display: block; }
       .brand-logo.logo-land-pulse {
         animation: brand-logo-pulse 0.52s ease;
       }
@@ -1732,11 +1750,855 @@
         from { transform: translateX(-3px); }
         to { transform: translateX(4px); }
       }
+
+      /* --- 星脉世界地图、手册荣誉陈列、HUD 随身勋章与四大太古鱼王剧场 --- */
+      .hud-medals {
+        display: inline-flex; align-items: center; gap: 3px;
+        margin-left: 4px; padding-left: 6px;
+        border-left: 2px dashed rgba(43, 27, 14, 0.35);
+      }
+      .hud-medal-pin {
+        width: 24px; height: 24px; display: inline-grid; place-items: center;
+        filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.45));
+        animation: medal-shimmer 3.2s ease-in-out infinite;
+      }
+      .hud-medal-pin svg { width: 24px; height: 24px; display: block; }
+      @keyframes medal-shimmer {
+        0%, 100% { transform: translateY(0) scale(1); filter: brightness(1); }
+        50% { transform: translateY(-1px) scale(1.06); filter: brightness(1.18); }
+      }
+
+      /* 手册「生涯记录」荣誉陈列架 */
+      .honor-showcase-panel {
+        background: linear-gradient(180deg, #2b1b0e 0%, #1e1209 100%);
+        color: #fff3c4; border: 3px solid var(--gold); border-radius: 6px;
+        box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45);
+        padding: 12px; margin: 4px 0 10px;
+        display: flex; flex-direction: column; gap: 10px;
+      }
+      .honor-showcase-head {
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+        padding-bottom: 8px; border-bottom: 2px dashed rgba(255, 210, 63, 0.35);
+      }
+      .honor-showcase-head .dim { color: #e8d8a8; }
+      .medal-showcase-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px;
+      }
+      .medal-slot-card {
+        display: flex; align-items: flex-start; gap: 8px;
+        background: #3a2412; border: 2px solid #6d4c41; border-radius: 5px;
+        padding: 8px; color: #fff3c4;
+      }
+      .medal-slot-card.unlocked {
+        border-color: var(--gold);
+        background: linear-gradient(180deg, #472c16 0%, #2f1c0d 100%);
+        box-shadow: inset 0 0 10px rgba(255, 210, 63, 0.18);
+      }
+      .medal-slot-card.pinned {
+        outline: 2px solid #69f0ae; outline-offset: -4px;
+      }
+      .medal-slot-card.locked .medal-slot-icon {
+        filter: grayscale(1) brightness(0.45); opacity: 0.65;
+      }
+      .medal-slot-icon { width: 42px; height: 42px; flex: none; display: grid; place-items: center; }
+      .medal-slot-icon svg { width: 40px; height: 40px; display: block; }
+      .medal-slot-info { flex: 1; display: flex; flex-direction: column; gap: 3px; font-size: 14px; }
+      .medal-slot-info .dim { color: #d7ccc8; font-size: 13px; }
+      .medal-prog { color: #ffd54f; font-size: 13px; }
+
+      .fishking-trophy-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px;
+      }
+      .fishking-trophy-card {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 10px; border-radius: 5px; cursor: pointer;
+        background: #142834; color: #fff3c4; border: 2px solid #4fc3f7;
+      }
+      .fishking-trophy-card.uncaught .bag-item-icon {
+        filter: grayscale(0.6) brightness(0.75);
+      }
+
+      /* 四大鱼王常驻四色流光边框 */
+      .fishking-card {
+        position: relative;
+        animation: fishking-aura-pulse 2.6s ease-in-out infinite;
+      }
+      .fishking-card.king-legend {
+        border-color: #ffd23f !important;
+        box-shadow: 0 0 12px rgba(46, 204, 113, 0.65), inset 0 0 8px rgba(255, 210, 63, 0.35) !important;
+      }
+      .fishking-card.king-ancient {
+        border-color: #69f0ae !important;
+        box-shadow: 0 0 12px rgba(22, 160, 133, 0.7), inset 0 0 8px rgba(105, 240, 174, 0.3) !important;
+      }
+      .fishking-card.king-mirror {
+        border-color: #e1bee7 !important;
+        box-shadow: 0 0 12px rgba(171, 71, 188, 0.7), inset 0 0 8px rgba(255, 210, 63, 0.35) !important;
+      }
+      .fishking-card.king-abyss {
+        border-color: #00e5ff !important;
+        box-shadow: 0 0 12px rgba(0, 229, 255, 0.7), inset 0 0 8px rgba(255, 82, 82, 0.3) !important;
+      }
+      @keyframes fishking-aura-pulse {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.09); }
+      }
+
+      /* 钓鱼台水脉 T1→T4 晋升阶梯条 */
+      .water-vein-bar {
+        display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px;
+        background: #e3f2fd; border: 3px solid var(--wood-dark); border-radius: 5px;
+        box-shadow: 0 3px 0 var(--wood-dark);
+        padding: 7px 10px; margin: 0 0 10px;
+      }
+      .water-vein-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1; }
+      .vein-step {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: #fff8dc; border: 2px solid var(--wood-dark); border-radius: 4px;
+        padding: 3px 8px; cursor: pointer; font-size: 15px;
+      }
+      .vein-step.current { background: var(--gold); font-weight: bold; }
+      .vein-step.locked { opacity: 0.62; background: #d7ccc8; }
+      .vein-step small { background: var(--wood-dark); color: var(--gold); padding: 0 4px; font-size: 12px; }
+      .vein-step span { font-size: 13px; color: #5d4037; }
+      .vein-arrow { color: var(--wood-dark); font-weight: bold; }
+
+      /* 四大鱼王全屏生态预览剧场弹窗 */
+      .fishking-theater-shell {
+        display: flex; flex-direction: column; gap: 12px;
+        background: #091924; color: #fff3c4;
+        border: 3px solid #4fc3f7; border-radius: 6px;
+        padding: 12px; margin: 8px 0;
+      }
+      .fishking-stage-wrap {
+        position: relative; border: 3px solid var(--gold); border-radius: 6px;
+        overflow: hidden; background: #06131c;
+      }
+      .fishking-stage-svg {
+        width: 100%; height: auto; max-height: 360px; display: block;
+        shape-rendering: crispEdges; image-rendering: pixelated;
+      }
+      /* 同源切片游动：振幅极小，接缝重叠，保证整鱼连续不断裂 */
+      .fishking-stage-svg .fk-fish-group {
+        transform-box: fill-box; transform-origin: 40% 50%;
+        animation: fk-idle-swim 1.2s steps(6) infinite;
+      }
+      .fishking-stage-svg .fk-part-head {
+        transform-box: fill-box; transform-origin: 90% 50%;
+        animation: fk-head-nod 1.2s steps(6) infinite;
+      }
+      .fishking-stage-svg .fk-part-barbel-u {
+        transform-box: fill-box; transform-origin: 100% 50%;
+        animation: fk-barbel-wave 1.2s steps(6) infinite;
+        animation-delay: -0.25s;
+      }
+      .fishking-stage-svg .fk-part-barbel-d {
+        transform-box: fill-box; transform-origin: 100% 50%;
+        animation: fk-barbel-wave 1.2s steps(6) infinite;
+        animation-delay: -0.55s;
+      }
+      .fishking-stage-svg .fk-part-torso-f {
+        transform-box: fill-box; transform-origin: 10% 50%;
+        animation: fk-torso-front-wave 1.2s steps(6) infinite;
+        animation-delay: -0.2s;
+      }
+      .fishking-stage-svg .fk-part-torso-r {
+        transform-box: fill-box; transform-origin: 5% 50%;
+        animation: fk-torso-rear-wave 1.2s steps(6) infinite;
+        animation-delay: -0.4s;
+      }
+      .fishking-stage-svg .fk-part-dorsal {
+        transform-box: fill-box; transform-origin: 30% 100%;
+        animation: fk-dorsal-flare 1.2s steps(6) infinite;
+        animation-delay: -0.2s;
+      }
+      .fishking-stage-svg .fk-part-pectoral {
+        transform-box: fill-box; transform-origin: 20% 20%;
+        animation: fk-pectoral-row 1.2s steps(6) infinite;
+        animation-delay: -0.45s;
+      }
+      .fishking-stage-svg .fk-part-pelvic {
+        transform-box: fill-box; transform-origin: 20% 0%;
+        animation: fk-pelvic-balance 1.2s steps(6) infinite;
+        animation-delay: -0.4s;
+      }
+      .fishking-stage-svg .fk-part-tail {
+        transform-box: fill-box; transform-origin: 0% 50%;
+        animation: fk-tail-thrust 1.2s steps(6) infinite;
+        animation-delay: -0.6s;
+      }
+
+      /* 四层水动力学：双排涡街 / 三级水面波 / 焦散水草 / 破水卷浪 */
+      .fishking-stage-svg .fk-env-wake-u {
+        transform-box: fill-box; transform-origin: 0% 50%;
+        animation: fk-wake-vortex 1.2s steps(6) infinite;
+      }
+      .fishking-stage-svg .fk-env-wake-d {
+        transform-box: fill-box; transform-origin: 0% 50%;
+        animation: fk-wake-vortex 1.2s steps(6) infinite;
+        animation-delay: -0.6s;
+      }
+      .fishking-stage-svg .fk-env-wave-near {
+        transform-box: fill-box; transform-origin: 50% 100%;
+        animation: fk-wave-near 1.1s steps(4) infinite;
+      }
+      .fishking-stage-svg .fk-env-wave-mid {
+        transform-box: fill-box; transform-origin: 50% 100%;
+        animation: fk-wave-mid 1.6s steps(4) infinite;
+        animation-delay: -0.2s;
+      }
+      .fishking-stage-svg .fk-env-wave-far {
+        transform-box: fill-box; transform-origin: 50% 100%;
+        animation: fk-wave-far 2.2s steps(4) infinite;
+        animation-delay: -0.4s;
+      }
+      .fishking-stage-svg .fk-env-caustics {
+        animation: fk-caustics-shimmer 1.8s steps(4) infinite alternate;
+      }
+      .fishking-stage-svg .fk-env-flora-b {
+        transform-box: fill-box; transform-origin: 50% 100%;
+        animation: fk-flora-current 2.1s steps(4) infinite;
+      }
+      .fishking-stage-svg .fk-env-flora-f {
+        transform-box: fill-box; transform-origin: 50% 100%;
+        animation: fk-flora-current 1.7s steps(4) infinite;
+        animation-delay: -0.35s;
+      }
+      .fishking-stage-svg .fk-env-sky {
+        animation: fk-sky-shimmer 1.8s steps(3) infinite alternate;
+      }
+      .fishking-stage-svg .fk-env-splash {
+        opacity: 0;
+        transform-box: fill-box; transform-origin: 50% 85%;
+      }
+
+      /* 跃水破浪：蓄力摆尾 → 冲破水面水幕 → 空翻展鳍 → 砸水双侧卷浪 */
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-fish-group {
+        animation: fk-leap-arc 1.25s steps(10) 1;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-part-tail {
+        animation: fk-tail-overdrive 0.3s steps(4) 4;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-part-dorsal {
+        animation: fk-dorsal-crest-open 1.25s steps(6) 1;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-part-barbel-u,
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-part-barbel-d {
+        animation: fk-barbel-whip 0.4s steps(4) 3;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-part-pectoral {
+        animation: fk-pectoral-row 0.4s steps(4) 3;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-env-splash {
+        animation: fk-splash-eruption 1.25s steps(8) 1;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-env-wave-near {
+        animation: fk-ripple-surge-l 1.25s steps(6) 1;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-env-wave-mid {
+        animation: fk-ripple-surge-r 1.25s steps(6) 1;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-env-wake-u,
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-env-wake-d {
+        animation: fk-wake-vortex 0.3s steps(3) 4;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-env-sky {
+        animation: fk-sky-climax 1.25s steps(5) 1;
+      }
+      .fishking-theater-shell.leaping .fishking-stage-svg .fk-env-caustics {
+        animation: fk-caustics-flare 1.25s steps(5) 1;
+      }
+
+      @keyframes fk-idle-swim {
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(1px, 0); }
+        75% { transform: translate(-1px, 0); }
+      }
+      @keyframes fk-head-nod {
+        0%, 100% { transform: translateY(0); }
+        25% { transform: translateY(-1px); }
+        75% { transform: translateY(0); }
+      }
+      @keyframes fk-torso-front-wave {
+        0%, 100% { transform: translateY(0); }
+        25% { transform: translateY(-1px); }
+        75% { transform: translateY(1px); }
+      }
+      @keyframes fk-torso-rear-wave {
+        0%, 100% { transform: translateY(1px); }
+        25% { transform: translateY(0); }
+        50% { transform: translateY(-2px); }
+        75% { transform: translateY(0); }
+      }
+      @keyframes fk-dorsal-flare {
+        0%, 100% { transform: translateY(0); }
+        25% { transform: translateY(-1px); }
+        75% { transform: translateY(0); }
+      }
+      @keyframes fk-pectoral-row {
+        0%, 100% { transform: rotate(4deg); }
+        50% { transform: rotate(-6deg); }
+      }
+      @keyframes fk-pelvic-balance {
+        0%, 100% { transform: translateY(0) rotate(2deg); }
+        50% { transform: translateY(1px) rotate(-3deg); }
+      }
+      @keyframes fk-barbel-wave {
+        0%, 100% { transform: translateY(0) rotate(3deg); }
+        50% { transform: translateY(1px) rotate(-5deg); }
+      }
+      @keyframes fk-tail-thrust {
+        0%, 100% { transform: translateY(2px) rotate(-8deg); }
+        25% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-2px) rotate(8deg); }
+        75% { transform: translateY(0) rotate(0deg); }
+      }
+      @keyframes fk-tail-overdrive {
+        0%, 100% { transform: translateY(2px) rotate(-10deg); }
+        50% { transform: translateY(-3px) rotate(10deg); }
+      }
+      @keyframes fk-dorsal-crest-open {
+        0%, 100% { transform: translateY(0); }
+        45% { transform: translateY(-2px); }
+      }
+      @keyframes fk-barbel-whip {
+        0%, 100% { transform: rotate(8deg); }
+        50% { transform: rotate(-12deg); }
+      }
+      @keyframes fk-wake-vortex {
+        0% { opacity: 0.95; transform: translateX(0); }
+        50% { opacity: 1; transform: translateX(3px); }
+        100% { opacity: 0.45; transform: translateX(6px); }
+      }
+      @keyframes fk-wave-near {
+        0%, 100% { opacity: 0.9; transform: translateY(0) scaleY(1); }
+        50% { opacity: 1; transform: translateY(-2px) scaleY(1.25); filter: brightness(1.2); }
+      }
+      @keyframes fk-wave-mid {
+        0%, 100% { opacity: 0.75; transform: translateY(0) scaleY(1); }
+        50% { opacity: 0.95; transform: translateY(-1px) scaleY(1.12); }
+      }
+      @keyframes fk-wave-far {
+        0%, 100% { opacity: 0.55; transform: translateY(0); }
+        50% { opacity: 0.8; transform: translateY(1px); }
+      }
+      @keyframes fk-caustics-shimmer {
+        from { opacity: 0.45; transform: translate(0, 0); filter: brightness(1); }
+        to { opacity: 1; transform: translate(2px, -1px); filter: brightness(1.35); }
+      }
+      @keyframes fk-caustics-flare {
+        0%, 100% { opacity: 0.5; filter: brightness(1); }
+        40% { opacity: 1; filter: brightness(1.8); transform: scale(1.04); }
+      }
+      @keyframes fk-flora-current {
+        0%, 100% { transform: skewX(-4deg); }
+        50% { transform: skewX(9deg) scaleY(0.96); }
+      }
+      @keyframes fk-sky-shimmer {
+        from { opacity: 0.55; transform: translateY(0); }
+        to { opacity: 1; transform: translateY(1px); filter: brightness(1.25); }
+      }
+      @keyframes fk-leap-arc {
+        0% { transform: translate(-8px, 5px) rotate(-18deg); }
+        25% { transform: translate(-3px, -5px) rotate(-8deg) scale(1.06); }
+        50% { transform: translate(1px, -9px) rotate(4deg) scale(1.12); filter: drop-shadow(0 0 12px #ffd23f); }
+        80% { transform: translate(6px, 3px) rotate(18deg) scale(1.03); }
+        100% { transform: translate(0, 0) rotate(0deg) scale(1); }
+      }
+      @keyframes fk-splash-eruption {
+        0%, 12% { opacity: 0; transform: translateY(4px) scale(0.5, 0.2); }
+        32% { opacity: 1; transform: translateY(-2px) scale(1.08, 1.25); filter: brightness(1.3); }
+        65% { opacity: 0.95; transform: translateY(-5px) scale(1.28, 1.05); }
+        100% { opacity: 0; transform: translateY(3px) scale(1.4, 0.3); }
+      }
+      @keyframes fk-ripple-surge-l {
+        0% { transform: translateX(0) scaleX(1); }
+        45% { transform: translateX(-8px) scaleX(1.65) scaleY(1.8); filter: brightness(1.4); }
+        100% { transform: translateX(0) scaleX(1); }
+      }
+      @keyframes fk-ripple-surge-r {
+        0% { transform: translateX(0) scaleX(1); }
+        45% { transform: translateX(8px) scaleX(1.65) scaleY(1.8); filter: brightness(1.4); }
+        100% { transform: translateX(0) scaleX(1); }
+      }
+      @keyframes fk-sky-climax {
+        0%, 100% { opacity: 0.7; filter: brightness(1); }
+        40% { opacity: 1; filter: brightness(1.85); transform: scale(1.03); }
+      }
+      .fishking-stage-overlay {
+        position: absolute; top: 8px; left: 10px; right: 10px;
+        display: flex; justify-content: space-between; align-items: center; gap: 8px;
+        pointer-events: none;
+      }
+      .fishking-vein-tag, .fishking-status-tag {
+        background: rgba(15, 24, 34, 0.85); color: var(--gold);
+        border: 2px solid var(--gold); padding: 2px 8px; font-size: 14px; font-weight: bold;
+      }
+      .fishking-status-tag.ok { border-color: #69f0ae; color: #69f0ae; }
+      .fishking-stage-controls {
+        display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
+        padding: 8px 10px; background: rgba(12, 28, 40, 0.92);
+        border-top: 2px solid rgba(255, 210, 63, 0.35);
+      }
+      .fishking-switch-row { display: flex; flex-wrap: wrap; gap: 6px; }
+      .fishking-lore-box {
+        background: #fff8dc; color: var(--ink);
+        border: 3px solid var(--wood-dark); border-radius: 5px;
+        padding: 12px; display: flex; flex-direction: column; gap: 8px;
+      }
+      .fishking-title-row { display: flex; align-items: center; gap: 10px; }
+      .fishking-lore-text { margin: 0; line-height: 1.5; font-size: 17px; }
+      .fishking-quote {
+        margin: 0; padding: 6px 10px;
+        background: #f3e5be; border-left: 4px solid var(--wood);
+        color: #5b3312; font-style: italic; font-size: 16px;
+      }
+
+      /* 《青禾谷星脉全图》标题栏：左标题 · 右缩放簇+重置+关闭（FigCraft 原型） */
+      .modal-head.wm-map-head {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 12px;
+      }
+      .wm-map-title {
+        margin: 0;
+        font-size: 16px;
+        letter-spacing: 0.02em;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .wm-map-title svg { width: 20px; height: 20px; flex: none; }
+      .wm-head-actions {
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        gap: 8px;
+        margin-left: auto;
+      }
+      .wm-zoom-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #2b1b0e;
+        border: 2px solid var(--gold);
+        border-radius: 4px;
+        padding: 3px 5px;
+      }
+      .wm-zoom-controls .pix-btn.sm {
+        min-height: 28px;
+        min-width: 28px;
+        padding: 0 6px;
+      }
+      .pix-btn.sm {
+        padding: 2px 10px;
+        font-size: 14px;
+        line-height: 1.1;
+        min-height: 32px;
+      }
+      .wm-zoom-val {
+        min-width: 44px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 13px;
+        color: var(--gold);
+        font-variant-numeric: tabular-nums;
+      }
+      .wm-walk-status {
+        position: absolute;
+        left: 50%;
+        top: 10px;
+        transform: translateX(-50%);
+        z-index: 40;
+        pointer-events: none;
+        font-size: 13px;
+        font-weight: bold;
+        color: #ffd23f;
+        background: #2b1b0e;
+        border: 2px solid #ffd23f;
+        padding: 4px 12px;
+        border-radius: 3px;
+        box-shadow: 0 2px 0 rgba(0, 0, 0, 0.45);
+        white-space: nowrap;
+      }
+      .wm-walk-status[hidden] { display: none !important; }
+      .wm-walk-status.active { display: block; }
+      .world-map-parchment {
+        background: linear-gradient(180deg, #f7ebd0 0%, #edd9b0 100%);
+        border: 3px solid var(--wood-dark);
+        border-radius: 6px;
+        padding: 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .world-map-status-bar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 8px 14px;
+        background: #2b1b0e;
+        color: #fff3c4;
+        border: 2px solid var(--gold);
+        border-radius: 4px;
+        padding: 6px 10px;
+        font-size: 15px;
+      }
+      .world-map-status-bar b { color: var(--gold); }
+      .world-map-stage-wrap {
+        position: relative;
+        border: 3px solid var(--wood-dark);
+        border-radius: 6px;
+        overflow: hidden;
+        background: #0a192f;
+        box-shadow: inset 0 0 0 2px #c9a227, 0 4px 0 rgba(43, 27, 14, 0.35);
+        user-select: none;
+        cursor: grab;
+      }
+      .world-map-stage-wrap.is-dragging {
+        cursor: grabbing;
+      }
+      .wm-zoom-inner {
+        position: relative;
+        width: 100%;
+        transform-origin: 50% 50%;
+        transition: transform 0.12s ease-out;
+      }
+      .world-map-stage-wrap.is-dragging .wm-zoom-inner {
+        transition: none;
+      }
+      .world-map-pixel-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        shape-rendering: crispEdges;
+        image-rendering: pixelated;
+      }
+      .world-map-pixel-svg .wm-layer-water {
+        animation: wm-water-shimmer 2.4s steps(3) infinite alternate;
+      }
+      .world-map-pixel-svg .wm-layer-veins {
+        animation: wm-veins-pulse 1.8s steps(4) infinite alternate;
+      }
+      @keyframes wm-water-shimmer {
+        from { filter: brightness(1); }
+        to { filter: brightness(1.08); }
+      }
+      @keyframes wm-veins-pulse {
+        from { opacity: 0.82; }
+        to { opacity: 1; filter: brightness(1.18); }
+      }
+      .wm-walk-trail-svg {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 3;
+      }
+      .world-map-pins-layer {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .wm-pin-wrap {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        pointer-events: auto;
+        z-index: 5;
+      }
+      .wm-pin-wrap:hover,
+      .wm-pin-wrap:focus-within {
+        z-index: 60;
+      }
+      .wm-pin {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 6px;
+        background: rgba(43, 27, 14, 0.92);
+        color: #fff3c4;
+        border: 2px solid #c9a227;
+        border-radius: 3px;
+        font-family: inherit;
+        font-size: 12px;
+        line-height: 1.1;
+        cursor: pointer;
+        white-space: nowrap;
+        box-shadow: 0 2px 0 #1a0f07;
+        transition: transform 0.1s steps(2);
+      }
+      .wm-pin:hover:not(:disabled) {
+        transform: translateY(-2px) scale(1.06);
+        background: #3e2723;
+        border-color: #ffd23f;
+      }
+      .wm-pin.vein-river { border-color: #2ecc71; }
+      .wm-pin.vein-lake { border-color: #ce93d8; }
+      .wm-pin.vein-ocean { border-color: #4fc3f7; }
+      .wm-pin.is-here {
+        background: var(--gold);
+        color: var(--wood-dark);
+        border-color: #fff9c4;
+        font-weight: bold;
+        box-shadow: 0 0 0 2px var(--wood-dark), 0 0 10px rgba(255, 210, 63, 0.95);
+      }
+      .wm-pin.is-locked {
+        opacity: 0.68;
+        filter: grayscale(0.35);
+        cursor: not-allowed;
+      }
+      .wm-pin.has-omen {
+        border-color: #ff6d00;
+        box-shadow: 0 0 10px rgba(255, 210, 63, 0.95);
+      }
+      .wm-pin-dot {
+        color: #ffd23f;
+        font-weight: bold;
+        font-size: 11px;
+      }
+      .wm-pin.is-here .wm-pin-dot { color: #b71c1c; }
+      .wm-pin-npc-count {
+        background: #2e7d32;
+        color: #fff9c4;
+        padding: 0 4px;
+        border-radius: 2px;
+        font-size: 11px;
+      }
+
+      /* 鼠标悬浮目标地点详情卡 */
+      .wm-hover-card {
+        position: absolute;
+        left: 50%;
+        bottom: calc(100% + 8px);
+        transform: translateX(-50%) translateY(4px);
+        width: 228px;
+        background: #fff8dc;
+        color: var(--wood-dark);
+        border: 3px solid var(--wood-dark);
+        border-radius: 5px;
+        box-shadow: 0 4px 0 rgba(26, 15, 7, 0.75);
+        padding: 7px 8px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition: opacity 0.12s ease, transform 0.12s ease;
+        z-index: 40;
+      }
+      .wm-pin-wrap.tip-left .wm-hover-card {
+        left: auto;
+        right: 0;
+        transform: translateY(4px);
+      }
+      .wm-pin-wrap.tip-right .wm-hover-card {
+        left: 0;
+        transform: translateY(4px);
+      }
+      .wm-pin-wrap.tip-below .wm-hover-card {
+        bottom: auto;
+        top: calc(100% + 8px);
+      }
+      .wm-pin-wrap:hover .wm-hover-card {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(0);
+      }
+      .wm-pin-wrap.tip-left:hover .wm-hover-card,
+      .wm-pin-wrap.tip-right:hover .wm-hover-card {
+        transform: translateY(0);
+      }
+      .wm-tip-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 4px;
+        font-size: 14px;
+      }
+      .wm-tip-pill {
+        background: var(--wood-dark);
+        color: var(--gold);
+        padding: 0 5px;
+        font-size: 11px;
+        white-space: nowrap;
+      }
+      .wm-tip-desc {
+        margin: 0;
+        font-size: 12px;
+        color: #5b4630;
+        line-height: 1.3;
+      }
+      .wm-tip-omen {
+        background: #2b1b0e;
+        color: #ffd23f;
+        border: 1px solid #ffd23f;
+        padding: 1px 5px;
+        font-size: 11px;
+        font-weight: bold;
+      }
+      .wm-tip-npcs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .wm-tip-npc {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        background: #cdeac0;
+        border: 1px solid var(--wood-dark);
+        padding: 1px 4px;
+        font-size: 11px;
+      }
+      .wm-tip-npc svg {
+        width: 14px;
+        height: 14px;
+        display: block;
+      }
+      .wm-tip-foot {
+        font-size: 12px;
+        font-weight: bold;
+        padding-top: 2px;
+        border-top: 1px dashed #b89f7d;
+      }
+      .wm-tip-foot.go { color: #1b5e20; }
+      .wm-tip-foot.here { color: #b71c1c; }
+      .wm-tip-foot.locked { color: #7a6a58; }
+
+      /* 主角全身多关节像素行者（待机呼吸 + 真实双足交替跨步/反相摆臂/躯干起伏/脚底扬尘） */
+      .wm-player-walker {
+        position: absolute;
+        transform: translate(-50%, -88%);
+        pointer-events: none;
+        z-index: 20;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .wm-walker-sprite {
+        width: 42px;
+        height: 42px;
+        filter: drop-shadow(0 2px 0 rgba(26, 15, 7, 0.85));
+      }
+      .wm-player-walker.face-left .wm-walker-sprite {
+        transform: scaleX(-1);
+      }
+      .wm-walker-svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        overflow: visible;
+      }
+      .wm-walker-tag {
+        margin-top: -3px;
+        background: #ffd23f;
+        color: #2b1b0e;
+        border: 2px solid #2b1b0e;
+        border-radius: 3px;
+        padding: 0 4px;
+        font-size: 11px;
+        font-weight: bold;
+        line-height: 1.1;
+        white-space: nowrap;
+      }
+      /* 待机微呼吸 */
+      .wm-walker-svg .pw-body-core {
+        transform-box: fill-box;
+        transform-origin: 50% 100%;
+        animation: pw-idle-breathe 1.1s steps(2) infinite;
+      }
+      .wm-walker-svg .pw-part-dust {
+        opacity: 0;
+      }
+      /* 行走态：人体步态周期（双腿反相跨步 + 双臂与对侧腿同步摆动 + 躯干每半周期颠动一次） */
+      .wm-player-walker.is-walking .wm-walker-svg .pw-body-core {
+        animation: pw-walk-bob 0.28s steps(2) infinite;
+      }
+      .wm-player-walker.is-walking .wm-walker-svg .pw-part-head {
+        transform-box: fill-box;
+        transform-origin: 50% 90%;
+        animation: pw-head-nod 0.28s steps(2) infinite;
+      }
+      .wm-player-walker.is-walking .wm-walker-svg .pw-part-leg-f {
+        transform-box: fill-box;
+        transform-origin: 50% 10%;
+        animation: pw-leg-front-stride 0.56s steps(4) infinite;
+      }
+      .wm-player-walker.is-walking .wm-walker-svg .pw-part-leg-b {
+        transform-box: fill-box;
+        transform-origin: 50% 10%;
+        animation: pw-leg-back-stride 0.56s steps(4) infinite;
+      }
+      .wm-player-walker.is-walking .wm-walker-svg .pw-part-arm-f {
+        transform-box: fill-box;
+        transform-origin: 50% 15%;
+        animation: pw-arm-front-swing 0.56s steps(4) infinite;
+      }
+      .wm-player-walker.is-walking .wm-walker-svg .pw-part-arm-b {
+        transform-box: fill-box;
+        transform-origin: 50% 15%;
+        animation: pw-arm-back-swing 0.56s steps(4) infinite;
+      }
+      .wm-player-walker.is-walking .wm-walker-svg .pw-part-dust {
+        transform-box: fill-box;
+        transform-origin: 50% 50%;
+        animation: pw-dust-puff 0.28s steps(3) infinite;
+      }
+      .wm-player-walker.arrived-pop {
+        animation: pw-arrive-hop 0.18s steps(2) 1;
+      }
+      @keyframes pw-idle-breathe {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-0.6px); }
+      }
+      @keyframes pw-walk-bob {
+        0%, 100% { transform: translateY(0) rotate(2deg); }
+        50% { transform: translateY(-1.4px) rotate(4deg); }
+      }
+      @keyframes pw-head-nod {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-0.5px); }
+      }
+      @keyframes pw-leg-front-stride {
+        0%, 100% { transform: translate(1.2px, -0.6px) rotate(-22deg); }
+        25% { transform: translate(0, 0) rotate(0deg); }
+        50% { transform: translate(-1.4px, 0) rotate(20deg); }
+        75% { transform: translate(0, -0.8px) rotate(0deg); }
+      }
+      @keyframes pw-leg-back-stride {
+        0%, 100% { transform: translate(-1.4px, 0) rotate(20deg); }
+        25% { transform: translate(0, -0.8px) rotate(0deg); }
+        50% { transform: translate(1.2px, -0.6px) rotate(-22deg); }
+        75% { transform: translate(0, 0) rotate(0deg); }
+      }
+      @keyframes pw-arm-front-swing {
+        0%, 100% { transform: translate(-1px, 0) rotate(18deg); }
+        50% { transform: translate(1.2px, -0.5px) rotate(-20deg); }
+      }
+      @keyframes pw-arm-back-swing {
+        0%, 100% { transform: translate(1.2px, -0.5px) rotate(-20deg); }
+        50% { transform: translate(-1px, 0) rotate(18deg); }
+      }
+      @keyframes pw-dust-puff {
+        0% { opacity: 0.95; transform: translate(0, 0) scale(0.8); }
+        60% { opacity: 0.7; transform: translate(-2px, -1px) scale(1.15); }
+        100% { opacity: 0; transform: translate(-3.5px, -2px) scale(1.3); }
+      }
+      @keyframes pw-arrive-hop {
+        0%, 100% { transform: translate(-50%, -88%) scale(1); }
+        50% { transform: translate(-50%, -98%) scale(1.08); }
+      }
     </style>
   </head>
   <body>
     <header class="hud">
-      <h1 id="hud-logo" class="brand-logo">青禾谷物语</h1>
+      <h1 id="hud-logo" class="brand-logo" aria-label="青禾谷物语" title="青禾谷物语"></h1>
       <button class="loc-pill" id="hud-loc" data-act="open-map" title="打开世界地图快速移动"></button>
       <span id="hud-date"></span>
       <span id="hud-gold"></span>
