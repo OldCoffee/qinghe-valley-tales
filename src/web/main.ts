@@ -19,7 +19,7 @@ import { createNewGame } from '../engine/state.js';
 import { CANDLE_TEXT } from '../engine/evaluation.js';
 import { ensureCollection } from '../engine/util.js';
 import { ensureEquipment, repairCost, toolMaxDurability, weaponMaxDurability } from '../engine/systems/equipment.js';
-import { maxHp, sellPrice, skillLevel, skillProgressOf, type SkillProgress } from '../engine/skills.js';
+import { maxHp, sellPrice, skillLevel, skillProgressOf } from '../engine/skills.js';
 import { bundleDone, donatedCount, neededItems } from '../engine/systems/bundles.js';
 import { shopsAt } from '../engine/systems/economy.js';
 import { availableFish, fishingSpotAccessReason, FISHING_SPOTS } from '../engine/systems/fishing.js';
@@ -978,22 +978,6 @@ function skillEffectText(sk: SkillId): string {
   }
 }
 
-function skillBadge(sk: SkillId, icon: string): string { icon = uiIconSvg(icon);
-  const p: SkillProgress = skillProgressOf(state, sk);
-  const next = p.isMax ? '已满级' : `还差 ${p.toNext} 经验升 Lv.${p.level + 1}`;
-  return `<span class="skill-badge">${icon} ${SKILL_NAMES[sk]} Lv.${p.level} <small>${skillEffectText(sk)} · ${next}</small></span>`;
-}
-
-/** 当前场景对应的技能徽标（农场=耕种、森林=采集、水域=钓鱼、山区/矿洞=采矿+战斗） */
-function sceneSkillBadges(): string {
-  let badges = '';
-  if (state.location === 'farm') badges = skillBadge('farming', 'skill_farming');
-  else if (state.location === 'forest') badges = skillBadge('foraging', 'skill_foraging') + skillBadge('fishing', 'skill_fishing');
-  else if (state.location === 'beach') badges = skillBadge('fishing', 'skill_fishing');
-  else if (state.location === 'mountain' || state.location === 'mine') badges = skillBadge('mining', 'skill_mining') + skillBadge('combat', 'skill_combat');
-  return badges ? `<div class="skill-badge-row">${badges}</div>` : '';
-}
-
 function cropStage(tile: Tile): { label: string; pct: number; ready: boolean } | null {
   if (!tile.crop) return null;
   const def = CROPS[tile.crop.cropId];
@@ -1591,12 +1575,10 @@ function scenePage(): string {
         <div class="toolbar">
           ${FISHING_SPOTS.includes(state.location) ? '<button class="pix-btn" data-act="fish">抛竿钓鱼</button>' : ''}
           ${festival && festival.location === state.location ? `<button class="pix-btn gold" data-act="festival">参加${festival.name}</button>` : ''}
-          ${state.location === 'farm' ? '<button class="pix-btn ghost" data-act="wait">休息 1 小时</button>' : ''}
         </div>
       </div>
       ${npcBar}
     </div>
-    ${sceneSkillBadges()}
     ${body}
   </div>`;
 }
