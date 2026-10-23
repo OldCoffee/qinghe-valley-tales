@@ -28,7 +28,7 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, relationTier, shopKeeperReason, shopUnavailableReason, summonKeeperChance, type GiftTier } from '../engine/systems/social.js';
 import { settlePendingUpgrade, upgradeCost } from '../engine/systems/tools.js';
 import type { Action, Evaluation, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
-import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg } from './icons.js';
+import { cropGrowthSvg, itemIconSvg, npcAvatarSvg, playerAvatarSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg, weedTuftSvg } from './icons.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const SAVES_KEY = 'qinghe-valley-saves-v2';
 const MAX_SAVES = 5;
@@ -1121,7 +1121,8 @@ function tileTapKindOf(tile: Tile): TileTapKind {
 
 /** 农事操作与点击反馈的像素动作层（工具挥动 + 泥块/水珠/草叶/果实/石屑物理轨迹） */
 function tileActionFxHtml(fx: { kind: TileFxKind; cropId?: string; sub?: TileFxSub } | undefined, tap: TileTapKind | null, tile: Tile): string {
-  const weedTuft = tile.weeds && tile.ground === 'tilled' ? '<span class="tile-weed-tuft" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
+  // 有作物的格子已由 24x24 cropGrowthSvg 同网格绘制像素杂草簇；空耕地长草时才补前景像素草簇
+  const weedTuft = tile.weeds && tile.ground === 'tilled' && !tile.crop ? `<span class="tile-weed-tuft" aria-hidden="true">${weedTuftSvg()}</span>` : '';
   let actionLayer = '';
   if (fx) {
     const k = fx.kind === 'clear' && fx.sub === 'stone' ? 'clear-stone' : fx.kind;

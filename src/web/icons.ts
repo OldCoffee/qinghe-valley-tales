@@ -313,148 +313,303 @@ export function toolIconSvg(tool: ToolId, level = 0): string {
   return render(g, 'qh-svg-icon qh-pixel');
 }
 
-/* ---------------- 作物 4 阶段 + 状态姿态 (VectorCraft 农田状态设计版) ---------------- */
+/* ---------------- 作物 4 阶段 + 状态姿态 (24x24 满画幅 16-bit 有机像素植株版) ---------------- */
+type CropShapeKind = 'root' | 'bush' | 'head' | 'tall';
+function cropShapeOf(cropId: string): CropShapeKind {
+  if (cropId === 'parsnip' || cropId === 'potato' || cropId === 'yam') return 'root';
+  if (cropId === 'cauliflower' || cropId === 'melon' || cropId === 'pumpkin') return 'head';
+  if (cropId === 'corn' || cropId === 'green_bean') return 'tall';
+  return 'bush';
+}
+
+/** 16-bit 柔和同色系描边像素大叶片 (占满左右画幅, droop=true 时叶片明显下垂卷曲) */
+function paintFoliageLeaf(
+  g: Grid,
+  cx: number,
+  cy: number,
+  dir: -1 | 1,
+  len: number,
+  droop: boolean,
+  out: string,
+  dark: string,
+  mid: string,
+  hi: string,
+): void {
+  for (let i = 0; i < len; i++) {
+    const x = cx + dir * (i + 1);
+    const arc = droop
+      ? Math.floor((i * i) / (len * 0.65))
+      : Math.round(-Math.sin((i / Math.max(1, len - 1)) * Math.PI) * 3.4);
+    const y = cy + arc;
+    px(g, x, y - 1, out);
+    px(g, x, y, i < len * 0.6 ? hi : mid);
+    px(g, x, y + 1, mid);
+    px(g, x, y + 2, dark);
+    px(g, x, y + 3, out);
+  }
+  const tipX = cx + dir * (len + 1);
+  const tipY = cy + (droop ? Math.floor((len * len) / (len * 0.65)) : 0);
+  px(g, tipX, tipY, out);
+  px(g, tipX, tipY + 1, mid);
+  px(g, tipX, tipY + 2, out);
+}
+
+/** 植株入土根窝与地面状态纹理 (y=19..23): 湿润深色水沁泥窝 / 缺水干裂闪电纹 / 枯萎灰土 */
+function paintGroundSocket24(g: Grid, mode: 'wet' | 'dry' | 'normal' | 'wilted'): void {
+  // 24x24 全宽像素耕土垄沟 (x=0..23, y=14..23): 让植株真正长在像素土垄里, 而不是浮在圆圈上
+  const cfg =
+    mode === 'wet'
+      ? { base: '#341B0C', ridge: '#4A2813', groove: '#200F05', hi: '#5E361B' }
+      : mode === 'wilted'
+        ? { base: '#5E5042', ridge: '#736252', groove: '#3E352B', hi: '#8C7A68' }
+        : { base: '#BD824A', ridge: '#D69C63', groove: '#8C5626', hi: '#ECC090' };
+  rect(g, 0, 14, 24, 10, cfg.base);
+  for (const ry of [15, 18, 21]) {
+    rect(g, 1, ry, 22, 2, cfg.ridge);
+    rect(g, 1, ry + 2, 22, 1, cfg.groove);
+  }
+  for (const [x, y] of [[3, 15], [8, 16], [16, 15], [20, 16], [5, 18], [13, 18], [19, 19], [7, 21], [15, 21]]) {
+    px(g, x, y, cfg.hi);
+  }
+  if (mode === 'dry') {
+    // 缺水干裂闪电纹横贯土面
+    for (const [x, y] of [
+      [2, 16], [3, 17], [4, 17], [5, 18], [4, 19], [3, 20], [2, 21],
+      [21, 16], [20, 17], [19, 17], [18, 18], [19, 19], [20, 20], [21, 21],
+      [10, 20], [11, 21], [14, 20], [13, 21],
+    ]) {
+      px(g, x, y, '#4A260C');
+    }
+  }
+}
+
 export function cropGrowthSvg(cropId: string, pct: number, opts?: { watered?: boolean; wilted?: boolean; weeds?: boolean }): string {
-  const g = grid(16, 16);
+  const g = grid(24, 24);
   const pal = CROP_PALETTE[cropId] ?? { main: '#8BC34A', stroke: '#33691E', leaf: '#4CAF50' };
   const wet = Boolean(opts?.watered);
   const dry = opts?.watered === false;
+  const shape = cropShapeOf(cropId);
 
-  // 底部立体耕土层 (区分湿润/枯萎/缺水干裂)
   if (opts?.wilted) {
-    rect(g, 0, 12, 16, 4, '#5E5141');
-    rect(g, 1, 11, 14, 2, '#786855');
-    px(g, 3, 13, '#3E352B'); px(g, 4, 14, '#3E352B'); px(g, 11, 13, '#3E352B'); px(g, 12, 12, '#3E352B');
-    // 枯萎弯曲残株与干叶
-    rect(g, 7, 9, 2, 4, '#5D4037');
-    px(g, 6, 8, '#6D4C41'); px(g, 5, 7, '#8D6E63'); px(g, 4, 8, '#A1887F');
-    px(g, 9, 9, '#6D4C41'); px(g, 10, 10, '#8D6E63'); px(g, 11, 11, '#4E342E');
-    px(g, 6, 10, '#4E342E'); px(g, 3, 9, '#5D4037');
+    paintGroundSocket24(g, 'wilted');
+    // 24x24 枯萎焦褐残株: 歪斜干瘪主茎 + 四片垂落枯叶 (占满 x=2..21, y=4..21)
+    const wo = '#3E2723'; const wd = '#5D4037'; const wm = '#795548'; const wl = '#A1887F';
+    rect(g, 10, 6, 4, 15, wo); rect(g, 11, 7, 2, 14, wd);
+    paintFoliageLeaf(g, 10, 8, -1, 7, true, wo, wd, wm, wl);
+    paintFoliageLeaf(g, 13, 9, 1, 7, true, wo, wd, wm, wl);
+    paintFoliageLeaf(g, 10, 13, -1, 8, true, wo, wd, wm, wl);
+    paintFoliageLeaf(g, 13, 13, 1, 8, true, wo, wd, wm, wl);
+    rect(g, 9, 4, 5, 3, wo); rect(g, 10, 5, 3, 2, wl);
     if (opts.weeds) paintWeeds(g);
     return render(g, 'qh-tile-svg qh-pixel');
   }
 
-  if (wet) {
-    rect(g, 0, 12, 16, 4, '#3D2414');
-    rect(g, 1, 11, 14, 2, '#573620');
-    rect(g, 2, 13, 12, 1, '#29170C');
-    px(g, 3, 12, '#64B5F6'); px(g, 12, 12, '#64B5F6'); px(g, 6, 14, '#4FC3F7');
-  } else {
-    rect(g, 0, 12, 16, 4, '#784925');
-    rect(g, 1, 11, 14, 2, '#9E663A');
-    rect(g, 2, 13, 12, 1, '#5C361A');
-    if (dry) {
-      px(g, 3, 12, '#4E2C14'); px(g, 4, 13, '#4E2C14'); px(g, 12, 12, '#4E2C14'); px(g, 11, 13, '#4E2C14');
-    } else {
-      px(g, 4, 11, '#C48F60'); px(g, 11, 11, '#C48F60');
-    }
-  }
+  paintGroundSocket24(g, wet ? 'wet' : dry ? 'dry' : 'normal');
 
-  const leaf = dry ? '#AFB42B' : pal.leaf;
-  const leafD = shade(leaf, 0.65);
-  const leafHi = shade(leaf, 1.28);
+  // 16-bit 同色系柔和深色描边 (不用死黑): 湿润为浓郁森林绿, 缺水为焦黄橄榄褐
+  const out = dry ? '#5C4D14' : '#1B4D18';
+  const leaf = dry ? '#B8B038' : pal.leaf;
+  const leafD = dry ? '#8C8220' : shade(leaf, 0.72);
+  const leafHi = dry ? '#E6EE9C' : shade(leaf, 1.35);
+  const fOut = shade(pal.stroke, 0.58);
+  const fDark = shade(pal.main, 0.74);
+  const fHi = shade(pal.main, 1.35);
 
   if (pct >= 100) {
-    // 成熟丰收: 繁茂冠叶 + 饱满立体果实 + 丰收星芒
-    rect(g, 7, 6, 2, 6, leafD);
-    rect(g, 4, 8, 3, 2, leaf); rect(g, 9, 8, 3, 2, leaf);
-    px(g, 3, 9, leafD); px(g, 12, 9, leafD); px(g, 5, 7, leafHi); px(g, 10, 7, leafHi);
-    blob(g, 8, 6, 6, 6, pal.main);
-    px(g, 6, 4, shade(pal.main, 1.38)); px(g, 7, 4, '#FFF9C4');
-    px(g, 9, 7, shade(pal.main, 0.72)); px(g, 10, 6, shade(pal.main, 0.72));
-    // 金色丰收星芒
-    px(g, 2, 2, '#FFD54F'); px(g, 1, 3, '#FFF9C4'); px(g, 3, 3, '#FFD54F'); px(g, 2, 4, '#FFD54F');
-    px(g, 13, 2, '#FFF9C4'); px(g, 14, 3, '#FFD54F');
+    // ========= 阶段 4 (成熟丰收): 占满 24x24 画幅, 按作物形态差异化绘制 =========
+    if (shape === 'root') {
+      // 根茎类 (防风草/土豆/山药): 上方炸开茂密羽状冠叶 (y=1..11) + 下方肥硕根块破土而出 (y=9..21)
+      paintFoliageLeaf(g, 10, 5, -1, 8, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 13, 5, 1, 8, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 10, 8, -1, 9, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 13, 8, 1, 9, false, out, leafD, leaf, leafHi);
+      rect(g, 9, 1, 6, 8, out); rect(g, 10, 2, 4, 6, leaf); rect(g, 11, 2, 2, 4, leafHi);
+      // 肥大锥形/块状根茎 (x=5..18, y=9..21)
+      blob(g, 12, 15, 7, 6, fOut);
+      blob(g, 12, 15, 6, 5, pal.main);
+      rect(g, 8, 11, 3, 2, '#FFFFFF'); px(g, 11, 11, fHi);
+      rect(g, 8, 16, 8, 1, fDark); rect(g, 9, 18, 6, 1, fDark);
+    } else if (shape === 'head') {
+      // 座果类 (花椰菜/南瓜/甜瓜): 外圈宽大托叶环抱 (x=1..22, y=6..21) + 中央硕大圆润果实/花球 (y=3..20)
+      paintFoliageLeaf(g, 9, 10, -1, 8, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 14, 10, 1, 8, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 9, 15, -1, 9, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 14, 15, 1, 9, false, out, leafD, leaf, leafHi);
+      blob(g, 12, 12, 8, 8, fOut);
+      blob(g, 12, 12, 7, 7, pal.main);
+      // 棱纹/花球立体纹理与高光
+      for (let y = 6; y <= 18; y++) { px(g, 9, y, fDark); px(g, 15, y, fDark); }
+      rect(g, 7, 7, 3, 3, '#FFFFFF'); px(g, 11, 7, fHi); px(g, 12, 8, fHi);
+      rect(g, 10, 3, 4, 3, out); rect(g, 11, 4, 2, 2, leafHi);
+    } else if (shape === 'tall') {
+      // 高秆类 (玉米/青豆): 挺拔主秆直达画布顶端 (y=1..21) + 四片修长阔叶 + 两侧饱满金穗/豆荚
+      rect(g, 10, 1, 4, 20, out); rect(g, 11, 2, 2, 18, leaf); px(g, 11, 2, '#FFD54F'); px(g, 12, 1, '#FFD54F');
+      paintFoliageLeaf(g, 10, 6, -1, 8, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 13, 6, 1, 8, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 10, 13, -1, 9, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 13, 13, 1, 9, false, out, leafD, leaf, leafHi);
+      // 左右两穗饱满果实
+      blob(g, 7, 10, 4, 5, fOut); blob(g, 7, 10, 3, 4, pal.main); px(g, 6, 8, '#FFFFFF');
+      blob(g, 17, 11, 4, 5, fOut); blob(g, 17, 11, 3, 4, pal.main); px(g, 16, 9, '#FFFFFF');
+    } else {
+      // 浆果/茄果灌木类 (草莓/蓝莓/番茄/辣椒/茄子/蔓越莓): 占满 x=1..22, y=2..21 的繁茂灌木丛 + 3 颗硕大果实
+      blob(g, 12, 11, 10, 8, out);
+      blob(g, 12, 11, 9, 7, leafD);
+      blob(g, 8, 8, 5, 4, leaf); blob(g, 16, 8, 5, 4, leaf); blob(g, 12, 6, 5, 4, leafHi);
+      paintFoliageLeaf(g, 9, 13, -1, 8, false, out, leafD, leaf, leafHi);
+      paintFoliageLeaf(g, 14, 13, 1, 8, false, out, leafD, leaf, leafHi);
+      // 3 颗大果实挂满枝头 (中上、左下、右下)
+      for (const [fx, fy, r] of [[12, 9, 4], [6, 14, 4], [18, 14, 4]] as const) {
+        blob(g, fx, fy, r + 1, r + 1, fOut);
+        blob(g, fx, fy, r, r, pal.main);
+        rect(g, fx - 2, fy - 2, 2, 2, '#FFFFFF');
+        px(g, fx + 1, fy + 1, fDark);
+        rect(g, fx - 1, fy - r, 3, 1, leafHi);
+      }
+    }
+    // 顶部丰收金色星芒
+    px(g, 2, 2, '#FFF9C4'); px(g, 1, 3, '#FFD54F'); px(g, 3, 3, '#FFD54F'); px(g, 2, 4, '#FFD54F'); px(g, 2, 1, '#FFD54F');
+    px(g, 21, 2, '#FFF9C4'); px(g, 20, 3, '#FFD54F'); px(g, 22, 3, '#FFD54F'); px(g, 21, 4, '#FFD54F'); px(g, 21, 1, '#FFD54F');
   } else if (pct >= 55) {
-    // 结蕾/幼果: 挺拔主茎 + 双层叶片 + 双幼果
-    rect(g, 7, 5, 2, 7, leafD);
-    rect(g, 4, 7, 3, 2, leaf); rect(g, 9, 7, 3, 2, leaf);
-    px(g, 3, 10, leafD); px(g, 4, 9, leaf); px(g, 11, 9, leaf); px(g, 12, 10, leafD);
-    px(g, 5, 6, leafHi); px(g, 10, 6, leafHi);
-    blob(g, 8, 5, 3, 3, pal.main); px(g, 7, 4, shade(pal.main, 1.3));
-    px(g, 11, 8, pal.main);
-    if (dry) { px(g, 3, 8, '#D4E157'); px(g, 12, 8, '#D4E157'); }
+    // ========= 阶段 3 (结蕾繁茂大株): 占满 x=1..22, y=2..21 的丰满树冠 + 3 颗花苞幼果 =========
+    const yOff = dry ? 2 : 0;
+    rect(g, 10, 3 + yOff, 4, 18 - yOff, out);
+    rect(g, 11, 4 + yOff, 2, 16 - yOff, leafD); px(g, 11, 5 + yOff, leaf);
+    if (!dry) {
+      blob(g, 12, 9, 8, 6, out);
+      blob(g, 12, 9, 7, 5, leaf);
+      blob(g, 10, 7, 4, 3, leafHi);
+    }
+    paintFoliageLeaf(g, 10, 7 + yOff, -1, 8, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 13, 7 + yOff, 1, 8, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 10, 13 + yOff, -1, 9, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 13, 13 + yOff, 1, 9, dry, out, leafD, leaf, leafHi);
+    blob(g, 12, 4 + yOff, 5, 3, out); blob(g, 12, 4 + yOff, 4, 2, leafHi);
+    // 3 颗饱满幼果/花苞
+    for (const [bx, by] of [[12, 9 + yOff], [6, 12 + yOff], [18, 12 + yOff]]) {
+      blob(g, bx, by, 3, 3, fOut);
+      blob(g, bx, by, 2, 2, pal.main);
+      px(g, bx - 1, by - 1, '#FFF9C4');
+    }
   } else if (pct >= 25) {
-    // 幼苗四叶: 鲜明双色舒展叶片
-    rect(g, 7, 7, 2, 5, leafD);
-    rect(g, 4, 7, 3, 2, leaf); rect(g, 9, 7, 3, 2, leaf);
-    px(g, 5, 6, leafHi); px(g, 10, 6, leafHi); px(g, 7, 5, leaf); px(g, 8, 5, leafHi);
-    if (dry) { px(g, 4, 9, '#D4E157'); px(g, 11, 9, '#D4E157'); }
+    // ========= 阶段 2 (四叶饱满幼苗): 占满 x=1..22, y=2..21 =========
+    const yOff = dry ? 2 : 0;
+    rect(g, 10, 3 + yOff, 4, 18 - yOff, out);
+    rect(g, 11, 4 + yOff, 2, 16 - yOff, leafD); px(g, 11, 5 + yOff, leaf);
+    if (!dry) {
+      blob(g, 12, 10, 7, 6, out);
+      blob(g, 12, 10, 6, 5, leaf);
+      blob(g, 10, 8, 4, 3, leafHi);
+    }
+    paintFoliageLeaf(g, 10, 7 + yOff, -1, 9, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 13, 7 + yOff, 1, 9, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 10, 13 + yOff, -1, 9, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 13, 13 + yOff, 1, 9, dry, out, leafD, leaf, leafHi);
+    blob(g, 12, 4 + yOff, 5, 3, out); blob(g, 12, 4 + yOff, 4, 2, leafHi);
   } else {
-    // 破土嫩芽: 隆起土包 + 双子叶嫩芽
-    rect(g, 5, 10, 6, 2, wet ? '#4E321F' : '#8D5B34');
-    rect(g, 7, 8, 2, 3, leafD);
-    px(g, 5, 8, leaf); px(g, 6, 7, leafHi);
-    px(g, 10, 8, leaf); px(g, 9, 7, leafHi);
+    // ========= 阶段 1 (破土肥厚大嫩芽): 占满 x=1..22, y=5..21 =========
+    const yOff = dry ? 2 : 0;
+    rect(g, 10, 6 + yOff, 4, 15 - yOff, out);
+    rect(g, 11, 7 + yOff, 2, 13 - yOff, leafD); px(g, 11, 7 + yOff, leafHi);
+    paintFoliageLeaf(g, 10, 10 + yOff, -1, 8, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 13, 10 + yOff, 1, 8, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 10, 15 + yOff, -1, 7, dry, out, leafD, leaf, leafHi);
+    paintFoliageLeaf(g, 13, 15 + yOff, 1, 7, dry, out, leafD, leaf, leafHi);
+    blob(g, 12, 6 + yOff, 4, 3, out); blob(g, 12, 6 + yOff, 3, 2, leafHi);
   }
   if (opts?.weeds) paintWeeds(g);
   return render(g, 'qh-tile-svg qh-pixel');
 }
 function paintWeeds(g: Grid): void {
-  const d = '#1B4710'; const c = '#2E6F1E'; const l = '#689F38';
-  px(g, 0, 13, d); px(g, 1, 11, c); px(g, 1, 12, d); px(g, 2, 10, l); px(g, 2, 12, c); px(g, 3, 13, d);
-  px(g, 15, 13, d); px(g, 14, 11, c); px(g, 14, 12, d); px(g, 13, 10, l); px(g, 13, 12, c); px(g, 12, 13, d);
+  // 24x24 经典像素杂草丛: 环绕植株根部与两侧的锯齿宽叶草簇 + 黄色野花点缀
+  const o = '#14330A'; const d = '#265C18'; const m = '#438A2B'; const hi = '#9CCC65';
+  const tufts: [number, number, number][] = [[1, 21, 9], [4, 22, 11], [8, 22, 7], [15, 22, 7], [19, 22, 11], [21, 21, 9]];
+  for (const [bx, by, h] of tufts) {
+    for (let i = 0; i < h; i++) {
+      const y = by - i;
+      px(g, bx - 1, y, o); px(g, bx + 2, y, o);
+      px(g, bx, y, i >= h - 3 ? hi : m);
+      px(g, bx + 1, y, d);
+    }
+    px(g, bx, by - h, o); px(g, bx + 1, by - h, o);
+  }
+  rect(g, 3, 10, 2, 2, '#FFF59D'); px(g, 4, 11, '#FBC02D');
+  rect(g, 19, 10, 2, 2, '#FFF59D'); px(g, 19, 11, '#FBC02D');
 }
 
-/* ---------------- 农田地块底图 / Debuff 角标 / 旧状态兼容 ---------------- */
+/** 独立像素野草簇 SVG (24x8, 仅在点击/摇晃时作为根部两侧草叶层) */
+export function weedTuftSvg(): string {
+  const g = grid(24, 8);
+  const o = '#0F2607'; const d = '#1E5210'; const m = '#388E3C'; const hi = '#8BC34A';
+  for (const bx of [1, 4, 18, 21]) {
+    for (let i = 0; i < 6; i++) {
+      const y = 7 - i;
+      px(g, bx, y, o); px(g, bx + 1, y, i >= 4 ? hi : m); px(g, bx + 2, y, i >= 3 ? d : o);
+    }
+  }
+  return render(g, 'qh-weed-tuft-svg qh-pixel');
+}
+
+/* ---------------- 农田地块底图 (24x24 透明底大像素图 · 无内嵌小方框) / Debuff 角标 ---------------- */
 export function tileGroundSvg(kind: 'locked' | 'weed' | 'stone' | 'grass' | 'soil' | 'soil_wet' | 'soil_dry_cracked'): string {
-  const g = grid(16, 16);
+  const g = grid(24, 24);
   if (kind === 'locked') {
-    rect(g, 0, 0, 16, 16, '#4A5248');
-    rect(g, 1, 1, 14, 14, '#5D665B');
-    rect(g, 2, 3, 12, 2, '#434A41'); rect(g, 2, 11, 12, 2, '#434A41');
-    // 铁锁环与铜锁体
-    rect(g, 6, 3, 4, 1, '#CFD8DC'); rect(g, 5, 4, 1, 3, '#CFD8DC'); rect(g, 10, 4, 1, 3, '#90A4AE');
-    rect(g, 4, 7, 8, 6, '#8D6E63'); rect(g, 4, 7, 8, 1, '#BCAAA4'); rect(g, 4, 12, 8, 1, '#4E342E');
-    rect(g, 7, 9, 2, 2, '#FFD54F'); px(g, 7, 11, '#2B1B0E');
+    // 24x24 像素大铜锁与铁链
+    rect(g, 8, 3, 8, 2, '#CFD8DC'); rect(g, 7, 5, 2, 5, '#CFD8DC'); rect(g, 15, 5, 2, 5, '#90A4AE');
+    rect(g, 4, 9, 16, 12, '#3E2723'); rect(g, 5, 10, 14, 10, '#8D6E63');
+    rect(g, 5, 10, 14, 2, '#BCAAA4'); rect(g, 5, 18, 14, 2, '#5D4037');
+    rect(g, 10, 13, 4, 3, '#FFD54F'); rect(g, 11, 16, 2, 3, '#2B1B0E');
   } else if (kind === 'weed') {
-    rect(g, 0, 0, 16, 16, '#3F7D24');
-    rect(g, 1, 1, 14, 14, '#5AA034');
-    // 多层次丛生野草与野花点缀
-    const tufts: [number, number][] = [[2, 11], [6, 9], [10, 12], [4, 5], [11, 6]];
-    for (const [tx, ty] of tufts) {
-      px(g, tx, ty + 2, '#173E0C'); px(g, tx + 1, ty + 2, '#173E0C'); px(g, tx + 2, ty + 2, '#173E0C');
-      px(g, tx, ty + 1, '#296918'); px(g, tx + 1, ty, '#296918'); px(g, tx + 2, ty + 1, '#3B8526');
-      px(g, tx - 1, ty, '#7CB342'); px(g, tx + 3, ty, '#7CB342');
-    }
-    px(g, 5, 4, '#FFF59D'); px(g, 12, 10, '#FFF59D');
-  } else if (kind === 'stone') {
-    rect(g, 0, 0, 16, 16, '#6D855C');
-    rect(g, 1, 1, 14, 14, '#8CA675');
-    px(g, 2, 3, '#566B45'); px(g, 13, 12, '#566B45');
-    // 立体多棱面岩石 + 底部阴影 + 顶部高光 + 青苔
-    rect(g, 3, 11, 11, 2, '#455A64');
-    rect(g, 3, 6, 10, 6, '#78909C');
-    rect(g, 4, 4, 8, 7, '#90A4AE');
-    rect(g, 5, 4, 6, 2, '#CFD8DC'); px(g, 4, 5, '#ECEFF1');
-    px(g, 6, 7, '#455A64'); px(g, 7, 8, '#455A64'); px(g, 10, 9, '#37474F');
-    px(g, 4, 10, '#558B2F'); px(g, 5, 11, '#33691E');
-  } else if (kind === 'grass') {
-    rect(g, 0, 0, 16, 16, '#559C2D');
-    rect(g, 1, 1, 14, 14, '#76BF46');
-    // 翠绿草叶与小三叶草
-    const blades: [number, number][] = [[3, 5], [10, 4], [6, 9], [12, 11], [4, 12]];
-    for (const [bx, by] of blades) {
-      px(g, bx, by + 1, '#3D781B'); px(g, bx + 1, by, '#468920'); px(g, bx + 1, by + 1, '#3D781B');
-      px(g, bx, by, '#A3E06C');
-    }
-    px(g, 8, 6, '#FFF9C4'); px(g, 11, 8, '#A3E06C');
-  } else {
-    const wet = kind === 'soil_wet';
-    rect(g, 0, 0, 16, 16, wet ? '#4E321F' : '#8C5A32');
-    rect(g, 1, 1, 14, 14, wet ? '#664229' : '#AD7446');
-    // 三道立体耕地垄沟
-    for (const y of [3, 7, 11]) {
-      rect(g, 2, y, 12, 1, wet ? '#8D6243' : '#CA9364');
-      rect(g, 2, y + 1, 12, 2, wet ? '#3D2414' : '#784925');
-      if (wet) {
-        px(g, 3 + (y % 3), y + 1, '#64B5F6');
-        px(g, 10 - (y % 2), y + 2, '#4FC3F7');
+    // 24x24 茂密像素荒草丛 + 野花 (占满画幅, 无外框)
+    const o = '#112908'; const d = '#265C18'; const m = '#438A2B'; const hi = '#8BC34A';
+    const tufts: [number, number, number][] = [[3, 19, 9], [8, 21, 13], [14, 20, 12], [19, 18, 8], [6, 11, 7], [16, 11, 7]];
+    for (const [bx, by, h] of tufts) {
+      for (let i = 0; i < h; i++) {
+        const y = by - i;
+        px(g, bx - 1, y, o); px(g, bx + 2, y, o);
+        px(g, bx, y, i > h * 0.55 ? hi : m);
+        px(g, bx + 1, y, d);
       }
+      px(g, bx, by - h, o); px(g, bx + 1, by - h, o);
+    }
+    rect(g, 7, 6, 2, 2, '#FFF59D'); px(g, 8, 7, '#FBC02D');
+    rect(g, 16, 7, 2, 2, '#F48FB1'); px(g, 16, 7, '#FFF9C4');
+  } else if (kind === 'stone') {
+    // 24x24 立体像素巨石 + 青苔 + 阴影 (占满 x=2..21, y=4..21)
+    rect(g, 3, 18, 18, 3, '#263238');
+    blob(g, 12, 13, 9, 7, '#263238');
+    blob(g, 12, 13, 8, 6, '#78909C');
+    blob(g, 11, 11, 6, 4, '#B0BEC5');
+    rect(g, 7, 7, 6, 2, '#ECEFF1'); px(g, 6, 8, '#FFFFFF');
+    // 岩石裂面与底部青苔
+    px(g, 9, 12, '#455A64'); px(g, 10, 13, '#455A64'); px(g, 11, 14, '#37474F'); px(g, 15, 13, '#455A64');
+    rect(g, 5, 16, 4, 2, '#558B2F'); px(g, 6, 15, '#8BC34A');
+    rect(g, 15, 17, 3, 2, '#33691E');
+  } else if (kind === 'grass') {
+    // 24x24 丰茂像素草甸 (多簇双色像素草叶 + 三叶草 + 小白花)
+    const tufts: [number, number][] = [[3, 6], [15, 5], [9, 10], [4, 16], [16, 15], [10, 19]];
+    for (const [bx, by] of tufts) {
+      rect(g, bx, by + 2, 5, 1, '#1E460E');
+      px(g, bx, by + 1, '#2E6816'); px(g, bx + 2, by + 1, '#2E6816'); px(g, bx + 4, by + 1, '#2E6816');
+      px(g, bx, by, '#9AE05E'); px(g, bx + 2, by - 1, '#B4F078'); px(g, bx + 2, by, '#55A030'); px(g, bx + 4, by, '#9AE05E');
+    }
+    rect(g, 12, 6, 2, 2, '#FFF9C4'); px(g, 13, 7, '#FFB300');
+    rect(g, 6, 13, 2, 2, '#FFF9C4'); px(g, 6, 13, '#FFB300');
+  } else {
+    // 24x24 立体像素耕土垄沟 (透明底, 四道深浅土垄与像素土块)
+    const wet = kind === 'soil_wet';
+    const ridge = wet ? '#59351C' : '#DDA672';
+    const groove = wet ? '#221006' : '#7D4B20';
+    const speck = wet ? '#6E4427' : '#F0C699';
+    for (const y of [4, 9, 14, 19]) {
+      rect(g, 2, y, 20, 2, ridge);
+      rect(g, 3, y + 2, 18, 2, groove);
+      px(g, 4 + (y % 5), y, speck);
+      px(g, 15 - (y % 4), y + 1, speck);
     }
     if (kind === 'soil_dry_cracked') {
-      px(g, 4, 5, '#4E2C14'); px(g, 5, 6, '#4E2C14'); px(g, 6, 6, '#4E2C14');
-      px(g, 10, 9, '#4E2C14'); px(g, 11, 10, '#4E2C14'); px(g, 7, 12, '#4E2C14');
+      px(g, 6, 7, '#3E2009'); px(g, 7, 8, '#3E2009'); px(g, 8, 9, '#3E2009');
+      px(g, 15, 13, '#3E2009'); px(g, 16, 14, '#3E2009'); px(g, 14, 15, '#3E2009');
     }
   }
   return render(g, 'qh-tile-svg qh-pixel');
@@ -600,7 +755,13 @@ export function uiIconSvg(name: UiIconName): string {
     case 'axe': return toolIconSvg('axe', 0);
     case 'hand': rect(g, 5, 6, 6, 7, '#FFCC80'); rect(g, 5, 3, 1, 4, '#FFCC80'); rect(g, 7, 2, 1, 4, '#FFCC80'); rect(g, 9, 3, 1, 4, '#FFCC80'); break;
     case 'note': rect(g, 10, 3, 2, 8, '#FFD54F'); blob(g, 8, 11, 3, 2, '#FFD54F'); break;
-    case 'drop': case 'debuff_thirsty': blob(g, 8, 9, 4, 5, '#42A5F5'); px(g, 8, 3, '#42A5F5'); px(g, 6, 8, '#BBDEFB'); if (name === 'debuff_thirsty') { rect(g, 12, 10, 2, 4, '#E53935'); px(g, 12, 15, '#E53935'); px(g, 13, 15, '#E53935'); } break;
+    case 'drop': blob(g, 8, 9, 4, 5, '#42A5F5'); px(g, 8, 3, '#42A5F5'); px(g, 6, 8, '#BBDEFB'); break;
+    case 'debuff_thirsty':
+      // 干渴警告角标: 橙红镂空干瘪水滴 + 叹号 (避免与已浇水蓝水滴混淆)
+      blob(g, 8, 9, 5, 5, '#BF360C'); blob(g, 8, 9, 3, 3, '#FFF3C4');
+      px(g, 8, 2, '#BF360C'); px(g, 8, 3, '#FF7043');
+      rect(g, 7, 6, 2, 4, '#D32F2F'); px(g, 7, 11, '#D32F2F'); px(g, 8, 11, '#D32F2F');
+      break;
     case 'debuff_weeds': px(g, 4, 13, '#33691E'); px(g, 5, 10, '#558B2F'); px(g, 6, 13, '#33691E'); px(g, 9, 11, '#558B2F'); px(g, 11, 13, '#33691E'); px(g, 12, 9, '#7CB342'); rect(g, 3, 14, 10, 1, '#33691E'); break;
     case 'debuff_wilted': blob(g, 8, 7, 4, 4, '#8D6E63'); px(g, 8, 11, '#6D4C41'); px(g, 6, 13, '#795548'); px(g, 10, 13, '#795548'); px(g, 6, 6, D); px(g, 10, 6, D); break;
     case 'auto-clear': rect(g, 9, 2, 2, 8, '#8D6E63'); rect(g, 4, 10, 6, 4, '#B0BEC5'); rect(g, 4, 10, 6, 1, '#ECEFF1'); px(g, 3, 14, '#6D4C41'); px(g, 12, 13, '#6D4C41'); px(g, 10, 14, '#8D5524'); break;

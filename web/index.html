@@ -192,54 +192,53 @@
       }
       .farm-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
       .tile {
-        aspect-ratio: 1 / 0.88; border: 3px solid #2b1b0e; border-radius: 6px; padding: 4px 2px 9px;
-        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+        aspect-ratio: 1 / 0.88; border: 3px solid #2b1b0e; border-radius: 6px; padding: 2px 2px 7px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
         position: relative; overflow: visible;
         box-shadow: inset -3px -4px 0 rgba(0,0,0,0.28), inset 3px 3px 0 rgba(255,255,255,0.2), 0 2px 0 rgba(43,27,14,0.45);
         transition: transform 0.08s ease, filter 0.12s ease;
       }
       .tile:hover { transform: translateY(-2px); filter: brightness(1.06); z-index: 2; }
       .farm-grid.enter .tile { animation: tile-pop 0.28s steps(3) backwards; animation-delay: var(--d, 0ms); }
-      .tile b { font-size: 24px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 0 rgba(0,0,0,0.28)); }
-      .tile b svg { width: 38px; height: 38px; display: block; border-radius: 3px; }
+      .tile b { width: 84%; aspect-ratio: 1; font-size: 24px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; margin-top: -8px; filter: drop-shadow(0 3px 0 rgba(0,0,0,0.42)); }
+      .tile b svg { width: 100%; height: 100%; display: block; }
       .tile small {
-        font-size: 13px; font-weight: bold; line-height: 1.05; text-align: center;
-        text-shadow: 1px 1px 0 rgba(27, 16, 8, 0.85);
+        font-size: 13px; font-weight: bold; line-height: 1; text-align: center;
+        text-shadow: 1px 1px 0 rgba(27, 16, 8, 0.9);
       }
       /* 1. 草地（已清理待开垦） */
       .tile.grass {
-        background: linear-gradient(180deg, #78c247 0%, #559c2d 100%);
+        background: #68b038;
         border-color: #2c5e14;
         color: #f4ffe8;
+        box-shadow: inset 0 0 0 2px #8ad058, inset -3px -4px 0 #3f781e, 0 2px 0 rgba(43,27,14,0.45);
       }
       /* 2. 荒草地（未清理杂草） */
       .tile.weed {
-        background: linear-gradient(180deg, #5aa034 0%, #38701e 100%);
+        background: #4b8b28;
         border-color: #1e420e;
         color: #e6f7d4;
+        box-shadow: inset 0 0 0 2px #68ad40, inset -3px -4px 0 #2b5714, 0 2px 0 rgba(43,27,14,0.45);
       }
       /* 3. 乱石地（压着巨石） */
       .tile.stone {
-        background: linear-gradient(180deg, #8ca675 0%, #688056 100%);
+        background: #799462;
         border-color: #37474f;
         color: #eceff1;
       }
-      /* 4. 干耕地（已开垦待播种 / 今日未浇水作物） */
+      /* 4. 干耕地（已开垦待播种 / 今日未浇水像素浅黄沙土） */
       .tile.dry {
-        background:
-          repeating-linear-gradient(180deg, rgba(120, 73, 37, 0.28) 0 4px, rgba(202, 147, 100, 0.16) 4px 8px),
-          linear-gradient(180deg, #ad7446 0%, #86542d 100%);
-        border-color: #4e2c14;
+        background: #bd824a;
+        border-color: #5c3414;
         color: #fff3c4;
+        box-shadow: inset 0 0 0 3px #d69c63, inset -3px -4px 0 #784820, 0 2px 0 rgba(43,27,14,0.45);
       }
-      /* 5. 湿耕地（已浇水湿润土垄 / 已浇水生长中作物） */
+      /* 5. 湿耕地（浇水后深巧克力湿润像素耕土） */
       .tile.wet {
-        background:
-          repeating-linear-gradient(180deg, rgba(41, 23, 12, 0.36) 0 4px, rgba(100, 181, 246, 0.12) 4px 8px),
-          linear-gradient(180deg, #664229 0%, #462b19 100%);
-        border-color: #2b180d;
-        color: #d8eeff;
-        box-shadow: inset 0 0 0 2px rgba(100, 181, 246, 0.32), inset -3px -4px 0 rgba(0,0,0,0.35), 0 2px 0 rgba(43,27,14,0.45);
+        background: #341b0c;
+        border-color: #180b04;
+        color: #ffe8b8;
+        box-shadow: inset 0 0 0 3px #4a2813, inset -3px -4px 0 #160903, 0 2px 0 rgba(43,27,14,0.45);
       }
       /* 6. 成熟可收获（丰收金辉，动作由植株弹跳驱动，不闪烁） */
       .tile.ready {
@@ -1086,12 +1085,15 @@
       .tile { position: relative; }
       .tile-debuffs { position: absolute; top: 2px; right: 2px; display: flex; gap: 1px; z-index: 3; pointer-events: none; }
       .tile-debuffs .qh-ui-icon { width: 15px; height: 15px; filter: drop-shadow(1px 1px 0 rgba(43,27,14,.65)); }
-      .tile.debuff-thirsty { box-shadow: inset 0 0 0 2px #D84315, inset 0 -8px 0 rgba(216,67,21,.18); }
+      .tile.debuff-thirsty {
+        background: #c88d55;
+        border-color: #5c3414;
+        box-shadow: inset 0 0 0 3px #e6b88a, inset -3px -4px 0 #6e3814;
+      }
       .tile.debuff-thirsty .tile-debuffs { animation: thirsty-drop-bob 1.5s ease-in-out infinite; animation-delay: var(--sway-d, 0ms); }
-      .tile.debuff-weeds { box-shadow: inset 0 0 0 2px #33691E, inset 0 -10px 0 rgba(51,105,30,.35), inset 0 8px 0 rgba(85,139,47,.22); }
+      .tile.debuff-weeds { box-shadow: inset 0 0 0 3px #2e6f1e, inset -3px -4px 0 #14330a; }
       .tile.debuff-wilted { filter: saturate(.35) brightness(.82); box-shadow: inset 0 0 0 2px #6D4C41; }
       @keyframes thirsty-drop-bob { 0%, 100% { transform: translateY(0); } 55% { transform: translateY(3px) scaleY(1.08); } }
-      .tile.weedy::before { content: ''; position: absolute; inset: auto 0 0 0; height: 9px; background: repeating-linear-gradient(90deg, #33691E 0 3px, transparent 3px 7px, #558B2F 7px 10px, transparent 10px 14px); pointer-events: none; }
 
       /* --- 植物五态常驻姿态（根部轴心，错峰相位，纯位移/旋转/拉伸，不靠颜色闪烁） --- */
       .tile b { transform-origin: 50% 88%; }
@@ -1119,21 +1121,19 @@
         animation: wild-weed-sway 2.6s ease-in-out infinite;
         animation-delay: var(--sway-d, 0ms);
       }
-      /* 有草状态：疯长的杂草簇左右剧烈摇晃挤压植株 */
+      /* 有草状态：像素风锯齿野草簇前景 SVG 摇晃挤压植株 */
       .tile-weed-tuft {
-        position: absolute; left: 6px; right: 6px; bottom: 8px; height: 14px;
-        display: flex; justify-content: space-between; align-items: flex-end;
+        position: absolute; left: 50%; bottom: 18px; width: clamp(64px, 6.8vw, 78px); height: 26px;
+        transform: translateX(-50%);
         pointer-events: none; z-index: 2;
       }
-      .tile-weed-tuft i {
-        width: 6px; height: 12px; display: block;
-        background: linear-gradient(180deg, #7cb342 0%, #33691e 100%);
-        border: 1px solid #1b4710; transform-origin: 50% 100%;
-        animation: weed-choke-rustle 1.3s ease-in-out infinite;
+      .tile-weed-tuft svg {
+        width: 100%; height: 100%; display: block;
+        shape-rendering: crispEdges; image-rendering: pixelated;
+        transform-origin: 50% 100%;
+        animation: weed-choke-rustle 1.3s steps(3) infinite;
         animation-delay: var(--sway-d, 0ms);
       }
-      .tile-weed-tuft i:nth-child(2) { height: 10px; animation-duration: 1.05s; }
-      .tile-weed-tuft i:nth-child(3) { height: 13px; animation-direction: reverse; }
       @keyframes crop-breeze-sway {
         0%, 100% { transform: rotate(-4deg) scaleY(1); }
         50% { transform: rotate(4.5deg) translateY(-1px) scaleY(1.04); }
@@ -1161,15 +1161,15 @@
         50% { transform: skewX(5deg) scaleY(1.03); }
       }
       @keyframes weed-choke-rustle {
-        0%, 100% { transform: rotate(-14deg) scaleY(0.95); }
-        50% { transform: rotate(16deg) scaleY(1.1); }
+        0%, 100% { transform: skewX(-8deg) scaleY(0.96); }
+        50% { transform: skewX(10deg) scaleY(1.08); }
       }
 
       /* --- 点击地块的即时物理反馈（按地块状态差异化，不闪烁） --- */
       .tile.tap-crop b { animation: tap-crop-boing 0.42s cubic-bezier(.25, 1.5, .5, 1); }
       .tile.tap-thirsty b { animation: tap-thirsty-sag 0.52s ease-out; }
       .tile.tap-weedy b, .tile.tap-weed b { animation: tap-weed-rustle 0.44s ease-out; }
-      .tile.tap-weedy .tile-weed-tuft i { animation: tap-weed-rustle 0.38s steps(4); }
+      .tile.tap-weedy .tile-weed-tuft svg { animation: tap-weed-rustle 0.38s steps(4); }
       .tile.tap-wilted b { animation: tap-wilted-crack 0.4s steps(4); }
       .tile.tap-stone b { animation: tap-stone-thud 0.34s steps(4); }
       .tile.tap-soil, .tile.tap-grass { animation: tap-soil-sink 0.3s ease-out; }
