@@ -59,6 +59,8 @@ type UiModalState =
   | null;
 
 type TileFxKind = 'till' | 'water' | 'plant' | 'harvest' | 'clear' | 'deweed' | 'uproot';
+type TileFxSub = 'stone' | 'weed';
+type TileTapKind = 'crop' | 'thirsty' | 'weedy' | 'wilted' | 'stone' | 'weed' | 'soil' | 'grass';
 
 interface ToastFx {
   id: number;
@@ -109,7 +111,9 @@ let pageEnterPending = true;
 const pageViewCls = () => (pageEnterPending ? 'page-view enter' : 'page-view');
 
 /** 农事与矿洞操作微动效状态 */
-let tileFxMap = new Map<string, { kind: TileFxKind; floatText?: string }>();
+let tileFxMap = new Map<string, { kind: TileFxKind; floatText?: string; cropId?: string; sub?: TileFxSub }>();
+/** 点击农田格子的即时物理反馈（按地块状态区分） */
+let tappedCell: { key: string; kind: TileTapKind } | null = null;
 let mineFxState: { rockHit: boolean; slash: boolean; dmgText?: string; crit?: boolean; playerHit?: boolean } = {
   rockHit: false,
   slash: false,
@@ -744,6 +748,8 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
         for (let c = 0; c < 8; c++) {
           const beforeTile = prev.farm[r][c];
           const afterTile = next.farm[r][c];
+          if (action.type === 'clear' && beforeTile.ground !== 'grass' && afterTile.ground === 'grass') targetCells.push(`${r}-${c}`);
+          if (action.type === 'till' && beforeTile.ground !== 'tilled' && afterTile.ground === 'tilled') targetCells.push(`${r}-${c}`);
           if (action.type === 'water' && !beforeTile.watered && afterTile.watered) targetCells.push(`${r}-${c}`);
           if (action.type === 'harvest' && beforeTile.crop && (!afterTile.crop || afterTile.crop.age < beforeTile.crop.age)) {
             targetCells.push(`${r}-${c}`);
@@ -758,22 +764,29 @@ function recordActionFx(action: Action, prev: GameState, next: GameState, events
       const [rStr, cStr] = key.split('-');
       const r = Number(rStr);
       const c = Number(cStr);
-      const prevCrop = prev.farm[r]?.[c]?.crop;
+      const prevTile = prev.farm[r]?.[c];
+      const prevCrop = prevTile?.crop;
       let floatText: string | undefined;
+      let cropId: string | undefined;
+      let sub: TileFxSub | undefined;
       if (kind === 'harvest' && prevCrop) {
         floatText = `+${CROPS[prevCrop.cropId].name}`;
+        cropId = prevCrop.cropId;
       } else if (kind === 'plant' && 'cropId' in action) {
         floatText = `种下${CROPS[action.cropId]?.name ?? ''}`;
+        cropId = action.cropId;
       } else if (kind === 'water') {
         floatText = '已浇水';
       } else if (kind === 'till') {
-        floatText = undefined; // 开垦完成靠土地变色反馈，不再飘「已开垦」文字
+        floatText = undefined;
+      } else if (kind === 'clear') {
+        sub = prevTile?.ground === 'stone' ? 'stone' : 'weed';
       } else if (kind === 'deweed') {
         floatText = '已除草';
       } else if (kind === 'uproot') {
         floatText = '已铲除';
       }
-      tileFxMap.set(key, { kind, floatText });
+      tileFxMap.set(key, { kind, floatText, cropId, sub });
     }
     if (kind === 'harvest' && targetCells.length > 0) {
       const harvestEv = events.find((e) => e.text.includes('收获了'));
@@ -1093,6 +1106,39 @@ function farmCounts(rows: number[]): { needWater: number; readyCount: number; we
   return { needWater, readyCount, weedCount, wiltedCount };
 }
 
+/** 按地块当前状态判定点击反馈类型（不同状态点击有不同动作与粒子） */
+function tileTapKindOf(tile: Tile): TileTapKind {
+  if (tile.ground === 'stone') return 'stone';
+  if (tile.ground === 'weed') return 'weed';
+  if (tile.ground !== 'tilled') return 'grass';
+  if (tile.crop?.wilted) return 'wilted';
+  if (tile.weeds) return 'weedy';
+  const stage = cropStage(tile);
+  if (stage && !stage.ready && !tile.watered) return 'thirsty';
+  if (stage) return 'crop';
+  return 'soil';
+}
+
+/** 农事操作与点击反馈的像素动作层（工具挥动 + 泥块/水珠/草叶/果实/石屑物理轨迹） */
+function tileActionFxHtml(fx: { kind: TileFxKind; cropId?: string; sub?: TileFxSub } | undefined, tap: TileTapKind | null, tile: Tile): string {
+  const weedTuft = tile.weeds && tile.ground === 'tilled' ? '<span class="tile-weed-tuft" aria-hidden="true"><i></i><i></i><i></i></span>' : '';
+  let actionLayer = '';
+  if (fx) {
+    const k = fx.kind === 'clear' && fx.sub === 'stone' ? 'clear-stone' : fx.kind;
+    let tool = '';
+    if (k === 'till') tool = `<span class="fx-tool fx-tool-hoe">${toolIconSvg('hoe', Math.max(0, state.tools.hoe))}</span>`;
+    else if (k === 'water') tool = `<span class="fx-tool fx-tool-can">${toolIconSvg('can', Math.max(0, state.tools.can))}</span>`;
+    else if (k === 'clear-stone') tool = `<span class="fx-tool fx-tool-pickaxe">${toolIconSvg('pickaxe', Math.max(0, state.tools.pickaxe))}</span>`;
+    else if (k === 'deweed' || k === 'clear') tool = `<span class="fx-tool fx-tool-sweep">${uiIconSvg('scissors')}</span>`;
+    else if (k === 'uproot') tool = `<span class="fx-tool fx-tool-hoe">${toolIconSvg('hoe', Math.max(0, state.tools.hoe))}</span>`;
+    const harvestItem = k === 'harvest' && fx.cropId ? `<span class="fx-harvest-fruit">${itemIconSvg(fx.cropId)}</span>` : '';
+    const splashRing = k === 'water' ? '<span class="fx-water-ring"></span>' : '';
+    actionLayer = `<span class="tile-action-fx fx-act-${k}" aria-hidden="true">${tool}${harvestItem}${splashRing}<i class="p1"></i><i class="p2"></i><i class="p3"></i><i class="p4"></i></span>`;
+  }
+  const tapLayer = tap ? `<span class="tile-tap-fx tap-fx-${tap}" aria-hidden="true"><i class="t1"></i><i class="t2"></i><i class="t3"></i></span>` : '';
+  return `${weedTuft}${actionLayer}${tapLayer}`;
+}
+
 function farmScene(): string {
   const fieldStat = farmCounts([0, 1, 2, 3, 4, 5]);
   const ghStat = farmCounts([6, 7]);
@@ -1121,10 +1167,14 @@ function farmScene(): string {
         const key = `${r}-${c}`;
         const selected = selectedCell?.row === r && selectedCell?.col === c;
         const fx = tileFxMap.get(key);
-        const fxCls = fx ? `fx-${fx.kind}` : '';
-        return `<button class="tile ${f.cls} ${fxCls} ${selected ? 'selected' : ''}" style="--d:${((r % 6) * 8 + c) * 16}ms"
+        const fxCls = fx ? `fx-${fx.kind}${fx.sub ? ` fx-sub-${fx.sub}` : ''}` : '';
+        const tap = tappedCell?.key === key ? tappedCell.kind : null;
+        const tapCls = tap ? `tap-${tap}` : '';
+        const swayDelay = ((r * 5 + c * 3) % 9) * -280;
+        return `<button class="tile ${f.cls} ${fxCls} ${tapCls} ${selected ? 'selected' : ''}" style="--d:${((r % 6) * 8 + c) * 16}ms;--sway-d:${swayDelay}ms"
           data-act="tile" data-row="${r}" data-col="${c}" aria-label="${key} ${f.sub}" aria-pressed="${selected}">
           ${fx?.floatText ? `<span class="tile-float">${esc(fx.floatText)}</span>` : ''}
+          ${tileActionFxHtml(fx, tap, tile)}
           <b>${f.glyph}</b>${f.badges}<small>${f.sub}</small>
           ${tile.crop && !tile.crop.wilted ? `<i class="grow"><em style="width:${cropStage(tile)!.pct}%"></em></i>` : ''}
         </button>`;
@@ -2887,6 +2937,7 @@ function render(): void {
   pageEnterPending = false;
   // 各类动效都是一次性的：本次渲染已消费，立即清空，避免后续任何重渲染（切页、失败操作等）重播旧飘字
   tileFxMap.clear();
+  tappedCell = null;
   groveFloatMap.clear();
   groveFxId = null;
   forestChopFx = false;
@@ -2988,11 +3039,16 @@ document.addEventListener('click', (e) => {
       uiModal = null;
       render();
       break;
-    case 'tile':
-      selectedCell = { row: Number(el.dataset.row), col: Number(el.dataset.col) };
+    case 'tile': {
+      const r = Number(el.dataset.row);
+      const c = Number(el.dataset.col);
+      selectedCell = { row: r, col: c };
       tileFxMap.clear();
+      const t = state.farm[r]?.[c];
+      tappedCell = t ? { key: `${r}-${c}`, kind: tileTapKindOf(t) } : null;
       render();
       break;
+    }
     case 'close-tile':
       selectedCell = null;
       render();

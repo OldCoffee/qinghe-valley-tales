@@ -241,7 +241,7 @@
         color: #d8eeff;
         box-shadow: inset 0 0 0 2px rgba(100, 181, 246, 0.32), inset -3px -4px 0 rgba(0,0,0,0.35), 0 2px 0 rgba(43,27,14,0.45);
       }
-      /* 6. 成熟可收获（丰收金辉） */
+      /* 6. 成熟可收获（丰收金辉，动作由植株弹跳驱动，不闪烁） */
       .tile.ready {
         background:
           radial-gradient(circle at 50% 36%, rgba(255, 249, 196, 0.45) 0%, transparent 68%),
@@ -249,13 +249,8 @@
         border-color: #fff3c4;
         color: #2b1b0e;
         box-shadow: inset 0 0 0 2px #ffd23f, 0 0 12px rgba(255, 210, 63, 0.65), 0 2px 0 #2b1b0e;
-        animation: ready-harvest-pulse 1.4s ease-in-out infinite;
       }
       .tile.ready small { color: #2b1b0e; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65); }
-      @keyframes ready-harvest-pulse {
-        0%, 100% { filter: brightness(1); box-shadow: inset 0 0 0 2px #ffd23f, 0 0 10px rgba(255, 210, 63, 0.55), 0 2px 0 #2b1b0e; }
-        50% { filter: brightness(1.09); box-shadow: inset 0 0 0 2px #fff9c4, 0 0 18px rgba(255, 210, 63, 0.9), 0 2px 0 #2b1b0e; }
-      }
       /* 7. 未解锁（温室未修复） */
       .tile.locked {
         background:
@@ -276,8 +271,6 @@
         box-shadow: inset 0 0 0 2px rgba(255, 213, 79, 0.65), inset -3px -4px 0 rgba(0,0,0,0.28), 0 2px 0 rgba(43,27,14,0.45);
       }
       .tile.weedy { box-shadow: inset 0 0 0 3px #4e9b2a, inset -4px -4px 0 rgba(0,0,0,0.18); }
-      .tile.fx-deweed { animation: fx-clear-burst 0.32s steps(4); }
-      .tile.fx-uproot { animation: fx-clear-burst 0.32s steps(4); }
       .farm-bulk-bar {
         display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
         background: #fff3c4; border: 3px solid var(--wood-dark); box-shadow: 0 3px 0 var(--wood-dark);
@@ -292,20 +285,15 @@
       .tile.dry.crop-growing .grow em { background: linear-gradient(90deg, #ffb300, #ffd54f); }
       .tile.ready .grow em { background: linear-gradient(90deg, #ffd54f, #fff9c4); }
 
-      /* 农事格子微动效：till / water / plant / harvest / clear */
-      .tile.fx-till { animation: fx-till 0.36s steps(4); }
-      .tile.fx-till::after {
-        content: ''; width: 20px; height: 8px; background: repeating-linear-gradient(90deg, #5b3a1e 0 4px, transparent 4px 8px); position: absolute; top: -14px;
-        pointer-events: none; animation: fx-particles 0.36s steps(4) forwards;
-      }
-      .tile.fx-water { animation: fx-water-tile 0.42s steps(4); }
-      .tile.fx-water::after {
-        content: ''; width: 22px; height: 14px; background: repeating-linear-gradient(90deg, var(--water) 0 4px, transparent 4px 8px); image-rendering: pixelated; position: absolute; top: -18px; color: var(--water); font-size: 16px;
-        pointer-events: none; animation: fx-water-drop 0.42s steps(4) forwards;
-      }
-      .tile.fx-plant b { animation: fx-plant-sprout 0.38s steps(4); display: inline-block; }
-      .tile.fx-harvest { animation: fx-harvest-glow 0.48s steps(4); }
-      .tile.fx-clear { animation: fx-clear-burst 0.32s steps(4); }
+      /* 农事格子动作特效：工具挥动 + 植株与地块物理响应（不用颜色闪烁） */
+      .tile.fx-till { animation: fx-till-thud 0.44s cubic-bezier(.22, 1.35, .5, 1); }
+      .tile.fx-till b { animation: fx-soil-furrow-pop 0.44s ease-out; }
+      .tile.fx-water b { animation: fx-water-revive 0.52s cubic-bezier(.2, 1.45, .45, 1); }
+      .tile.fx-plant b { animation: fx-plant-sprout 0.48s cubic-bezier(.2, 1.5, .45, 1); display: inline-block; }
+      .tile.fx-harvest b { animation: fx-harvest-pluck 0.5s cubic-bezier(.22, 1.45, .45, 1); }
+      .tile.fx-clear.fx-sub-stone { animation: fx-stone-smash 0.46s steps(5); }
+      .tile.fx-clear:not(.fx-sub-stone), .tile.fx-deweed { animation: fx-weed-rip 0.42s ease-out; }
+      .tile.fx-uproot { animation: fx-uproot-heave 0.46s ease-out; }
       .tile .tile-float {
         position: absolute; top: -22px; left: 50%; transform: translateX(-50%);
         background: #2b1b0e; color: var(--gold); border: 2px solid var(--gold);
@@ -827,38 +815,144 @@
       @keyframes tile-pop { from { transform: scale(0.75); opacity: 0; } to { transform: scale(1); opacity: 1; } }
       @keyframes acted { 0% { filter: brightness(1.7); } 100% { filter: brightness(1); } }
       @keyframes blink { 50% { filter: brightness(1.18); } }
-      @keyframes fx-till {
-        0% { transform: translateY(0); filter: brightness(1.6); }
-        35% { transform: translateY(4px) scale(0.95); background: #a86f38; }
-        75% { transform: translateY(-2px); }
-        100% { transform: translateY(0); filter: brightness(1); }
+      @keyframes fx-till-thud {
+        0%, 100% { transform: translateY(0); }
+        35% { transform: translateY(5px) scale(1.03, 0.92); }
+        70% { transform: translateY(-2px) scale(0.99, 1.02); }
       }
-      @keyframes fx-particles {
-        0% { opacity: 1; transform: translateY(6px) scale(0.8); }
-        100% { opacity: 0; transform: translateY(-14px) scale(1.25); }
+      @keyframes fx-soil-furrow-pop {
+        0% { transform: scaleY(0.55) translateY(5px); }
+        60% { transform: scaleY(1.1) translateY(-2px); }
+        100% { transform: scaleY(1) translateY(0); }
       }
-      @keyframes fx-water-tile {
-        0% { background: var(--water); filter: brightness(1.4); }
-        50% { background: #3f6ca8; }
-        100% { background: var(--soil-wet); filter: brightness(1); }
-      }
-      @keyframes fx-water-drop {
-        0% { opacity: 1; transform: translateY(-12px); }
-        100% { opacity: 0; transform: translateY(10px); }
+      @keyframes fx-water-revive {
+        0% { transform: rotate(9deg) translateY(3px) scale(1.05, 0.82); }
+        55% { transform: rotate(-3deg) translateY(-5px) scale(0.94, 1.14); }
+        80% { transform: rotate(2deg) translateY(1px) scale(1.03, 0.97); }
+        100% { transform: rotate(0) translateY(0) scale(1, 1); }
       }
       @keyframes fx-plant-sprout {
-        0% { transform: scale(0.35) translateY(8px); }
-        60% { transform: scale(1.25) translateY(-4px); }
-        100% { transform: scale(1) translateY(0); }
+        0% { transform: scale(0.4, 0.18) translateY(10px); }
+        55% { transform: scale(0.92, 1.24) translateY(-5px) rotate(-4deg); }
+        80% { transform: scale(1.08, 0.94) translateY(1px) rotate(3deg); }
+        100% { transform: scale(1, 1) translateY(0) rotate(0); }
+      }
+      @keyframes fx-harvest-pluck {
+        0% { transform: scale(1.12, 0.84) translateY(3px); }
+        45% { transform: scale(0.88, 1.2) translateY(-8px); }
+        100% { transform: scale(1, 1) translateY(0); }
+      }
+      @keyframes fx-stone-smash {
+        0%, 100% { transform: translate(0, 0); }
+        20% { transform: translate(-6px, 3px) rotate(-3deg) scale(1.04, 0.92); }
+        45% { transform: translate(6px, -2px) rotate(3deg); }
+        70% { transform: translate(-4px, 1px); }
+      }
+      @keyframes fx-weed-rip {
+        0%, 100% { transform: translateX(0); }
+        30% { transform: translateX(-5px) skewX(-8deg); }
+        65% { transform: translateX(4px) translateY(-3px) skewX(6deg); }
+      }
+      @keyframes fx-uproot-heave {
+        0%, 100% { transform: translateY(0); }
+        35% { transform: translateY(4px) rotate(-3deg); }
+        70% { transform: translateY(-5px) rotate(3deg); }
       }
       @keyframes fx-harvest-glow {
-        0% { box-shadow: 0 0 0 4px var(--gold), inset 0 0 0 4px #fff; filter: brightness(1.6); }
-        100% { box-shadow: none; filter: brightness(1); }
+        0% { transform: translateY(-3px) scale(1.04); }
+        100% { transform: none; }
       }
-      @keyframes fx-clear-burst {
-        0% { transform: rotate(-4deg) scale(1.08); filter: brightness(1.5); }
-        50% { transform: rotate(4deg) scale(0.92); }
-        100% { transform: none; filter: brightness(1); }
+      /* 六大农事操作的工具挥动 + 泥块/水珠/种子/草叶/果实/石屑飞溅层 */
+      .tile-action-fx { position: absolute; inset: 0; pointer-events: none; z-index: 8; overflow: visible; }
+      .tile-action-fx .fx-tool {
+        position: absolute; top: -14px; right: 2px; width: 28px; height: 28px;
+        transform-origin: 80% 80%; z-index: 9; filter: drop-shadow(1px 2px 0 rgba(27, 16, 8, 0.65));
+      }
+      .tile-action-fx .fx-tool svg { width: 28px; height: 28px; display: block; }
+      .tile-action-fx .fx-tool-hoe, .tile-action-fx .fx-tool-pickaxe { animation: tool-chop-swing 0.44s cubic-bezier(.25, 1.3, .5, 1) forwards; }
+      .tile-action-fx .fx-tool-can { left: -4px; right: auto; top: -16px; transform-origin: 30% 70%; animation: tool-can-pour 0.5s ease-in-out forwards; }
+      .tile-action-fx .fx-tool-sweep { right: 0; top: 4px; animation: tool-sickle-sweep 0.42s ease-out forwards; }
+      @keyframes tool-chop-swing {
+        0% { opacity: 1; transform: translate(6px, -10px) rotate(38deg) scale(0.9); }
+        42% { opacity: 1; transform: translate(-8px, 10px) rotate(-48deg) scale(1.12); }
+        75% { opacity: 1; transform: translate(-4px, 4px) rotate(-22deg) scale(1); }
+        100% { opacity: 0; transform: translate(2px, -4px) rotate(10deg) scale(0.85); }
+      }
+      @keyframes tool-can-pour {
+        0% { opacity: 1; transform: translate(-4px, -6px) rotate(-10deg); }
+        35% { opacity: 1; transform: translate(4px, 2px) rotate(38deg) scale(1.06); }
+        75% { opacity: 1; transform: translate(6px, 4px) rotate(44deg); }
+        100% { opacity: 0; transform: translate(0, -4px) rotate(0deg) scale(0.85); }
+      }
+      @keyframes tool-sickle-sweep {
+        0% { opacity: 1; transform: translate(14px, 4px) rotate(40deg) scale(0.9); }
+        50% { opacity: 1; transform: translate(-18px, -4px) rotate(-55deg) scale(1.15); }
+        100% { opacity: 0; transform: translate(-26px, -8px) rotate(-75deg) scale(0.85); }
+      }
+      .tile-action-fx .fx-harvest-fruit {
+        position: absolute; left: 50%; top: 42%; width: 30px; height: 30px;
+        transform: translate(-50%, -50%); z-index: 10;
+        filter: drop-shadow(0 3px 0 rgba(27, 16, 8, 0.55));
+        animation: harvest-fruit-arc 0.62s cubic-bezier(.2, 1.4, .45, 1) forwards;
+      }
+      .tile-action-fx .fx-harvest-fruit svg { width: 30px; height: 30px; display: block; }
+      @keyframes harvest-fruit-arc {
+        0% { opacity: 1; transform: translate(-50%, 4px) scale(0.5); }
+        45% { opacity: 1; transform: translate(-50%, -32px) scale(1.22) rotate(-10deg); }
+        78% { opacity: 1; transform: translate(-30%, -18px) scale(1) rotate(8deg); }
+        100% { opacity: 0; transform: translate(-15%, -4px) scale(0.55) rotate(16deg); }
+      }
+      .tile-action-fx .fx-water-ring {
+        position: absolute; left: 50%; bottom: 10px; width: 10px; height: 5px;
+        border: 2px solid #81d4fa; transform: translateX(-50%);
+        animation: water-splash-ring 0.48s ease-out forwards;
+      }
+      @keyframes water-splash-ring {
+        0% { opacity: 0; transform: translateX(-50%) scale(0.4); }
+        30% { opacity: 1; transform: translateX(-50%) scale(1); }
+        100% { opacity: 0; transform: translateX(-50%) scale(3.2, 1.8); }
+      }
+      .tile-action-fx i {
+        position: absolute; left: 50%; top: 52%; width: 6px; height: 6px;
+        opacity: 0; animation: action-particle-burst 0.52s ease-out forwards;
+      }
+      .tile-action-fx .p1 { --px: -22px; --py: -22px; --pdy: 14px; --prot: -70deg; }
+      .tile-action-fx .p2 { --px: 22px; --py: -24px; --pdy: 16px; --prot: 80deg; animation-delay: 25ms; }
+      .tile-action-fx .p3 { --px: -12px; --py: -30px; --pdy: 10px; --prot: -45deg; animation-delay: 50ms; }
+      .tile-action-fx .p4 { --px: 14px; --py: -16px; --pdy: 18px; --prot: 55deg; animation-delay: 35ms; }
+      /* 开垦：深浅泥块向两侧抛起落下 */
+      .fx-act-till i { background: #6d4c41; border: 1px solid #3e2723; width: 7px; height: 6px; }
+      .fx-act-till .p2, .fx-act-till .p4 { background: #a1887f; }
+      /* 浇水：弧线水珠洒下并溅开 */
+      .fx-act-water i { background: #4fc3f7; border: 1px solid #0277bd; width: 5px; height: 7px; top: 24%; animation-name: water-drop-stream; }
+      .fx-act-water .p1 { --px: -14px; --py: 18px; }
+      .fx-act-water .p2 { --px: 14px; --py: 20px; }
+      .fx-act-water .p3 { --px: -6px; --py: 22px; background: #b3e5fc; }
+      .fx-act-water .p4 { --px: 8px; --py: 16px; background: #b3e5fc; }
+      /* 播种：种子落入土窝 + 嫩绿碎叶弹出 */
+      .fx-act-plant i { background: #dfc396; border: 1px solid #6d4c41; width: 5px; height: 5px; }
+      .fx-act-plant .p3, .fx-act-plant .p4 { background: #66bb6a; border-color: #1b5e20; width: 6px; height: 4px; }
+      /* 除草 / 清理荒草：连根草叶旋转飞散 */
+      .fx-act-deweed i, .fx-act-clear i { background: #558b2f; border: 1px solid #1b4710; width: 9px; height: 4px; --py: -28px; }
+      .fx-act-deweed .p2, .fx-act-clear .p2 { background: #8bc34a; }
+      /* 清理石头：棱角石块向四周崩飞 */
+      .fx-act-clear-stone i { background: #90a4ae; border: 1px solid #263238; width: 7px; height: 7px; }
+      .fx-act-clear-stone .p2, .fx-act-clear-stone .p4 { background: #cfd8dc; width: 5px; height: 6px; }
+      /* 收获：绿叶与金色丰收星粒伴随果实飞出 */
+      .fx-act-harvest i { background: #66bb6a; border: 1px solid #1b5e20; width: 7px; height: 4px; }
+      .fx-act-harvest .p2, .fx-act-harvest .p4 { background: #ffd54f; border-color: #e65100; width: 6px; height: 6px; }
+      /* 铲除枯株：干褐断枝与土块被掀飞 */
+      .fx-act-uproot i { background: #8d6e63; border: 1px solid #3e2723; width: 8px; height: 4px; }
+      .fx-act-uproot .p2, .fx-act-uproot .p4 { background: #5d4037; width: 6px; height: 6px; }
+      @keyframes action-particle-burst {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(0.6); }
+        55% { opacity: 1; transform: translate(calc(-50% + var(--px, 16px)), calc(-50% + var(--py, -20px))) rotate(var(--prot, 45deg)) scale(1.1); }
+        100% { opacity: 0; transform: translate(calc(-50% + var(--px, 16px) * 1.35), calc(-50% + var(--py, -20px) + var(--pdy, 14px))) rotate(calc(var(--prot, 45deg) * 1.8)) scale(0.65); }
+      }
+      @keyframes water-drop-stream {
+        0% { opacity: 1; transform: translate(-50%, -18px) scale(0.8, 1.2); }
+        65% { opacity: 1; transform: translate(calc(-50% + var(--px, 10px) * 0.6), calc(-50% + var(--py, 18px))) scale(1.1, 0.8); }
+        100% { opacity: 0; transform: translate(calc(-50% + var(--px, 10px) * 1.3), calc(-50% + var(--py, 18px) - 6px)) scale(0.5); }
       }
       @keyframes float-up {
         0% { opacity: 1; transform: translate(-50%, 0); }
@@ -992,11 +1086,144 @@
       .tile { position: relative; }
       .tile-debuffs { position: absolute; top: 2px; right: 2px; display: flex; gap: 1px; z-index: 3; pointer-events: none; }
       .tile-debuffs .qh-ui-icon { width: 15px; height: 15px; filter: drop-shadow(1px 1px 0 rgba(43,27,14,.65)); }
-      .tile.debuff-thirsty { box-shadow: inset 0 0 0 2px #D84315, inset 0 -8px 0 rgba(216,67,21,.18); animation: thirstyPulse 1.6s steps(2) infinite; }
+      .tile.debuff-thirsty { box-shadow: inset 0 0 0 2px #D84315, inset 0 -8px 0 rgba(216,67,21,.18); }
+      .tile.debuff-thirsty .tile-debuffs { animation: thirsty-drop-bob 1.5s ease-in-out infinite; animation-delay: var(--sway-d, 0ms); }
       .tile.debuff-weeds { box-shadow: inset 0 0 0 2px #33691E, inset 0 -10px 0 rgba(51,105,30,.35), inset 0 8px 0 rgba(85,139,47,.22); }
       .tile.debuff-wilted { filter: saturate(.35) brightness(.82); box-shadow: inset 0 0 0 2px #6D4C41; }
-      @keyframes thirstyPulse { 50% { box-shadow: inset 0 0 0 2px #FFB300, inset 0 -8px 0 rgba(255,179,0,.15); } }
+      @keyframes thirsty-drop-bob { 0%, 100% { transform: translateY(0); } 55% { transform: translateY(3px) scaleY(1.08); } }
       .tile.weedy::before { content: ''; position: absolute; inset: auto 0 0 0; height: 9px; background: repeating-linear-gradient(90deg, #33691E 0 3px, transparent 3px 7px, #558B2F 7px 10px, transparent 10px 14px); pointer-events: none; }
+
+      /* --- 植物五态常驻姿态（根部轴心，错峰相位，纯位移/旋转/拉伸，不靠颜色闪烁） --- */
+      .tile b { transform-origin: 50% 88%; }
+      .tile.wet.crop-growing:not(.weedy) b {
+        animation: crop-breeze-sway 2.8s ease-in-out infinite;
+        animation-delay: var(--sway-d, 0ms);
+      }
+      .tile.ready:not(.weedy) b {
+        animation: crop-ready-bounce 1.8s ease-in-out infinite;
+        animation-delay: var(--sway-d, 0ms);
+      }
+      .tile.debuff-thirsty b {
+        animation: crop-thirsty-droop 2.4s ease-in-out infinite;
+        animation-delay: var(--sway-d, 0ms);
+      }
+      .tile.weedy.crop-growing b, .tile.weedy.ready b {
+        animation: crop-weed-squeezed 1.7s ease-in-out infinite;
+        animation-delay: var(--sway-d, 0ms);
+      }
+      .tile.wilted b {
+        animation: crop-wilted-shiver 3.4s steps(2) infinite;
+        animation-delay: var(--sway-d, 0ms);
+      }
+      .tile.weed b {
+        animation: wild-weed-sway 2.6s ease-in-out infinite;
+        animation-delay: var(--sway-d, 0ms);
+      }
+      /* 有草状态：疯长的杂草簇左右剧烈摇晃挤压植株 */
+      .tile-weed-tuft {
+        position: absolute; left: 6px; right: 6px; bottom: 8px; height: 14px;
+        display: flex; justify-content: space-between; align-items: flex-end;
+        pointer-events: none; z-index: 2;
+      }
+      .tile-weed-tuft i {
+        width: 6px; height: 12px; display: block;
+        background: linear-gradient(180deg, #7cb342 0%, #33691e 100%);
+        border: 1px solid #1b4710; transform-origin: 50% 100%;
+        animation: weed-choke-rustle 1.3s ease-in-out infinite;
+        animation-delay: var(--sway-d, 0ms);
+      }
+      .tile-weed-tuft i:nth-child(2) { height: 10px; animation-duration: 1.05s; }
+      .tile-weed-tuft i:nth-child(3) { height: 13px; animation-direction: reverse; }
+      @keyframes crop-breeze-sway {
+        0%, 100% { transform: rotate(-4deg) scaleY(1); }
+        50% { transform: rotate(4.5deg) translateY(-1px) scaleY(1.04); }
+      }
+      @keyframes crop-ready-bounce {
+        0%, 100% { transform: translateY(0) scale(1, 1); }
+        35% { transform: translateY(1px) scale(1.07, 0.93); }
+        70% { transform: translateY(-4px) scale(0.96, 1.06); }
+      }
+      @keyframes crop-thirsty-droop {
+        0%, 100% { transform: rotate(7deg) translateY(2px) scale(1.03, 0.89); }
+        50% { transform: rotate(10deg) translateY(3px) scale(1.05, 0.85); }
+      }
+      @keyframes crop-weed-squeezed {
+        0%, 100% { transform: translateX(-2px) rotate(-6deg) scale(0.94, 0.96); }
+        50% { transform: translateX(2px) rotate(-3deg) scale(0.91, 0.94); }
+      }
+      @keyframes crop-wilted-shiver {
+        0%, 86%, 100% { transform: rotate(-9deg) translateY(2px) scaleY(0.88); }
+        90% { transform: rotate(-12deg) translate(-1px, 2px) scaleY(0.87); }
+        95% { transform: rotate(-6deg) translate(1px, 2px) scaleY(0.88); }
+      }
+      @keyframes wild-weed-sway {
+        0%, 100% { transform: skewX(-4deg); }
+        50% { transform: skewX(5deg) scaleY(1.03); }
+      }
+      @keyframes weed-choke-rustle {
+        0%, 100% { transform: rotate(-14deg) scaleY(0.95); }
+        50% { transform: rotate(16deg) scaleY(1.1); }
+      }
+
+      /* --- 点击地块的即时物理反馈（按地块状态差异化，不闪烁） --- */
+      .tile.tap-crop b { animation: tap-crop-boing 0.42s cubic-bezier(.25, 1.5, .5, 1); }
+      .tile.tap-thirsty b { animation: tap-thirsty-sag 0.52s ease-out; }
+      .tile.tap-weedy b, .tile.tap-weed b { animation: tap-weed-rustle 0.44s ease-out; }
+      .tile.tap-weedy .tile-weed-tuft i { animation: tap-weed-rustle 0.38s steps(4); }
+      .tile.tap-wilted b { animation: tap-wilted-crack 0.4s steps(4); }
+      .tile.tap-stone b { animation: tap-stone-thud 0.34s steps(4); }
+      .tile.tap-soil, .tile.tap-grass { animation: tap-soil-sink 0.3s ease-out; }
+      @keyframes tap-crop-boing {
+        0% { transform: scale(1, 1); }
+        30% { transform: translateY(3px) scale(1.18, 0.8); }
+        65% { transform: translateY(-5px) scale(0.9, 1.14) rotate(-4deg); }
+        100% { transform: scale(1, 1); }
+      }
+      @keyframes tap-thirsty-sag {
+        0% { transform: rotate(7deg) translateY(2px) scale(1.03, 0.89); }
+        40% { transform: rotate(16deg) translateY(6px) scale(1.12, 0.74); }
+        100% { transform: rotate(7deg) translateY(2px) scale(1.03, 0.89); }
+      }
+      @keyframes tap-weed-rustle {
+        0%, 100% { transform: translateX(0) rotate(0); }
+        20% { transform: translateX(-5px) rotate(-12deg) scale(1.06, 0.94); }
+        50% { transform: translateX(5px) rotate(12deg) scale(0.95, 1.06); }
+        75% { transform: translateX(-3px) rotate(-6deg); }
+      }
+      @keyframes tap-wilted-crack {
+        0%, 100% { transform: rotate(-9deg) translateY(2px); }
+        25% { transform: rotate(-18deg) translate(-3px, 4px) scale(1.05, 0.82); }
+        60% { transform: rotate(-3deg) translate(2px, 3px); }
+      }
+      @keyframes tap-stone-thud {
+        0%, 100% { transform: translate(0, 0); }
+        25% { transform: translate(-3px, 2px) scale(1.04, 0.94); }
+        55% { transform: translate(3px, -1px); }
+      }
+      @keyframes tap-soil-sink {
+        0%, 100% { transform: translateY(0); }
+        40% { transform: translateY(3px) scale(1.02, 0.95); }
+      }
+      .tile-tap-fx { position: absolute; inset: 0; pointer-events: none; z-index: 6; }
+      .tile-tap-fx i {
+        position: absolute; left: 50%; top: 48%; width: 5px; height: 5px;
+        opacity: 0; animation: tap-particle-arc 0.46s ease-out forwards;
+      }
+      .tile-tap-fx .t1 { --tx: -16px; --ty: -18px; --rot: -45deg; }
+      .tile-tap-fx .t2 { --tx: 15px; --ty: -20px; --rot: 50deg; animation-delay: 30ms; }
+      .tile-tap-fx .t3 { --tx: 3px; --ty: -24px; --rot: 20deg; animation-delay: 55ms; }
+      .tap-fx-crop i, .tap-fx-grass i { background: #66bb6a; border: 1px solid #1b5e20; width: 6px; height: 4px; }
+      .tap-fx-weedy i, .tap-fx-weed i { background: #558b2f; border: 1px solid #1b4710; width: 7px; height: 3px; }
+      .tap-fx-thirsty i { background: #a86f38; border: 1px solid #4e2c14; --ty: -8px; }
+      .tap-fx-thirsty .t3 { background: #4fc3f7; border-color: #0277bd; --ty: -16px; }
+      .tap-fx-wilted i { background: #8d6e63; border: 1px solid #3e2723; --ty: 8px; }
+      .tap-fx-stone i { background: #cfd8dc; border: 1px solid #455a64; }
+      .tap-fx-soil i { background: #8d5524; border: 1px solid #3e2723; --ty: -12px; }
+      @keyframes tap-particle-arc {
+        0% { opacity: 1; transform: translate(-50%, -50%) scale(0.7); }
+        65% { opacity: 1; transform: translate(calc(-50% + var(--tx, 10px)), calc(-50% + var(--ty, -14px))) rotate(var(--rot, 30deg)) scale(1.05); }
+        100% { opacity: 0; transform: translate(calc(-50% + var(--tx, 10px) * 1.25), calc(-50% + var(--ty, -14px) + 10px)) rotate(calc(var(--rot, 30deg) * 1.6)) scale(0.6); }
+      }
 
       /* --- 稀有度像素徽章 --- */
       .rarity-badge { display: inline-flex; align-items: center; gap: 3px; flex: none; }
