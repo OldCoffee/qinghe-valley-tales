@@ -1942,3 +1942,169 @@ export function playerMapWalkerSvg(gender: 'male' | 'female'): string {
     </g>
   </svg>`;
 }
+
+/** 48×48 多关节像素小丑（拟人扮鬼脸 / 抛弹，供全屏 CSS 时间轴） */
+export function clownTamperSvg(): string {
+  const W = 48;
+  const H = 48;
+  const gBody = grid(W, H, null);
+  const gArmL = grid(W, H, null);
+  const gArmR = grid(W, H, null);
+  const gCollar = grid(W, H, null);
+  const gHead = grid(W, H, null);
+  const gBrow = grid(W, H, null);
+  const gEyeL = grid(W, H, null);
+  const gEyeR = grid(W, H, null);
+  const gMouth = grid(W, H, null);
+  const gHat = grid(W, H, null);
+  const gNose = grid(W, H, null);
+
+  // 躯干（不含手臂）
+  rect(gBody, 14, 28, 20, 14, '#C62828');
+  rect(gBody, 14, 30, 20, 2, '#FFD54F');
+  rect(gBody, 14, 34, 20, 2, '#FFD54F');
+  rect(gBody, 14, 38, 20, 2, '#FFD54F');
+  rect(gBody, 12, 28, 2, 12, '#8E0000');
+  rect(gBody, 34, 28, 2, 12, '#8E0000');
+  rect(gBody, 16, 42, 5, 4, '#212121');
+  rect(gBody, 27, 42, 5, 4, '#212121');
+  rect(gBody, 15, 44, 7, 2, '#F44336');
+  rect(gBody, 26, 44, 7, 2, '#F44336');
+
+  // 左臂（扯眼角）
+  rect(gArmL, 6, 28, 8, 3, '#FFE0B2');
+  rect(gArmL, 4, 26, 4, 4, '#FFE0B2');
+  px(gArmL, 3, 25, '#E57373');
+  px(gArmL, 4, 24, '#E57373');
+
+  // 右臂（抛弹）
+  rect(gArmR, 34, 28, 8, 3, '#FFE0B2');
+  rect(gArmR, 40, 26, 4, 4, '#FFE0B2');
+  px(gArmR, 43, 25, '#E57373');
+  px(gArmR, 44, 24, '#E57373');
+
+  rect(gCollar, 12, 26, 24, 3, '#FAFAFA');
+  for (let i = 0; i < 6; i++) {
+    px(gCollar, 13 + i * 4, 25, '#EEEEEE');
+    px(gCollar, 14 + i * 4, 27, '#BDBDBD');
+  }
+
+  rect(gHead, 14, 12, 20, 14, '#FFE0B2');
+  rect(gHead, 16, 10, 16, 2, '#FFE0B2');
+  rect(gHead, 14, 12, 1, 12, shade('#FFE0B2', 0.88));
+  rect(gHead, 33, 12, 1, 12, shade('#FFE0B2', 0.88));
+  px(gHead, 17, 20, '#FF8A80');
+  px(gHead, 30, 20, '#FF8A80');
+  px(gHead, 16, 21, '#FF8A80');
+  px(gHead, 31, 21, '#FF8A80');
+
+  rect(gBrow, 17, 14, 4, 1, D);
+  rect(gBrow, 27, 14, 4, 1, D);
+  px(gBrow, 16, 15, D);
+  px(gBrow, 31, 15, D);
+
+  rect(gEyeL, 18, 17, 3, 3, '#FFFFFF');
+  px(gEyeL, 19, 18, D);
+  px(gEyeL, 17, 16, D);
+  rect(gEyeR, 27, 17, 3, 3, '#FFFFFF');
+  px(gEyeR, 28, 18, D);
+  px(gEyeR, 30, 16, D);
+
+  rect(gMouth, 20, 23, 8, 2, '#6D1B1B');
+  px(gMouth, 19, 23, '#6D1B1B');
+  px(gMouth, 28, 23, '#6D1B1B');
+  px(gMouth, 21, 25, '#FF8A80');
+  px(gMouth, 26, 25, '#FF8A80');
+
+  rect(gNose, 22, 19, 4, 3, '#E53935');
+  px(gNose, 23, 19, '#FF8A80');
+  px(gNose, 24, 21, '#B71C1C');
+
+  rect(gHat, 18, 2, 12, 3, '#7B1FA2');
+  rect(gHat, 20, 0, 8, 2, '#9C27B0');
+  rect(gHat, 16, 5, 16, 5, '#7B1FA2');
+  rect(gHat, 14, 9, 20, 2, '#FFD54F');
+  px(gHat, 23, 1, '#FFD54F');
+  px(gHat, 24, 1, '#FFD54F');
+  rect(gHat, 22, 7, 4, 3, '#FFD54F');
+  px(gHat, 23, 8, '#FFF59D');
+
+  return `<svg class="clown-tamper-svg qh-pixel" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+    <g class="clown-part-body">${renderGroup(gBody, 'clown-layer-body')}</g>
+    <g class="clown-part-arm-l">${renderGroup(gArmL, 'clown-layer-arm-l')}</g>
+    <g class="clown-part-arm-r">${renderGroup(gArmR, 'clown-layer-arm-r')}</g>
+    <g class="clown-part-collar">${renderGroup(gCollar, 'clown-layer-collar')}</g>
+    <g class="clown-part-head">
+      ${renderGroup(gHead, 'clown-layer-head')}
+      <g class="clown-part-brow">${renderGroup(gBrow, 'clown-layer-brow')}</g>
+      <g class="clown-part-eye-l">${renderGroup(gEyeL, 'clown-layer-eye-l')}</g>
+      <g class="clown-part-eye-r">${renderGroup(gEyeR, 'clown-layer-eye-r')}</g>
+      <g class="clown-part-mouth">${renderGroup(gMouth, 'clown-layer-mouth')}</g>
+      <g class="clown-part-nose">${renderGroup(gNose, 'clown-layer-nose')}</g>
+      <g class="clown-part-hat">${renderGroup(gHat, 'clown-layer-hat')}</g>
+    </g>
+  </svg>`;
+}
+
+/** 16×16 像素炸弹（引信火花） */
+export function clownBombSvg(): string {
+  const W = 16;
+  const H = 16;
+  const g = grid(W, H, null);
+  rect(g, 4, 6, 8, 8, '#212121');
+  rect(g, 5, 7, 6, 6, '#424242');
+  px(g, 6, 8, '#757575');
+  rect(g, 7, 3, 2, 3, '#795548');
+  px(g, 8, 2, '#FFD54F');
+  px(g, 9, 1, '#FF8F00');
+  px(g, 7, 1, '#FFECB3');
+  return `<svg class="clown-bomb-svg qh-pixel" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">${renderGroup(g, 'clown-bomb-core')}</svg>`;
+}
+
+/** 64×64 绚烂像素爆炸环（多层火花/十字闪） */
+export function clownBoomBurstSvg(): string {
+  const W = 64;
+  const H = 64;
+  const gCore = grid(W, H, null);
+  const gRing = grid(W, H, null);
+  const gSparks = grid(W, H, null);
+  const gCross = grid(W, H, null);
+
+  rect(gCore, 24, 24, 16, 16, '#FFFFFF');
+  rect(gCore, 26, 26, 12, 12, '#FFEB3B');
+  rect(gCore, 28, 28, 8, 8, '#FF6F00');
+  rect(gCore, 30, 30, 4, 4, '#FFFFFF');
+
+  // 外环像素块
+  const ringPts: Array<[number, number, string]> = [
+    [8, 28, '#FF1744'], [12, 16, '#FF9100'], [28, 8, '#FFEA00'], [44, 12, '#76FF03'],
+    [52, 28, '#00E5FF'], [48, 44, '#D500F9'], [28, 52, '#FF1744'], [12, 48, '#FF9100'],
+    [4, 20, '#FFEA00'], [20, 4, '#76FF03'], [40, 4, '#00E5FF'], [56, 20, '#D500F9'],
+    [56, 40, '#FF1744'], [40, 56, '#FF9100'], [20, 56, '#FFEA00'], [4, 40, '#76FF03'],
+  ];
+  for (const [x, y, c] of ringPts) rect(gRing, x, y, 4, 4, c);
+
+  // 飞溅火花
+  for (let i = 0; i < 20; i++) {
+    const a = (i / 20) * Math.PI * 2;
+    const r = 22 + (i % 3) * 4;
+    const x = Math.round(32 + Math.cos(a) * r);
+    const y = Math.round(32 + Math.sin(a) * r);
+    const cols = ['#FFF59D', '#FF8A65', '#EA80FC', '#80D8FF', '#B9F6CA'];
+    px(gSparks, x, y, cols[i % cols.length]!);
+    px(gSparks, x + 1, y, cols[(i + 1) % cols.length]!);
+  }
+
+  // 十字闪光
+  rect(gCross, 30, 4, 4, 56, '#FFFFFF');
+  rect(gCross, 4, 30, 56, 4, '#FFFFFF');
+  rect(gCross, 31, 8, 2, 48, '#FFE082');
+  rect(gCross, 8, 31, 48, 2, '#FFE082');
+
+  return `<svg class="clown-boom-svg qh-pixel" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges" aria-hidden="true">
+    <g class="clown-boom-ring">${renderGroup(gRing, 'clown-boom-layer-ring')}</g>
+    <g class="clown-boom-sparks">${renderGroup(gSparks, 'clown-boom-layer-sparks')}</g>
+    <g class="clown-boom-cross">${renderGroup(gCross, 'clown-boom-layer-cross')}</g>
+    <g class="clown-boom-core">${renderGroup(gCore, 'clown-boom-layer-core')}</g>
+  </svg>`;
+}

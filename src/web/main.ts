@@ -28,7 +28,14 @@ import { elevatorFloors } from '../engine/systems/mine.js';
 import { canRomance, giftEvaluation, heartsOf, isBirthday, npcLocation, npcsHere, playerGenderOf, relationTier, shopKeeperReason, shopUnavailableReason, summonKeeperChance, type GiftTier } from '../engine/systems/social.js';
 import { settlePendingUpgrade, upgradeCost } from '../engine/systems/tools.js';
 import type { Action, Evaluation, GameEvent, GameState, GroveId, LocationId, SkillId, Tile, ToolId } from '../engine/types.js';
-import { cropGrowthSvg, fishKingTheaterSvg, itemIconSvg, medalIconSvg, npcAvatarSvg, playerAvatarSvg, playerMapWalkerSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg, weedTuftSvg, WORLD_MAP_PINS, worldMapPixelSvg } from './icons.js';
+import { clownBombSvg, clownBoomBurstSvg, clownTamperSvg, cropGrowthSvg, fishKingTheaterSvg, itemIconSvg, medalIconSvg, npcAvatarSvg, playerAvatarSvg, playerMapWalkerSvg, rarityBadgeSvg, stumpSvg, tileDebuffBadgesSvg, tileGroundSvg, tileStatusSvg, toolIconSvg, treeSvg, uiIconSvg, weedTuftSvg, WORLD_MAP_PINS, worldMapPixelSvg } from './icons.js';
+import {
+  downloadQingheFile,
+  sealSavePayload,
+  suggestExportFilename,
+  unsealSaveFile,
+  type SaveExportPayload,
+} from './save-file.js';
 const SAVE_KEY = 'qinghe-valley-save';
 const SAVES_KEY = 'qinghe-valley-saves-v2';
 const MAX_SAVES = 5;
@@ -57,6 +64,7 @@ type UiModalState =
   | { kind: 'craft'; bench?: WorkbenchId }
   | { kind: 'create' }
   | { kind: 'seedBag' }
+  | { kind: 'save-tamper' }
   | null;
 
 type TileFxKind = 'till' | 'water' | 'plant' | 'harvest' | 'clear' | 'deweed' | 'uproot';
@@ -85,6 +93,11 @@ let createGender: import('../engine/types.js').Gender = 'male';
 let createNameDraft = '';
 /** 存档弹窗的覆盖选择模式 (满 5 档开启新游戏时进入) */
 let savesOverwriteMode = false;
+/** 磁盘导入待写入：槽满时先解封成功，再选覆盖目标 */
+let pendingDiskImport: SaveExportPayload | null = null;
+/** 全屏小丑炸弹剧场是否正在播放（避免 render 重入） */
+let clownFxActive = false;
+let clownFxDoneTimer: number | null = null;
 
 let state: GameState = loadInitial();
 let page: PageId = 'scene';
@@ -3085,10 +3098,14 @@ function settingsModalHtml(): string {
 }
 
 function savesModalHtml(): string {
+  const importOverwrite = !!pendingDiskImport;
   const rows = saveSlots
     .map((slot) => {
       const st = slot.state;
       const isActive = slot.id === activeSaveId;
+      const overwriteLabel = importOverwrite
+        ? '覆盖此存档（写入磁盘档）'
+        : '覆盖此存档（开启新游戏）';
       return `<div class="codex-card" style="align-items:flex-start;text-align:left;">
         <div style="display:flex;gap:10px;align-items:center;width:100%;">
           <span class="bag-item-icon">${playerAvatarSvg(st.playerGender === 'female' ? 'female' : 'male')}</span>
@@ -3098,7 +3115,7 @@ function savesModalHtml(): string {
         </div>
         ${
           savesOverwriteMode
-            ? `<button class="pix-btn danger" data-act="saves-overwrite" data-id="${slot.id}">覆盖此存档（开启新游戏）</button>`
+            ? `<button class="pix-btn danger" data-act="saves-overwrite" data-id="${slot.id}">${overwriteLabel}</button>`
             : isActive
               ? '<span class="badge ok">正在游玩</span>'
               : `<button class="pix-btn gold" data-act="saves-switch" data-id="${slot.id}">切换到此存档</button>`
@@ -3106,23 +3123,186 @@ function savesModalHtml(): string {
       </div>`;
     })
     .join('');
+  const overwriteHint = importOverwrite
+    ? '<p class="dim">存档已满，请选择一个要覆盖的槽位；将写入从磁盘读取的加密存档。</p>'
+    : savesOverwriteMode
+      ? '<p class="dim">存档已满，请选择一个要覆盖的存档；覆盖后将以新角色重新开始。</p>'
+      : '';
   return `
     <div class="modal-head">
       <h2>${uiIconSvg('bag')} 存档（${saveSlots.length}/${MAX_SAVES}）</h2>
       <button class="pix-btn" data-act="open-settings">返回设置</button>
     </div>
-    ${savesOverwriteMode ? '<p class="dim">存档已满，请选择一个要覆盖的存档；覆盖后将以新角色重新开始。</p>' : ''}
+    ${overwriteHint}
     <div class="codex-grid" style="grid-template-columns:repeat(auto-fill,minmax(220px,1fr));">${rows || '<p class="dim">暂时没有存档。</p>'}</div>
+    <div class="detail-actions save-disk-actions">
+      <button class="pix-btn gold" data-act="export-save-disk" ${activeSaveId && !needsCharacterSetup ? '' : 'disabled'}>保存到磁盘</button>
+      <button class="pix-btn" data-act="import-save-disk" ${needsCharacterSetup ? 'disabled' : ''}>从磁盘读取</button>
+    </div>
+    <p class="dim">磁盘档为加密的 .qinghe 文件（含版本号与防篡改校验）。导出当前活动存档；读取成功后写入新槽或覆盖所选槽。</p>
     <div class="detail-actions">
       ${
         saveSlots.length >= MAX_SAVES
           ? savesOverwriteMode
-            ? '<button class="pix-btn ghost" data-act="open-saves">取消覆盖选择</button>'
+            ? `<button class="pix-btn ghost" data-act="${importOverwrite ? 'cancel-import-overwrite' : 'open-saves'}">取消覆盖选择</button>`
             : '<button class="pix-btn gold" data-act="create-start">开启新游戏（先选覆盖存档）</button>'
           : '<button class="pix-btn gold" data-act="create-start">开启新游戏</button>'
       }
       <button class="pix-btn ghost" data-act="close-ui-modal">关闭</button>
     </div>`;
+}
+
+/** 篡改警告由全屏 overlay 承担，ui-modal 保持空内容以免挡画面 */
+function saveTamperModalHtml(): string {
+  return '';
+}
+
+function closeClownTamperFx(): void {
+  const overlay = document.getElementById('clown-tamper-overlay');
+  if (overlay) {
+    overlay.classList.remove('active');
+    overlay.innerHTML = '';
+    overlay.setAttribute('aria-hidden', 'true');
+  }
+  if (clownFxDoneTimer != null) {
+    window.clearTimeout(clownFxDoneTimer);
+    clownFxDoneTimer = null;
+  }
+  clownFxActive = false;
+}
+
+/** 全屏像素小丑：扮鬼脸 → 抛弹放大 → 绚烂爆炸 → 文案（EffectCraft 4.2s） */
+function playClownTamperFx(): void {
+  const overlay = document.getElementById('clown-tamper-overlay');
+  if (!overlay) return;
+  if (clownFxActive) return;
+  clownFxActive = true;
+  if (clownFxDoneTimer != null) {
+    window.clearTimeout(clownFxDoneTimer);
+    clownFxDoneTimer = null;
+  }
+
+  overlay.innerHTML = `
+    <div class="clown-tamper-fx" id="clown-tamper-fx-root">
+      <div class="clown-tamper-vignette"></div>
+      <div class="clown-tamper-actor">${clownTamperSvg()}</div>
+      <div class="clown-tamper-bomb">${clownBombSvg()}</div>
+      <div class="clown-tamper-boom">${clownBoomBurstSvg()}</div>
+      <div class="clown-tamper-flash"></div>
+      <div class="clown-tamper-confetti"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="clown-tamper-caption">
+        <b>嘿！想偷改青禾谷的时光账本？</b>
+        <p class="dim">存档已被篡改或损坏，已拒绝读取。请使用本游戏导出的完整 .qinghe 文件。</p>
+        <button class="pix-btn gold" data-act="close-clown-tamper">返回存档</button>
+      </div>
+    </div>`;
+  overlay.classList.add('active');
+  overlay.setAttribute('aria-hidden', 'false');
+
+  const root = document.getElementById('clown-tamper-fx-root');
+  if (root) {
+    void root.offsetWidth;
+    root.classList.add('is-playing');
+  }
+
+  clownFxDoneTimer = window.setTimeout(() => {
+    clownFxDoneTimer = null;
+    root?.classList.add('phase-done');
+  }, 4200);
+}
+
+function applyImportedSave(payload: SaveExportPayload, overwriteSlotId?: string): boolean {
+  const st = normalizeLoadedState(payload.state);
+  if (!st) return false;
+  const now = Date.now();
+  save(); // 先落盘当前进度
+  if (overwriteSlotId) {
+    const slot = saveSlots.find((x) => x.id === overwriteSlotId);
+    if (!slot) return false;
+    slot.state = st;
+    slot.createdAt = payload.slotMeta.createdAt || now;
+    slot.updatedAt = now;
+    activeSaveId = slot.id;
+  } else {
+    const slot: SaveSlot = {
+      id: `save-${now}-${Math.floor(Math.random() * 1e6)}`,
+      createdAt: payload.slotMeta.createdAt || now,
+      updatedAt: now,
+      state: st,
+    };
+    saveSlots = [slot, ...saveSlots].slice(0, MAX_SAVES);
+    activeSaveId = slot.id;
+  }
+  state = st;
+  needsCharacterSetup = false;
+  pendingDiskImport = null;
+  savesOverwriteMode = false;
+  page = 'scene';
+  farmSubTab = 'field';
+  selectedCell = null;
+  openShopId = null;
+  giftNpc = null;
+  selectedItem = null;
+  selectedEquipment = null;
+  tileFxMap.clear();
+  persistSaves();
+  return true;
+}
+
+async function handleExportSaveDisk(): Promise<void> {
+  const slot = saveSlots.find((x) => x.id === activeSaveId);
+  if (!slot || needsCharacterSetup) {
+    pushToast('没有可导出的活动存档', 'warn');
+    return;
+  }
+  save();
+  try {
+    const sealed = await sealSavePayload(slot);
+    downloadQingheFile(sealed, suggestExportFilename(slot.state.playerName, slot.updatedAt));
+    pushToast('已保存加密存档到磁盘', 'good');
+  } catch {
+    pushToast('导出失败，请重试', 'bad');
+  }
+}
+
+async function handleImportSaveDiskFile(file: File): Promise<void> {
+  let text: string;
+  try {
+    text = await file.text();
+  } catch {
+    uiModal = { kind: 'save-tamper' };
+    render();
+    return;
+  }
+  const result = await unsealSaveFile(text);
+  if (!result.ok) {
+    pendingDiskImport = null;
+    uiModal = { kind: 'save-tamper' };
+    render();
+    return;
+  }
+  if (!normalizeLoadedState(result.payload.state)) {
+    uiModal = { kind: 'save-tamper' };
+    render();
+    return;
+  }
+  if (saveSlots.length >= MAX_SAVES) {
+    pendingDiskImport = result.payload;
+    savesOverwriteMode = true;
+    uiModal = { kind: 'saves' };
+    render();
+    pushToast('存档已满（5/5），请选择一个要覆盖的槽位', 'warn');
+    return;
+  }
+  if (applyImportedSave(result.payload)) {
+    uiModal = null;
+    log = [{ level: 'info' as const, text: `已从磁盘读取存档「${state.playerName || '农场主'}」。` }];
+    render();
+    pushToast(`已读取 ${state.playerName || '农场主'} 的磁盘存档`, 'good');
+  } else {
+    uiModal = { kind: 'save-tamper' };
+    render();
+  }
 }
 
 function profileModalHtml(): string {
@@ -3370,6 +3550,8 @@ function uiModalContent(): string {
       return profileModalHtml();
     case 'create':
       return createModalHtml();
+    case 'save-tamper':
+      return saveTamperModalHtml();
   }
 }
 
@@ -3640,10 +3822,14 @@ function render(): void {
 
   // 3. 多功能 UI 弹窗（地图快旅 / 物品与工具详情 / 居民互动送礼 / 社区中心房间）
   const uiHtml = view || shopHtml ? '' : uiModalContent();
-  $('ui-modal').style.display = uiHtml ? 'flex' : 'none';
-  if (uiHtml) $('ui-modal-card').innerHTML = uiHtml;
+  const isTamperFx = uiModal?.kind === 'save-tamper';
+  $('ui-modal').style.display = uiHtml && !isTamperFx ? 'flex' : 'none';
+  if (uiHtml && !isTamperFx) $('ui-modal-card').innerHTML = uiHtml;
   // 居民互动动效在弹窗 HTML 生成后才消费（stage 里的在场 pill 已在上方消费过同一状态）
   npcFxState = null;
+
+  if (isTamperFx) playClownTamperFx();
+  else closeClownTamperFx();
 
   if (nightFlash) {
     $('night').classList.remove('show');
@@ -3763,7 +3949,15 @@ document.addEventListener('click', (e) => {
       break;
     case 'close-ui-modal':
       if (needsCharacterSetup) break; // 角色创建完成前不可关闭
+      closeClownTamperFx();
       uiModal = null;
+      render();
+      break;
+    case 'close-clown-tamper':
+      closeClownTamperFx();
+      savesOverwriteMode = false;
+      pendingDiskImport = null;
+      uiModal = { kind: 'saves' };
       render();
       break;
     case 'tile': {
@@ -4131,6 +4325,7 @@ document.addEventListener('click', (e) => {
     case 'open-settings':
       if (needsCharacterSetup) break;
       savesOverwriteMode = false;
+      pendingDiskImport = null;
       uiModal = { kind: 'settings' };
       render();
       break;
@@ -4141,9 +4336,34 @@ document.addEventListener('click', (e) => {
       break;
     case 'open-saves':
       savesOverwriteMode = false;
+      pendingDiskImport = null;
       uiModal = { kind: 'saves' };
       render();
       break;
+    case 'cancel-import-overwrite':
+      pendingDiskImport = null;
+      savesOverwriteMode = false;
+      uiModal = { kind: 'saves' };
+      render();
+      break;
+    case 'export-save-disk':
+      void handleExportSaveDisk();
+      break;
+    case 'import-save-disk': {
+      if (needsCharacterSetup) break;
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.qinghe,application/octet-stream';
+      input.style.display = 'none';
+      input.addEventListener('change', () => {
+        const file = input.files?.[0];
+        input.remove();
+        if (file) void handleImportSaveDiskFile(file);
+      });
+      document.body.appendChild(input);
+      input.click();
+      break;
+    }
     case 'create-start': {
       // 未满 5 个存档直接创建; 已满 5 个先进入覆盖选择
       if (saveSlots.length >= MAX_SAVES) {
@@ -4159,13 +4379,28 @@ document.addEventListener('click', (e) => {
       render();
       break;
     }
-    case 'saves-overwrite':
-      createTarget = { mode: 'overwrite', slotId: el.dataset.id };
+    case 'saves-overwrite': {
+      const slotId = el.dataset.id!;
+      if (pendingDiskImport) {
+        if (applyImportedSave(pendingDiskImport, slotId)) {
+          uiModal = null;
+          log = [{ level: 'info' as const, text: `已用磁盘存档覆盖并切换到「${state.playerName || '农场主'}」。` }];
+          render();
+          pushToast(`已写入 ${state.playerName || '农场主'} 的磁盘存档`, 'good');
+        } else {
+          pendingDiskImport = null;
+          uiModal = { kind: 'save-tamper' };
+          render();
+        }
+        break;
+      }
+      createTarget = { mode: 'overwrite', slotId };
       createGender = 'male';
       createNameDraft = '';
       uiModal = { kind: 'create' };
       render();
       break;
+    }
     case 'saves-switch': {
       const target = saveSlots.find((x) => x.id === el.dataset.id);
       if (!target || target.id === activeSaveId) break;

@@ -215,12 +215,14 @@ cd web && python3 -m http.server 8765
 
 ```bash
 npm login              # 首次需要在浏览器完成 npm 登录
+node scripts/regen-save-decoys.mjs   # 轮换磁盘存档诱饵字段（防篡改 schema），再一并提交
 npm version patch      # 按需改版本号（patch/minor/major）
 npm publish            # 发布；prepublishOnly 会自动跑类型检查、测试并重新构建 dist/cli.js
 ```
 
 - 包入口是 `dist/cli.js`（esbuild 打包的单文件，已带可执行权限），`files` 白名单只发布 `dist`；`dist/` 本身被 gitignore，不进 Git 仓库。
 - 发版前可用 `npm pack` 生成 tarball，在空目录用 `npx --package ./qinghe-valley-tales-<版本>.tgz qinghe-valley-tales` 先本地验证一次再正式发布。
+- 网页版「设置 → 切换存档」支持加密导出/导入 `.qinghe` 文件；`regen-save-decoys.mjs` 会改写 [`src/web/save-decoy-schema.ts`](src/web/save-decoy-schema.ts) 的当前诱饵键，旧 schema 保留以便合法旧文件仍可读取。
 
 ---
 

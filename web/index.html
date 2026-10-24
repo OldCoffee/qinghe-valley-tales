@@ -2594,6 +2594,274 @@
         0%, 100% { transform: translate(-50%, -88%) scale(1); }
         50% { transform: translate(-50%, -98%) scale(1.08); }
       }
+
+      /* 磁盘存档操作条 */
+      .save-disk-actions {
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 2px dashed rgba(61, 35, 20, 0.25);
+      }
+
+      /* 全屏篡改小丑剧场：扮鬼脸 → 抛弹 → 放大 → 绚烂爆炸（对齐 EffectCraft 4.2s） */
+      #clown-tamper-overlay {
+        position: fixed; inset: 0; z-index: 55;
+        display: none; pointer-events: none;
+      }
+      #clown-tamper-overlay.active {
+        display: block; pointer-events: auto;
+      }
+      .clown-tamper-fx {
+        position: absolute; inset: 0;
+        background: radial-gradient(ellipse at 50% 42%, #3a1a0e 0%, #0a0604 72%);
+        overflow: hidden;
+        image-rendering: pixelated;
+      }
+      .clown-tamper-fx.is-playing { animation: clown-screen-shake 4.2s steps(2) both; }
+      .clown-tamper-vignette {
+        position: absolute; inset: 0;
+        box-shadow: inset 0 0 120px 40px rgba(0, 0, 0, 0.72);
+        pointer-events: none;
+      }
+      .clown-tamper-actor {
+        position: absolute; left: 50%; top: 46%;
+        width: min(42vw, 280px); height: min(42vw, 280px);
+        transform: translate(-50%, -50%);
+        z-index: 3;
+      }
+      .clown-tamper-svg, .clown-bomb-svg, .clown-boom-svg {
+        width: 100%; height: 100%; display: block; overflow: visible;
+      }
+      .clown-part-body, .clown-part-head, .clown-part-hat, .clown-part-nose,
+      .clown-part-brow, .clown-part-eye-l, .clown-part-eye-r, .clown-part-mouth,
+      .clown-part-arm-l, .clown-part-arm-r, .clown-part-collar {
+        transform-box: fill-box;
+      }
+      .clown-tamper-fx.is-playing .clown-part-body {
+        transform-origin: 50% 100%;
+        animation: clown-body-sway 1.4s ease-in-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-head {
+        transform-origin: 50% 90%;
+        animation: clown-face-tilt 1.4s ease-in-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-hat {
+        transform-origin: 50% 100%;
+        animation: clown-hat-tilt 1.4s ease-in-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-brow {
+        transform-origin: 50% 50%;
+        animation: clown-brow-raise 1.4s steps(3) both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-eye-l {
+        transform-origin: 80% 50%;
+        animation: clown-eye-pull-l 1.4s ease-in-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-eye-r {
+        transform-origin: 20% 50%;
+        animation: clown-eye-pull-r 1.4s ease-in-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-mouth {
+        transform-origin: 50% 0%;
+        animation: clown-mouth-stretch 1.4s ease-in-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-nose {
+        transform-origin: 50% 50%;
+        animation: clown-nose-bob 1.4s steps(2) both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-arm-l {
+        transform-origin: 90% 80%;
+        animation: clown-arm-face-l 1.4s ease-in-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-part-arm-r {
+        transform-origin: 10% 80%;
+        animation: clown-arm-face-r 1.4s ease-in-out both, clown-arm-throw 0.8s 1.4s ease-out both;
+      }
+      .clown-tamper-bomb {
+        position: absolute; left: 50%; top: 46%;
+        width: 48px; height: 48px;
+        margin-left: 70px; margin-top: -10px;
+        z-index: 4; opacity: 0;
+        transform: translate(-50%, -50%) scale(0.35);
+      }
+      .clown-tamper-fx.is-playing .clown-tamper-bomb {
+        animation: clown-bomb-fly-grow 1.6s 1.4s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+      }
+      .clown-tamper-boom {
+        position: absolute; left: 50%; top: 46%;
+        width: min(90vw, 720px); height: min(90vw, 720px);
+        transform: translate(-50%, -50%) scale(0.2);
+        z-index: 5; opacity: 0; pointer-events: none;
+      }
+      .clown-tamper-fx.is-playing .clown-tamper-boom {
+        animation: clown-boom-burst 1.2s 3s steps(4) both;
+      }
+      .clown-tamper-fx.is-playing .clown-boom-ring {
+        transform-origin: 50% 50%;
+        animation: clown-boom-spin 1.2s 3s linear both;
+      }
+      .clown-tamper-fx.is-playing .clown-boom-sparks {
+        transform-origin: 50% 50%;
+        animation: clown-boom-sparks-out 1.2s 3s ease-out both;
+      }
+      .clown-tamper-fx.is-playing .clown-boom-cross {
+        transform-origin: 50% 50%;
+        animation: clown-boom-cross-flash 1.2s 3s steps(3) both;
+      }
+      .clown-tamper-flash {
+        position: absolute; inset: 0; z-index: 6;
+        background: radial-gradient(circle at 50% 46%, #fff 0%, #ffe082 28%, #ff6f00 55%, transparent 72%);
+        opacity: 0; pointer-events: none;
+        mix-blend-mode: screen;
+      }
+      .clown-tamper-fx.is-playing .clown-tamper-flash {
+        animation: clown-boom-flash 1.2s 3s ease-out both;
+      }
+      .clown-tamper-confetti {
+        position: absolute; inset: 0; z-index: 5; pointer-events: none; overflow: hidden;
+      }
+      .clown-tamper-confetti i {
+        position: absolute; top: 42%; left: 50%;
+        width: 10px; height: 10px;
+        background: #ffd23f; opacity: 0;
+      }
+      .clown-tamper-fx.is-playing .clown-tamper-confetti i {
+        animation: clown-confetti-fly 1.1s 3.05s ease-out both;
+      }
+      .clown-tamper-confetti i:nth-child(1) { background: #ff1744; --dx: -180px; --dy: -120px; }
+      .clown-tamper-confetti i:nth-child(2) { background: #ff9100; --dx: 160px; --dy: -140px; animation-delay: 3.08s; }
+      .clown-tamper-confetti i:nth-child(3) { background: #76ff03; --dx: -220px; --dy: 40px; animation-delay: 3.1s; }
+      .clown-tamper-confetti i:nth-child(4) { background: #00e5ff; --dx: 200px; --dy: 60px; animation-delay: 3.06s; }
+      .clown-tamper-confetti i:nth-child(5) { background: #d500f9; --dx: -40px; --dy: -200px; animation-delay: 3.12s; }
+      .clown-tamper-confetti i:nth-child(6) { background: #fff59d; --dx: 60px; --dy: 160px; animation-delay: 3.09s; }
+      .clown-tamper-confetti i:nth-child(7) { background: #ff8a65; --dx: -140px; --dy: 130px; animation-delay: 3.11s; }
+      .clown-tamper-confetti i:nth-child(8) { background: #ea80fc; --dx: 240px; --dy: -40px; animation-delay: 3.07s; }
+      .clown-tamper-caption {
+        position: absolute; left: 50%; bottom: 8%;
+        transform: translateX(-50%);
+        z-index: 8; width: min(92vw, 480px);
+        text-align: center; color: #fff3c4;
+        opacity: 0; pointer-events: none;
+        background: #2b1b0e; border: 3px solid var(--gold);
+        border-radius: 6px; padding: 14px 16px;
+        box-shadow: 0 6px 0 rgba(0, 0, 0, 0.45);
+      }
+      .clown-tamper-fx.phase-done .clown-tamper-caption {
+        opacity: 1; pointer-events: auto;
+        animation: clown-caption-in 0.35s steps(3) both;
+      }
+      .clown-tamper-caption b {
+        display: block; color: #ffd23f; font-size: 18px; margin-bottom: 6px;
+      }
+      .clown-tamper-caption .dim { color: #e8d8a8; margin: 0 0 12px; font-size: 14px; }
+      .clown-tamper-fx.phase-done .clown-tamper-actor {
+        opacity: 0.35; filter: brightness(0.7);
+        transition: opacity 0.3s steps(2);
+      }
+
+      @keyframes clown-screen-shake {
+        0%, 70% { transform: translate(0, 0); }
+        72% { transform: translate(-6px, 3px); }
+        76% { transform: translate(8px, -4px); }
+        80% { transform: translate(-5px, -2px); }
+        84% { transform: translate(6px, 5px); }
+        88% { transform: translate(-3px, 2px); }
+        100% { transform: translate(0, 0); }
+      }
+      @keyframes clown-body-sway {
+        0%, 100% { transform: rotate(0deg); }
+        30% { transform: rotate(-3deg); }
+        60% { transform: rotate(4deg); }
+      }
+      @keyframes clown-face-tilt {
+        0% { transform: rotate(0deg) scale(1); }
+        25% { transform: rotate(-10deg) scale(1.04); }
+        55% { transform: rotate(12deg) scale(1.08); }
+        100% { transform: rotate(-6deg) scale(1.02); }
+      }
+      @keyframes clown-hat-tilt {
+        0% { transform: rotate(0); }
+        40% { transform: rotate(-14deg) translateY(-2px); }
+        70% { transform: rotate(10deg); }
+        100% { transform: rotate(-4deg); }
+      }
+      @keyframes clown-brow-raise {
+        0% { transform: translateY(0); }
+        40%, 100% { transform: translateY(-3px) scaleX(1.15); }
+      }
+      @keyframes clown-eye-pull-l {
+        0% { transform: scale(1); }
+        45% { transform: scale(1.35, 0.75) translate(-2px, -1px); }
+        100% { transform: scale(1.2, 0.85) translate(-1px, 0); }
+      }
+      @keyframes clown-eye-pull-r {
+        0% { transform: scale(1); }
+        45% { transform: scale(1.35, 0.75) translate(2px, -1px); }
+        100% { transform: scale(1.2, 0.85) translate(1px, 0); }
+      }
+      @keyframes clown-mouth-stretch {
+        0% { transform: scaleX(1) scaleY(1); }
+        50% { transform: scaleX(1.45) scaleY(1.6) translateY(1px); }
+        100% { transform: scaleX(1.25) scaleY(1.35); }
+      }
+      @keyframes clown-nose-bob {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.35); }
+      }
+      @keyframes clown-arm-face-l {
+        0% { transform: rotate(0deg); }
+        40% { transform: rotate(-55deg) translate(-4px, -8px); }
+        100% { transform: rotate(-40deg) translate(-2px, -6px); }
+      }
+      @keyframes clown-arm-face-r {
+        0% { transform: rotate(0deg); }
+        40% { transform: rotate(55deg) translate(4px, -8px); }
+        100% { transform: rotate(35deg) translate(2px, -4px); }
+      }
+      @keyframes clown-arm-throw {
+        0% { transform: rotate(35deg); }
+        35% { transform: rotate(-50deg) translate(-6px, -10px); }
+        70% { transform: rotate(95deg) translate(10px, -18px); }
+        100% { transform: rotate(70deg) translate(6px, -8px); }
+      }
+      @keyframes clown-bomb-fly-grow {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.25) translate(40px, 10px); }
+        8% { opacity: 1; }
+        35% { opacity: 1; transform: translate(-50%, -50%) scale(0.55) translate(18px, -40px); }
+        70% { opacity: 1; transform: translate(-50%, -50%) scale(1.6) translate(0, -10px); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(4.2) translate(0, 0); }
+      }
+      @keyframes clown-boom-burst {
+        0% { opacity: 0; transform: translate(-50%, -50%) scale(0.15); filter: brightness(2); }
+        15% { opacity: 1; transform: translate(-50%, -50%) scale(0.7); filter: brightness(1.8); }
+        55% { opacity: 1; transform: translate(-50%, -50%) scale(1.35); filter: brightness(1.3); }
+        100% { opacity: 0; transform: translate(-50%, -50%) scale(1.8); filter: brightness(1); }
+      }
+      @keyframes clown-boom-spin {
+        from { transform: rotate(0deg) scale(0.6); }
+        to { transform: rotate(45deg) scale(1.4); }
+      }
+      @keyframes clown-boom-sparks-out {
+        0% { transform: scale(0.4); opacity: 1; }
+        100% { transform: scale(1.8); opacity: 0; }
+      }
+      @keyframes clown-boom-cross-flash {
+        0%, 100% { opacity: 0; transform: scale(0.5); }
+        20%, 50% { opacity: 1; transform: scale(1.2); }
+      }
+      @keyframes clown-boom-flash {
+        0% { opacity: 0; }
+        12% { opacity: 1; }
+        45% { opacity: 0.85; }
+        100% { opacity: 0; }
+      }
+      @keyframes clown-confetti-fly {
+        0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+        100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(240deg) scale(0.4); }
+      }
+      @keyframes clown-caption-in {
+        from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+        to { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
     </style>
   </head>
   <body>
@@ -2623,6 +2891,7 @@
     <div id="ui-modal" role="dialog" aria-modal="true"><div id="ui-modal-card" class="modal-surface"></div></div>
     <div id="shop-modal" role="dialog" aria-modal="true"><div id="shop-modal-card" class="modal-surface"></div></div>
     <div id="modal" role="dialog" aria-modal="true"><div id="modal-card" class="modal-surface"></div></div>
+    <div id="clown-tamper-overlay" aria-live="assertive" aria-hidden="true"></div>
     <div id="night"></div>
     <script src="app.js"></script>
   </body>
